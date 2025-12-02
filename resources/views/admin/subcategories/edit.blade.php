@@ -1,0 +1,69 @@
+@extends('admin.layout')
+
+@section('title', 'Edit Subcategory')
+
+@section('content')
+<div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-900">Edit Subcategory</h1>
+    <p class="mt-2 text-gray-600">Update subcategory information</p>
+</div>
+
+<div class="bg-white shadow-lg rounded-lg p-6">
+    <form action="{{ route('admin.subcategories.update', $subcategory) }}" method="POST">
+        @csrf
+        @method('PUT')
+
+        <div class="mb-4">
+            <label for="category_id" class="block text-sm font-medium text-gray-700 mb-2">Category <span class="text-red-500">*</span></label>
+            <select name="category_id" id="category_id" required
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('category_id') border-red-500 @enderror">
+                <option value="">Select a category</option>
+                @foreach($categories as $category)
+                    <option value="{{ $category->id }}" {{ old('category_id', $subcategory->category_id) == $category->id ? 'selected' : '' }}>
+                        {{ $category->name }} ({{ ucfirst($category->type) }})
+                    </option>
+                @endforeach
+            </select>
+            @error('category_id')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="mb-4">
+            <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Subcategory Name <span class="text-red-500">*</span></label>
+            <input type="text" name="name" id="name" value="{{ old('name', $subcategory->name) }}" required
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('name') border-red-500 @enderror">
+            @error('name')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="mb-4">
+            <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea name="description" id="description" rows="4"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('description') border-red-500 @enderror">{{ old('description', $subcategory->description) }}</textarea>
+            @error('description')
+                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="mb-4">
+            <label class="flex items-center">
+                <input type="checkbox" name="is_active" value="1" {{ old('is_active', $subcategory->is_active) ? 'checked' : '' }}
+                       class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                <span class="ml-2 text-sm text-gray-700">Active</span>
+            </label>
+        </div>
+
+        <div class="flex items-center justify-end space-x-4">
+            <a href="{{ route('admin.subcategories.index') }}" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200">
+                Cancel
+            </a>
+            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200">
+                Update Subcategory
+            </button>
+        </div>
+    </form>
+</div>
+@endsection
+
