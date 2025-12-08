@@ -12,6 +12,7 @@ class Expense extends Model
 
     protected $fillable = [
         'company_id',
+        'project_id',
         'category_id',
         'subcategory_id',
         'expense_type',
@@ -70,5 +71,13 @@ class Expense extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * Get the project.
+     */
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
     }
 }

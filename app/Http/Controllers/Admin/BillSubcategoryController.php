@@ -33,14 +33,16 @@ class BillSubcategoryController extends Controller
         return view('admin.bill_subcategories.index', compact('subcategories', 'categories'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         // CompanyScoped trait automatically filters by company_id
         $categories = BillCategory::where('is_active', true)
             ->orderBy('name')
             ->get();
 
-        return view('admin.bill_subcategories.create', compact('categories'));
+        $selectedCategoryId = $request->get('bill_category_id');
+
+        return view('admin.bill_subcategories.create', compact('categories', 'selectedCategoryId'));
     }
 
     public function store(Request $request)
@@ -61,6 +63,12 @@ class BillSubcategoryController extends Controller
 
         return redirect()->route('admin.bill-subcategories.index')
             ->with('success', 'Bill subcategory created successfully.');
+    }
+
+    public function show(BillSubcategory $bill_subcategory)
+    {
+        $bill_subcategory->load('category');
+        return view('admin.bill_subcategories.show', ['subcategory' => $bill_subcategory]);
     }
 
     public function edit(BillSubcategory $bill_subcategory)

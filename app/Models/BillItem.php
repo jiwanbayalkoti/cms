@@ -65,4 +65,9 @@ class BillItem extends Model
     {
         return $this->hasMany(Measurement::class)->orderByDesc('measure_date');
     }
+
+    public function completedWorks()
+    {
+        return $this->hasMany(CompletedWork::class)->orderByDesc('work_date');
+    }
 }

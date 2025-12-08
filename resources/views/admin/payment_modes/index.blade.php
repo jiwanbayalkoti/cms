@@ -21,12 +21,21 @@
                         <td>{{ $paymentMode->id }}</td>
                         <td>{{ $paymentMode->name }}</td>
                         <td>
-                            <a href="{{ route('admin.payment-modes.edit', $paymentMode) }}" class="btn btn-sm btn-warning">Edit</a>
-                            <form action="{{ route('admin.payment-modes.destroy', $paymentMode) }}" method="POST" style="display:inline">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this payment mode?')">Delete</button>
-                            </form>
+                            <div class="d-flex gap-1">
+                                <a href="{{ route('admin.payment-modes.show', $paymentMode) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i> View
+                                </a>
+                                <a href="{{ route('admin.payment-modes.edit', $paymentMode) }}" class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-pencil me-1"></i> Edit
+                                </a>
+                                <form action="{{ route('admin.payment-modes.destroy', $paymentMode) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this payment mode?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash me-1"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty
@@ -36,7 +45,7 @@
         </table>
         @if($paymentModes->hasPages())
             <div class="mt-3">
-                {{ $paymentModes->links() }}
+                <x-pagination :paginator="$paymentModes" />
             </div>
         @endif
     </div>

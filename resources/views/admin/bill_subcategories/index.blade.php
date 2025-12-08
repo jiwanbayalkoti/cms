@@ -58,12 +58,21 @@
                             </span>
                         </td>
                         <td>
-                            <a href="{{ route('admin.bill-subcategories.edit', $subcategory) }}" class="btn btn-sm btn-warning">Edit</a>
-                            <form action="{{ route('admin.bill-subcategories.destroy', $subcategory) }}" method="POST" style="display:inline">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this subcategory?')">Delete</button>
-                            </form>
+                            <div class="d-flex gap-1">
+                                <a href="{{ route('admin.bill-subcategories.show', $subcategory) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i> View
+                                </a>
+                                <a href="{{ route('admin.bill-subcategories.edit', $subcategory) }}" class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-pencil me-1"></i> Edit
+                                </a>
+                                <form action="{{ route('admin.bill-subcategories.destroy', $subcategory) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this subcategory?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash me-1"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty
@@ -71,11 +80,7 @@
                 @endforelse
             </tbody>
         </table>
-        @if($subcategories->hasPages())
-            <div class="mt-3">
-                {{ $subcategories->links() }}
-            </div>
-        @endif
+        <x-pagination :paginator="$subcategories" />
     </div>
 </div>
 @endsection

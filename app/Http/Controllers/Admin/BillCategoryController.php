@@ -48,6 +48,12 @@ class BillCategoryController extends Controller
             ->with('success', 'Bill category created successfully.');
     }
 
+    public function show(BillCategory $bill_category)
+    {
+        $bill_category->load('subcategories');
+        return view('admin.bill_categories.show', ['category' => $bill_category]);
+    }
+
     public function edit(BillCategory $bill_category)
     {
         return view('admin.bill_categories.edit', ['category' => $bill_category]);

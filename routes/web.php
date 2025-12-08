@@ -74,9 +74,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('construction-materials', ConstructionMaterialController::class);
         Route::resource('material-categories', MaterialCategoryController::class)->except(['show']);
         Route::resource('material-units', MaterialUnitController::class)->except(['show']);
-        Route::resource('suppliers', SupplierController::class)->except(['show']);
+        Route::resource('suppliers', SupplierController::class);
         Route::resource('work-types', WorkTypeController::class)->except(['show']);
-        Route::resource('material-names', \App\Http\Controllers\Admin\MaterialNameController::class)->except(['show']);
+        Route::resource('material-names', \App\Http\Controllers\Admin\MaterialNameController::class);
         Route::resource('payment-modes', \App\Http\Controllers\Admin\PaymentModeController::class)->except(['show']);
         Route::resource('purchased-bies', \App\Http\Controllers\Admin\PurchasedByController::class)->except(['show']);
         
@@ -88,20 +88,48 @@ Route::prefix('admin')->name('admin.')->group(function () {
         
         // Bill Modules (Construction Final Bill / Estimate)
         Route::resource('bill-modules', BillModuleController::class);
-        Route::resource('bill-categories', \App\Http\Controllers\Admin\BillCategoryController::class)->except(['show']);
-        Route::resource('bill-subcategories', \App\Http\Controllers\Admin\BillSubcategoryController::class)->except(['show']);
+        Route::resource('bill-categories', \App\Http\Controllers\Admin\BillCategoryController::class);
+        Route::resource('bill-subcategories', \App\Http\Controllers\Admin\BillSubcategoryController::class);
+        
+        // Completed Works
+        Route::resource('completed-works', \App\Http\Controllers\Admin\CompletedWorkController::class);
+        Route::get('completed-works/generate/bill', [\App\Http\Controllers\Admin\CompletedWorkController::class, 'generateBillForm'])->name('completed-works.generate-bill');
+        Route::post('completed-works/generate/bill', [\App\Http\Controllers\Admin\CompletedWorkController::class, 'generateBill'])->name('completed-works.generate-bill.store');
         Route::post('bill-modules/{bill_module}/submit', [BillModuleController::class, 'submit'])->name('bill-modules.submit');
         Route::post('bill-modules/{bill_module}/approve', [BillModuleController::class, 'approve'])->name('bill-modules.approve');
         Route::get('bill-modules/{bill_module}/export/excel', [BillModuleController::class, 'exportExcel'])->name('bill-modules.export.excel');
         Route::get('bill-modules/{bill_module}/export/pdf', [BillModuleController::class, 'exportPdf'])->name('bill-modules.export.pdf');
         Route::get('bill-modules/{bill_module}/report', [BillModuleController::class, 'report'])->name('bill-modules.report');
+        Route::get('bill-modules/{bill_module}/items', [BillModuleController::class, 'getItems'])->name('bill-modules.items');
 
         // Material calculator
         Route::get('material-calculator', [MaterialCalculatorController::class, 'index'])->name('material-calculator.index');
+        Route::get('material-calculator/my-history', [MaterialCalculatorController::class, 'getMyHistory'])->name('material-calculator.my-history');
         Route::post('material-calculator/export/excel', [MaterialCalculatorController::class, 'exportExcel'])->name('material-calculator.export.excel');
         Route::post('material-calculator/export/pdf', [MaterialCalculatorController::class, 'exportPdf'])->name('material-calculator.export.pdf');
         Route::post('material-calculator/save', [MaterialCalculatorController::class, 'save'])->name('material-calculator.save');
         
+        // Accounting System
+        Route::resource('chart-of-accounts', \App\Http\Controllers\Admin\ChartOfAccountController::class);
+        Route::post('chart-of-accounts/seed-defaults', [\App\Http\Controllers\Admin\ChartOfAccountController::class, 'seedDefaults'])->name('chart-of-accounts.seed-defaults');
+        
+        Route::resource('journal-entries', \App\Http\Controllers\Admin\JournalEntryController::class);
+        Route::post('journal-entries/{journal_entry}/post', [\App\Http\Controllers\Admin\JournalEntryController::class, 'post'])->name('journal-entries.post');
+        Route::post('journal-entries/{journal_entry}/unpost', [\App\Http\Controllers\Admin\JournalEntryController::class, 'unpost'])->name('journal-entries.unpost');
+        
+        Route::resource('bank-accounts', \App\Http\Controllers\Admin\BankAccountController::class);
+        Route::get('bank-accounts/{bank_account}/ledger', [\App\Http\Controllers\Admin\BankAccountController::class, 'ledger'])->name('bank-accounts.ledger');
+        
+        Route::resource('customers', \App\Http\Controllers\Admin\CustomerController::class);
+        Route::resource('purchase-invoices', \App\Http\Controllers\Admin\PurchaseInvoiceController::class);
+        Route::post('purchase-invoices/{purchase_invoice}/payment', [\App\Http\Controllers\Admin\PurchaseInvoiceController::class, 'recordPayment'])->name('purchase-invoices.payment');
+        Route::resource('sales-invoices', \App\Http\Controllers\Admin\SalesInvoiceController::class);
+        Route::post('sales-invoices/{sales_invoice}/payment', [\App\Http\Controllers\Admin\SalesInvoiceController::class, 'recordPayment'])->name('sales-invoices.payment');
+        
+        // Vehicle Rent Management
+        Route::resource('vehicle-rents', \App\Http\Controllers\Admin\VehicleRentController::class);
+        Route::get('vehicle-rents/export/excel', [\App\Http\Controllers\Admin\VehicleRentController::class, 'export'])->name('vehicle-rents.export');
+
         // Reports
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/financial-summary', [ReportController::class, 'financialSummary'])->name('reports.financial-summary');
@@ -111,6 +139,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/reports/project-materials/export', [ReportController::class, 'projectMaterialsExport'])->name('reports.project-materials.export');
         Route::get('/reports/staff-payment', [ReportController::class, 'staffPaymentReport'])->name('reports.staff-payment');
         Route::get('/reports/balance-sheet', [ReportController::class, 'balanceSheet'])->name('reports.balance-sheet');
+        Route::get('/reports/trial-balance', [ReportController::class, 'trialBalance'])->name('reports.trial-balance');
+        Route::get('/reports/general-ledger', [ReportController::class, 'generalLedger'])->name('reports.general-ledger');
 
         // Company Profile (accessible to all authenticated users for their own company)
         Route::get('/company/profile', [CompanyController::class, 'profile'])->name('companies.profile');

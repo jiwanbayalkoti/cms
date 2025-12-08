@@ -18,7 +18,7 @@
                     <select name="bill_category_id" id="bill_category_id" class="form-select" required>
                         <option value="">Select Category</option>
                         @foreach($categories as $category)
-                            <option value="{{ $category->id }}" {{ old('bill_category_id') == $category->id ? 'selected' : '' }}>
+                            <option value="{{ $category->id }}" {{ old('bill_category_id', $selectedCategoryId ?? null) == $category->id ? 'selected' : '' }}>
                                 {{ $category->name }}
                             </option>
                         @endforeach

@@ -336,4 +336,11 @@ class BillModuleController extends Controller
         
         return view('admin.bill_modules.report', compact('bill_module'));
     }
+
+    public function getItems(BillModule $bill_module)
+    {
+        $items = $bill_module->items()->with(['billCategory', 'billSubcategory'])->orderBy('sort_order')->get();
+        
+        return response()->json($items);
+    }
 }

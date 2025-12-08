@@ -139,6 +139,48 @@
     </div>
 </div>
 
+<!-- Charts Section -->
+<!-- Income vs Expenses Over Time Chart - Full Width -->
+<div class="mt-8 bg-white shadow-lg rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900">Income vs Expenses (Last 12 Months)</h2>
+    </div>
+    <div class="p-6">
+        <canvas id="incomeExpenseChart" height="300"></canvas>
+    </div>
+</div>
+
+<!-- Category Breakdown Charts -->
+<div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Income by Category Chart -->
+    <div class="bg-white shadow-lg rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">Income by Category (This Month)</h2>
+        </div>
+        <div class="p-6">
+            @if(count($incomeByCategory) > 0)
+                <canvas id="incomeCategoryChart" height="300"></canvas>
+            @else
+                <p class="text-sm text-gray-500 text-center py-8">No income data available for this month</p>
+            @endif
+        </div>
+    </div>
+
+    <!-- Expense by Category Chart -->
+    <div class="bg-white shadow-lg rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-900">Expenses by Category (This Month)</h2>
+        </div>
+        <div class="p-6">
+            @if(count($expenseByCategory) > 0)
+                <canvas id="expenseCategoryChart" height="300"></canvas>
+            @else
+                <p class="text-sm text-gray-500 text-center py-8">No expense data available for this month</p>
+            @endif
+        </div>
+    </div>
+</div>
+
 <!-- Quick Actions Section -->
 <div class="mt-8 bg-white shadow-lg rounded-lg">
     <div class="px-6 py-4 border-b border-gray-200">
@@ -161,5 +203,180 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Income vs Expenses Line Chart
+    const incomeExpenseCtx = document.getElementById('incomeExpenseChart');
+    if (incomeExpenseCtx) {
+        new Chart(incomeExpenseCtx, {
+            type: 'line',
+            data: {
+                labels: @json($monthlyData['labels']),
+                datasets: [
+                    {
+                        label: 'Income',
+                        data: @json($monthlyData['income']),
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Expenses',
+                        data: @json($monthlyData['expenses']),
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': $' + context.parsed.y.toLocaleString('en-US', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString('en-US', {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Income by Category Pie Chart
+    const incomeCategoryCtx = document.getElementById('incomeCategoryChart');
+    if (incomeCategoryCtx && @json(count($incomeByCategory) > 0)) {
+        const incomeData = @json($incomeByCategory);
+        const colors = generateColors(incomeData.length);
+        
+        new Chart(incomeCategoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: incomeData.map(item => item.label),
+                datasets: [{
+                    data: incomeData.map(item => item.value),
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return label + ': $' + value.toLocaleString('en-US', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                }) + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Expense by Category Pie Chart
+    const expenseCategoryCtx = document.getElementById('expenseCategoryChart');
+    if (expenseCategoryCtx && @json(count($expenseByCategory) > 0)) {
+        const expenseData = @json($expenseByCategory);
+        const colors = generateColors(expenseData.length);
+        
+        new Chart(expenseCategoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: expenseData.map(item => item.label),
+                datasets: [{
+                    data: expenseData.map(item => item.value),
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return label + ': $' + value.toLocaleString('en-US', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                }) + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Generate color palette for charts
+    function generateColors(count) {
+        const colorPalettes = [
+            ['rgba(59, 130, 246, 0.8)', 'rgba(147, 51, 234, 0.8)', 'rgba(236, 72, 153, 0.8)', 'rgba(251, 146, 60, 0.8)', 'rgba(34, 197, 94, 0.8)', 'rgba(234, 179, 8, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(168, 85, 247, 0.8)'],
+            ['rgba(59, 130, 246, 1)', 'rgba(147, 51, 234, 1)', 'rgba(236, 72, 153, 1)', 'rgba(251, 146, 60, 1)', 'rgba(34, 197, 94, 1)', 'rgba(234, 179, 8, 1)', 'rgba(239, 68, 68, 1)', 'rgba(168, 85, 247, 1)']
+        ];
+        
+        const background = [];
+        const border = [];
+        
+        for (let i = 0; i < count; i++) {
+            const colorIndex = i % colorPalettes[0].length;
+            background.push(colorPalettes[0][colorIndex]);
+            border.push(colorPalettes[1][colorIndex]);
+        }
+        
+        return { background, border };
+    }
+});
+</script>
+@endpush
 @endsection
 

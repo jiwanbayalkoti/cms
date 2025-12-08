@@ -120,13 +120,21 @@
                             <span class="badge bg-secondary">{{ $material->status }}</span>
                         </td>
                         <td class="text-end">
-                            <a href="{{ route('admin.construction-materials.show', $material) }}" class="btn btn-sm btn-outline-info">View</a>
-                            <a href="{{ route('admin.construction-materials.edit', $material) }}" class="btn btn-sm btn-outline-primary">Edit</a>
-                            <form action="{{ route('admin.construction-materials.destroy', $material) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this record?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                            </form>
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="{{ route('admin.construction-materials.show', $material) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i> View
+                                </a>
+                                <a href="{{ route('admin.construction-materials.edit', $material) }}" class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-pencil me-1"></i> Edit
+                                </a>
+                                <form action="{{ route('admin.construction-materials.destroy', $material) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this record?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash me-1"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty
@@ -139,11 +147,7 @@
             </tbody>
         </table>
     </div>
-    @if($materials->hasPages())
-        <div class="card-footer">
-            {{ $materials->links() }}
-        </div>
-    @endif
+    <x-pagination :paginator="$materials" wrapper-class="card-footer" />
 </div>
 @endsection
 

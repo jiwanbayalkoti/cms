@@ -100,10 +100,16 @@
                         <td>{{ $bill->creator->name ?? '—' }}</td>
                         <td>{{ $bill->created_at->format('Y-m-d') }}</td>
                         <td class="text-end">
-                            <a href="{{ route('admin.bill-modules.show', $bill) }}" class="btn btn-sm btn-outline-info">View</a>
-                            @if($bill->canEdit())
-                                <a href="{{ route('admin.bill-modules.edit', $bill) }}" class="btn btn-sm btn-outline-primary">Edit</a>
-                            @endif
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="{{ route('admin.bill-modules.show', $bill) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i> View
+                                </a>
+                                @if($bill->canEdit())
+                                    <a href="{{ route('admin.bill-modules.edit', $bill) }}" class="btn btn-sm btn-outline-warning">
+                                        <i class="bi bi-pencil me-1"></i> Edit
+                                    </a>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                 @empty
@@ -114,11 +120,7 @@
             </tbody>
         </table>
     </div>
-    @if($bills->hasPages())
-        <div class="card-footer">
-            {{ $bills->links() }}
-        </div>
-    @endif
+    <x-pagination :paginator="$bills" wrapper-class="card-footer" />
 </div>
 @endsection
 

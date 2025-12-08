@@ -74,13 +74,21 @@
                         @endif
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <a href="{{ route('admin.projects.show', $project) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">View</a>
-                        <a href="{{ route('admin.projects.edit', $project) }}" class="text-yellow-600 hover:text-yellow-900 mr-3">Edit</a>
-                        <form action="{{ route('admin.projects.destroy', $project) }}" method="POST" class="inline" onsubmit="return confirm('Delete this project?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                        </form>
+                        <div class="d-flex gap-1">
+                            <a href="{{ route('admin.projects.show', $project) }}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye me-1"></i> View
+                            </a>
+                            <a href="{{ route('admin.projects.edit', $project) }}" class="btn btn-outline-warning btn-sm">
+                                <i class="bi bi-pencil me-1"></i> Edit
+                            </a>
+                            <form action="{{ route('admin.projects.destroy', $project) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this project?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                    <i class="bi bi-trash me-1"></i> Delete
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             @empty
@@ -94,10 +102,6 @@
     </table>
 </div>
 
-@if($projects->hasPages())
-    <div class="mt-4">
-        {{ $projects->links() }}
-    </div>
-@endif
+<x-pagination :paginator="$projects" wrapper-class="mt-4" />
 @endsection
 

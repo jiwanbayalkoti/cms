@@ -41,7 +41,7 @@
         @endforelse
       </tbody>
     </table>
-    <div class="p-4">{{ $companies->links() }}</div>
+    <x-pagination :paginator="$companies" wrapper-class="p-4" />
   </div>
 @endsection
 

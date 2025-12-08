@@ -47,13 +47,21 @@
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <a href="{{ route('admin.staff.show', $member) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">View</a>
-                        <a href="{{ route('admin.staff.edit', $member) }}" class="text-yellow-600 hover:text-yellow-900 mr-3">Edit</a>
-                        <form action="{{ route('admin.staff.destroy', $member) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this staff member?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                        </form>
+                        <div class="d-flex gap-1">
+                            <a href="{{ route('admin.staff.show', $member) }}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye me-1"></i> View
+                            </a>
+                            <a href="{{ route('admin.staff.edit', $member) }}" class="btn btn-outline-warning btn-sm">
+                                <i class="bi bi-pencil me-1"></i> Edit
+                            </a>
+                            <form action="{{ route('admin.staff.destroy', $member) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this staff member?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                    <i class="bi bi-trash me-1"></i> Delete
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             @empty
@@ -67,10 +75,6 @@
     </table>
 </div>
 
-@if($staff->hasPages())
-    <div class="mt-4">
-        {{ $staff->links() }}
-    </div>
-@endif
+<x-pagination :paginator="$staff" wrapper-class="mt-4" />
 @endsection
 

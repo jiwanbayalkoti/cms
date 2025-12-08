@@ -57,13 +57,21 @@
                         <div class="text-sm font-semibold text-red-600">${{ number_format($expense->amount, 2) }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <a href="{{ route('admin.expenses.show', $expense) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">View</a>
-                        <a href="{{ route('admin.expenses.edit', $expense) }}" class="text-yellow-600 hover:text-yellow-900 mr-3">Edit</a>
-                        <form action="{{ route('admin.expenses.destroy', $expense) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this expense record?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                        </form>
+                        <div class="d-flex gap-1">
+                            <a href="{{ route('admin.expenses.show', $expense) }}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye me-1"></i> View
+                            </a>
+                            <a href="{{ route('admin.expenses.edit', $expense) }}" class="btn btn-outline-warning btn-sm">
+                                <i class="bi bi-pencil me-1"></i> Edit
+                            </a>
+                            <form action="{{ route('admin.expenses.destroy', $expense) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this expense record?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                    <i class="bi bi-trash me-1"></i> Delete
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             @empty
@@ -77,10 +85,6 @@
     </table>
 </div>
 
-@if($expenses->hasPages())
-    <div class="mt-4">
-        {{ $expenses->links() }}
-    </div>
-@endif
+<x-pagination :paginator="$expenses" wrapper-class="mt-4" />
 @endsection
 

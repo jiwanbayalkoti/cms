@@ -10,16 +10,21 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-
+    
+    <!-- Preconnect for CDN -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Bootstrap CSS (for module screens using Bootstrap classes) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
     
     <style>
         [x-cloak] { display: none !important; }
+        
         
         /* Sidebar Styles */
         .sidebar {
@@ -337,9 +342,11 @@
                 <nav class="space-y-1 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800" id="sidebar-nav" style="scrollbar-width: thin; scrollbar-color: #4b5563 #1f2937;">
                     @php($projectsOpen = $projectsOpen ?? request()->routeIs('admin.projects.*'))
                     @php($materialsOpen = $materialsOpen ?? (request()->routeIs('admin.construction-materials.*') || request()->routeIs('admin.material-*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.work-types.*') || request()->routeIs('admin.payment-modes.*') || request()->routeIs('admin.purchased-bies.*')))
-                    @php($billingOpen = $billingOpen ?? request()->routeIs('admin.bill-*'))
+                    @php($billingOpen = $billingOpen ?? (request()->routeIs('admin.bill-*') || request()->routeIs('admin.completed-works.*')))
                     @php($staffOpen = $staffOpen ?? (request()->routeIs('admin.staff.*') || request()->routeIs('admin.positions.*') || request()->routeIs('admin.users.*')))
                     @php($financeOpen = $financeOpen ?? (request()->routeIs('admin.incomes.*') || request()->routeIs('admin.expenses.*') || request()->routeIs('admin.reports.*') || request()->routeIs('admin.categories.*') || request()->routeIs('admin.subcategories.*')))
+                    @php($accountingOpen = $accountingOpen ?? (request()->routeIs('admin.chart-of-accounts.*') || request()->routeIs('admin.journal-entries.*') || request()->routeIs('admin.bank-accounts.*') || request()->routeIs('admin.purchase-invoices.*') || request()->routeIs('admin.sales-invoices.*') || request()->routeIs('admin.customers.*')))
+                    @php($vehicleRentOpen = $vehicleRentOpen ?? request()->routeIs('admin.vehicle-rents.*'))
                     <a href="{{ route('admin.dashboard') }}" data-tooltip="Dashboard" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
@@ -388,7 +395,10 @@
                         </svg>
                     </button>
                     <div id="materials-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $materialsOpen ? 'mt-2' : 'mt-2 hidden' }}">
-                        <a href="{{ route('admin.construction-materials.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.construction-materials.*') ? 'bg-gray-700 text-white' : '' }}">
+                    <a href="{{ route('admin.material-calculator.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.material-calculator.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Material Calculator</span>
+                        </a>   
+                    <a href="{{ route('admin.construction-materials.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.construction-materials.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Construction Materials</span>
                         </a>
                         <a href="{{ route('admin.material-categories.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.material-categories.*') ? 'bg-gray-700 text-white' : '' }}">
@@ -412,9 +422,7 @@
                         <a href="{{ route('admin.purchased-bies.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.purchased-bies.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Stackholders</span>
                         </a>
-                        <a href="{{ route('admin.material-calculator.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.material-calculator.*') ? 'bg-gray-700 text-white' : '' }}">
-                            <span class="text-sm">Material Calculator</span>
-                        </a>
+                       
                     </div>
                     <button type="button" data-tooltip="Billing & Estimates" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="billing-menu" aria-expanded="{{ $billingOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
@@ -430,6 +438,9 @@
                     <div id="billing-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $billingOpen ? 'mt-2' : 'mt-2 hidden' }}">
                         <a href="{{ route('admin.bill-modules.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.bill-modules.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Final Bills / Estimates</span>
+                        </a>
+                        <a href="{{ route('admin.completed-works.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.completed-works.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Completed Works</span>
                         </a>
                         <a href="{{ route('admin.bill-categories.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.bill-categories.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Bill Categories</span>
@@ -490,6 +501,43 @@
                             <span class="text-sm">Subcategories</span>
                         </a>
                     </div>
+                    <!-- <button type="button" data-tooltip="Accounting System" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="accounting-menu" aria-expanded="{{ $accountingOpen ? 'true' : 'false' }}">
+                        <span class="flex items-center">
+                            <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span class="nav-item-text">Accounting System</span>
+                        </span>
+                        <svg class="w-4 h-4 transition-transform flex-shrink-0 sidebar-content {{ $accountingOpen ? 'rotate-180' : '' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" data-icon="chevron">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </button>
+                    <div id="accounting-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $accountingOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                        <a href="{{ route('admin.chart-of-accounts.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.chart-of-accounts.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Chart of Accounts</span>
+                        </a>
+                        <a href="{{ route('admin.journal-entries.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.journal-entries.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Journal Entries</span>
+                        </a>
+                        <a href="{{ route('admin.bank-accounts.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.bank-accounts.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Bank & Cash Accounts</span>
+                        </a>
+                        <a href="{{ route('admin.purchase-invoices.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.purchase-invoices.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Purchase Invoices</span>
+                        </a>
+                        <a href="{{ route('admin.sales-invoices.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.sales-invoices.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Sales Invoices</span>
+                        </a>
+                        <a href="{{ route('admin.customers.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.customers.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Customers</span>
+                        </a>
+                    </div> -->
+                    <a href="{{ route('admin.vehicle-rents.index') }}" data-tooltip="Vehicle Rent" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.vehicle-rents.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                        </svg>
+                        <span class="nav-item-text">Vehicle Rent</span>
+                    </a>
                     <!-- <a href="{{ route('admin.material-calculator.index') }}" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition duration-200 {{ request()->routeIs('admin.material-calculator.*') ? 'bg-gray-700 text-white' : '' }}">
                         <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6M9 16h3m4 5H8a2 2 0 01-2-2V5a2 2 0 012-2h6l4 4v12a2 2 0 01-2 2z"></path>

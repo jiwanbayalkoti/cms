@@ -16,6 +16,12 @@ class Supplier extends Model
         'contact',
         'email',
         'address',
+        'bank_name',
+        'account_holder_name',
+        'account_number',
+        'branch_name',
+        'branch_address',
+        'qr_code_image',
         'is_active',
     ];
 }

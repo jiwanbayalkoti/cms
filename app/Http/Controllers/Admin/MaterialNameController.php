@@ -34,6 +34,11 @@ class MaterialNameController extends Controller
             ->with('success', 'Material name created successfully.');
     }
 
+    public function show(MaterialName $material_name)
+    {
+        return view('admin.material_names.show', ['materialName' => $material_name]);
+    }
+
     public function edit(MaterialName $material_name)
     {
         return view('admin.material_names.edit', ['materialName' => $material_name]);

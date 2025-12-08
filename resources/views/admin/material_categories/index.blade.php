@@ -35,12 +35,21 @@
                             </span>
                         </td>
                         <td class="text-end">
-                            <a href="{{ route('admin.material-categories.edit', $category) }}" class="btn btn-sm btn-outline-primary">Edit</a>
-                            <form action="{{ route('admin.material-categories.destroy', $category) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this category?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                            </form>
+                            <div class="d-flex gap-1 justify-content-end">
+                                <a href="{{ route('admin.material-categories.show', $category) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i> View
+                                </a>
+                                <a href="{{ route('admin.material-categories.edit', $category) }}" class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-pencil me-1"></i> Edit
+                                </a>
+                                <form action="{{ route('admin.material-categories.destroy', $category) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this category?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash me-1"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty
@@ -51,11 +60,7 @@
             </tbody>
         </table>
     </div>
-    @if($categories->hasPages())
-        <div class="card-footer">
-            {{ $categories->links() }}
-        </div>
-    @endif
+    <x-pagination :paginator="$categories" wrapper-class="card-footer" />
 </div>
 @endsection
 

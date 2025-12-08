@@ -36,6 +36,7 @@ class MaterialCalculatorController extends Controller
             ['label' => 'Gravel', 'value' => 'gravel'],
             ['label' => 'Stone', 'value' => 'stone'],
             ['label' => 'Sand', 'value' => 'sand'],
+            ['label' => 'Brick', 'value' => 'brick'],
         ];
 
         $defaultCosts = [
@@ -48,17 +49,11 @@ class MaterialCalculatorController extends Controller
             'steel_kg' => 0,
         ];
 
-        $savedSets = MaterialCalculatorSet::with('user')
-            ->latest()
-            ->limit(20)
-            ->get();
-
         return view('admin.material_calculator.index', compact(
             'concreteGrades',
             'mortarMixes',
             'solingMaterials',
-            'defaultCosts',
-            'savedSets'
+            'defaultCosts'
         ));
     }
 
@@ -149,6 +144,32 @@ class MaterialCalculatorController extends Controller
         $summary = $payload['summary'] ?? [];
 
         return [$items, $summary];
+    }
+
+    public function getMyHistory()
+    {
+        $savedSets = MaterialCalculatorSet::with('user')
+            ->where('user_id', auth()->id())
+            ->latest()
+            ->limit(50)
+            ->get();
+
+        $historyPayload = $savedSets->mapWithKeys(function ($set) {
+            return [
+                $set->id => [
+                    'name' => $set->name,
+                    'user' => $set->user?->name ?? 'N/A',
+                    'created_at' => $set->created_at->format('d M Y, H:i'),
+                    'calculations' => $set->calculations ?? [],
+                    'summary' => $set->summary ?? [],
+                ],
+            ];
+        });
+
+        return response()->json([
+            'history' => $historyPayload,
+            'count' => $savedSets->count(),
+        ]);
     }
 }
 

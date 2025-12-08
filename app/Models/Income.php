@@ -12,6 +12,7 @@ class Income extends Model
 
     protected $fillable = [
         'company_id',
+        'project_id',
         'category_id',
         'subcategory_id',
         'source',
@@ -58,5 +59,13 @@ class Income extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * Get the project.
+     */
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
     }
 }
