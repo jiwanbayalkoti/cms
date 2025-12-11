@@ -88,21 +88,38 @@ class CompletedWorkController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         
-        $validated = $request->validate([
+        $inputMethod = $request->input('quantity_input_method', 'dimensions');
+        
+        $rules = [
             'project_id' => 'required|exists:projects,id',
             'work_type' => 'required|string|max:255',
-            'length' => 'required|numeric|min:0',
-            'width' => 'required|numeric|min:0',
-            'height' => 'required|numeric|min:0',
+            'quantity_input_method' => 'required|in:dimensions,direct',
             'description' => 'nullable|string',
             'quantity' => 'required|numeric|min:0',
             'uom' => 'required|string|max:50',
             'work_date' => 'required|date',
-        ]);
+        ];
+        
+        // Make dimensions required only if input method is 'dimensions'
+        if ($inputMethod === 'dimensions') {
+            $rules['length'] = 'required|numeric|min:0';
+            $rules['width'] = 'required|numeric|min:0';
+            $rules['height'] = 'required|numeric|min:0';
+        } else {
+            $rules['length'] = 'nullable|numeric|min:0';
+            $rules['width'] = 'nullable|numeric|min:0';
+            $rules['height'] = 'nullable|numeric|min:0';
+        }
+        
+        $validated = $request->validate($rules);
         
         // Auto-generate description if not provided
         if (empty($validated['description'])) {
-            $validated['description'] = $validated['work_type'] . ' ' . $validated['length'] . 'm × ' . $validated['width'] . 'm × ' . $validated['height'] . 'm';
+            if ($inputMethod === 'dimensions' && isset($validated['length']) && isset($validated['width']) && isset($validated['height'])) {
+                $validated['description'] = $validated['work_type'] . ' ' . $validated['length'] . 'm × ' . $validated['width'] . 'm × ' . $validated['height'] . 'm';
+            } else {
+                $validated['description'] = $validated['work_type'] . ' - Quantity: ' . $validated['quantity'] . ' ' . $validated['uom'];
+            }
         }
         
         $validated['company_id'] = $companyId;
@@ -136,21 +153,38 @@ class CompletedWorkController extends Controller
 
     public function update(Request $request, CompletedWork $completed_work)
     {
-        $validated = $request->validate([
+        $inputMethod = $request->input('quantity_input_method', 'dimensions');
+        
+        $rules = [
             'project_id' => 'required|exists:projects,id',
             'work_type' => 'required|string|max:255',
-            'length' => 'required|numeric|min:0',
-            'width' => 'required|numeric|min:0',
-            'height' => 'required|numeric|min:0',
+            'quantity_input_method' => 'required|in:dimensions,direct',
             'description' => 'nullable|string',
             'quantity' => 'required|numeric|min:0',
             'uom' => 'required|string|max:50',
             'work_date' => 'required|date',
-        ]);
+        ];
+        
+        // Make dimensions required only if input method is 'dimensions'
+        if ($inputMethod === 'dimensions') {
+            $rules['length'] = 'required|numeric|min:0';
+            $rules['width'] = 'required|numeric|min:0';
+            $rules['height'] = 'required|numeric|min:0';
+        } else {
+            $rules['length'] = 'nullable|numeric|min:0';
+            $rules['width'] = 'nullable|numeric|min:0';
+            $rules['height'] = 'nullable|numeric|min:0';
+        }
+        
+        $validated = $request->validate($rules);
         
         // Auto-generate description if not provided
         if (empty($validated['description'])) {
-            $validated['description'] = $validated['work_type'] . ' ' . $validated['length'] . 'm × ' . $validated['width'] . 'm × ' . $validated['height'] . 'm';
+            if ($inputMethod === 'dimensions' && isset($validated['length']) && isset($validated['width']) && isset($validated['height'])) {
+                $validated['description'] = $validated['work_type'] . ' ' . $validated['length'] . 'm × ' . $validated['width'] . 'm × ' . $validated['height'] . 'm';
+            } else {
+                $validated['description'] = $validated['work_type'] . ' - Quantity: ' . $validated['quantity'] . ' ' . $validated['uom'];
+            }
         }
         
         $completed_work->update($validated);

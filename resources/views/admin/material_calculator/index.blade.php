@@ -341,7 +341,7 @@
                     <div class="row g-3">
                         <div class="col-12">
                             <label class="form-label fw-semibold">Currency</label>
-                            <select id="currency" class="form-select" onchange="renderSummary()">
+                            <select id="currency" class="form-select" onchange="renderSummary(); renderToolsMachines();">
                                 <option value="NPR">NPR (Rs)</option>
                                 <option value="INR">INR (₹)</option>
                                 <option value="USD">USD ($)</option>
@@ -375,6 +375,18 @@
                         <div class="col-md-6">
                             <label class="form-label">Steel / Rod (per kg)</label>
                             <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="steel_kg" placeholder="0.00">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Labour Cost (per m³)</label>
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="labour_m3" placeholder="0.00">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Labour Cost (per m²)</label>
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="labour_m2" placeholder="0.00">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Centering Rate (per m²)</label>
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="centering_m2" placeholder="0.00">
                         </div>
                     </div>
                     <div class="alert alert-info mt-4 mb-0 small d-flex">
@@ -465,12 +477,132 @@
                         <td id="totalCost">0</td>
                         <td></td>
                     </tr>
+                    <tr class="fw-semibold table-secondary d-none" id="toolsMachinesCostRow">
+                        <td colspan="9" class="text-end">Tools & Machines Cost:</td>
+                        <td id="toolsMachinesCostInTable">0</td>
+                        <td></td>
+                    </tr>
+                    <tr class="fw-bold table-success d-none" id="grandTotalRow">
+                        <td colspan="9" class="text-end">Grand Total:</td>
+                        <td id="grandTotalCost">0</td>
+                        <td></td>
+                    </tr>
                 </tfoot>
             </table>
         </div>
     </div>
 </div>
 
+<!-- Tools and Machines Section -->
+<div class="card shadow-sm mt-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0">Tools & Machines <small class="text-white-50">(Optional)</small></h5>
+    </div>
+    <div class="card-body">
+        <form id="toolMachineForm" onsubmit="event.preventDefault(); addToolMachine();">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Equipment Name</label>
+                    <input type="text" id="equipmentName" class="form-control" placeholder="e.g., Excavator, Mixer, Crane" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Rental Rate</label>
+                    <div class="input-group">
+                        <input type="number" step="0.01" min="0" id="rentalRate" class="form-control" placeholder="0.00">
+                        <select id="rentalUnit" class="form-select" style="max-width: 80px;">
+                            <option value="day">/day</option>
+                            <option value="hour">/hour</option>
+                            <option value="week">/week</option>
+                            <option value="month">/month</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Usage Duration</label>
+                    <input type="number" step="0.01" min="0" id="usageDuration" class="form-control" placeholder="0" value="1">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Fuel Cost</label>
+                    <div class="input-group">
+                        <input type="number" step="0.01" min="0" id="fuelCost" class="form-control" placeholder="0.00">
+                        <select id="fuelUnit" class="form-select" style="max-width: 80px;">
+                            <option value="total">Total</option>
+                            <option value="day">/day</option>
+                            <option value="hour">/hour</option>
+                            <option value="litre">/litre</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Operator Cost</label>
+                    <div class="input-group">
+                        <input type="number" step="0.01" min="0" id="operatorCost" class="form-control" placeholder="0.00">
+                        <select id="operatorUnit" class="form-select" style="max-width: 80px;">
+                            <option value="day">/day</option>
+                            <option value="hour">/hour</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label fw-semibold">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">Add</button>
+                </div>
+            </div>
+            <div class="row g-3 mt-2">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Maintenance/Repair Cost</label>
+                    <input type="number" step="0.01" min="0" id="maintenanceCost" class="form-control" placeholder="0.00">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Transportation Cost</label>
+                    <input type="number" step="0.01" min="0" id="transportCost" class="form-control" placeholder="0.00">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Other Costs</label>
+                    <input type="number" step="0.01" min="0" id="otherCost" class="form-control" placeholder="0.00">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Notes (optional)</label>
+                    <input type="text" id="equipmentNotes" class="form-control" placeholder="Any remarks">
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive mt-4">
+            <table class="table table-sm table-hover align-middle mb-0" id="toolsMachinesTable">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Equipment</th>
+                        <th>Rental</th>
+                        <th>Fuel</th>
+                        <th>Operator</th>
+                        <th>Maintenance</th>
+                        <th>Transport</th>
+                        <th>Other</th>
+                        <th>Total Cost</th>
+                        <th>Notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="no-tools-row">
+                        <td colspan="11" class="text-center text-muted py-4">
+                            No tools or machines added yet.
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot class="table-light d-none" id="toolsFooter">
+                    <tr class="fw-semibold table-info">
+                        <td colspan="8">Total Tools & Machines Cost</td>
+                        <td id="totalToolsCost" class="fw-bold">0</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
 
 <!-- History Modal -->
 <div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
@@ -519,6 +651,7 @@ const mortarRatios = @json(collect($mortarMixes)->keyBy('value')->map(fn($mix) =
 const defaultCosts = @json($defaultCosts);
 
 const results = [];
+const toolsMachines = [];
 let historySets = {};
 
 document.getElementById('workType').addEventListener('change', (event) => {
@@ -727,6 +860,10 @@ function calculateConcrete(wastage, label, notes) {
 
     const description = `${element} (${lengthValue}${getUnitLabel(lengthUnit)} × ${widthValue}${getUnitLabel(widthUnit)} × ${depthValue}${getUnitLabel(depthUnit)}) - Grade ${grade}` + (label ? ` | ${label}` : '');
 
+    // Calculate formwork area for centering (assuming all sides except bottom)
+    // For rectangular elements: 2 × (length × depth + width × depth) + (length × width) [top]
+    const formworkArea = 2 * (length * depth + width * depth) + (length * width);
+
     return {
         id: Date.now(),
         work_type: `Concrete - ${element}`,
@@ -743,6 +880,8 @@ function calculateConcrete(wastage, label, notes) {
             water_litres_exact: waterLitres,
             concrete_volume_m3: roundValue(volume),
             concrete_volume_m3_exact: volume,
+            formwork_area_m2: roundValue(formworkArea),
+            formwork_area_m2_exact: formworkArea,
         }
     };
 }
@@ -1019,6 +1158,149 @@ function removeItem(id) {
     }
 }
 
+function addToolMachine() {
+    const name = document.getElementById('equipmentName').value.trim();
+    if (!name) {
+        alert('Enter equipment name.');
+        return;
+    }
+
+    const rentalRate = parseFloat(document.getElementById('rentalRate').value) || 0;
+    const rentalUnit = document.getElementById('rentalUnit').value;
+    const usageDuration = parseFloat(document.getElementById('usageDuration').value) || 0;
+    const fuelCost = parseFloat(document.getElementById('fuelCost').value) || 0;
+    const fuelUnit = document.getElementById('fuelUnit').value;
+    const operatorCost = parseFloat(document.getElementById('operatorCost').value) || 0;
+    const operatorUnit = document.getElementById('operatorUnit').value;
+    const maintenanceCost = parseFloat(document.getElementById('maintenanceCost').value) || 0;
+    const transportCost = parseFloat(document.getElementById('transportCost').value) || 0;
+    const otherCost = parseFloat(document.getElementById('otherCost').value) || 0;
+    const notes = document.getElementById('equipmentNotes').value.trim() || '';
+
+    // Calculate rental cost based on unit and duration
+    let rentalTotal = 0;
+    if (rentalRate > 0 && usageDuration > 0) {
+        let multiplier = 1;
+        if (rentalUnit === 'hour') {
+            multiplier = usageDuration;
+        } else if (rentalUnit === 'day') {
+            multiplier = usageDuration;
+        } else if (rentalUnit === 'week') {
+            multiplier = usageDuration * 7;
+        } else if (rentalUnit === 'month') {
+            multiplier = usageDuration * 30;
+        }
+        rentalTotal = rentalRate * multiplier;
+    }
+
+    // Calculate fuel cost
+    let fuelTotal = 0;
+    if (fuelCost > 0) {
+        if (fuelUnit === 'total') {
+            fuelTotal = fuelCost;
+        } else if (fuelUnit === 'day') {
+            fuelTotal = fuelCost * (usageDuration || 1);
+        } else if (fuelUnit === 'hour') {
+            fuelTotal = fuelCost * (usageDuration || 1);
+        } else if (fuelUnit === 'litre') {
+            fuelTotal = fuelCost; // Assume fuel cost is already per litre total
+        }
+    }
+
+    // Calculate operator cost
+    let operatorTotal = 0;
+    if (operatorCost > 0 && usageDuration > 0) {
+        if (operatorUnit === 'hour') {
+            operatorTotal = operatorCost * usageDuration;
+        } else if (operatorUnit === 'day') {
+            operatorTotal = operatorCost * usageDuration;
+        }
+    }
+
+    const totalCost = rentalTotal + fuelTotal + operatorTotal + maintenanceCost + transportCost + otherCost;
+
+    const toolMachine = {
+        id: Date.now(),
+        name,
+        rental_rate: rentalRate,
+        rental_unit: rentalUnit,
+        rental_total: rentalTotal,
+        usage_duration: usageDuration,
+        fuel_cost: fuelCost,
+        fuel_unit: fuelUnit,
+        fuel_total: fuelTotal,
+        operator_cost: operatorCost,
+        operator_unit: operatorUnit,
+        operator_total: operatorTotal,
+        maintenance_cost: maintenanceCost,
+        transport_cost: transportCost,
+        other_cost: otherCost,
+        total_cost: totalCost,
+        notes
+    };
+
+    toolsMachines.push(toolMachine);
+    renderToolsMachines();
+    
+    // Reset form
+    document.getElementById('toolMachineForm').reset();
+    document.getElementById('usageDuration').value = '1';
+}
+
+function removeToolMachine(id) {
+    const index = toolsMachines.findIndex(item => item.id === id);
+    if (index >= 0) {
+        toolsMachines.splice(index, 1);
+        renderToolsMachines();
+    }
+}
+
+function renderToolsMachines() {
+    const tbody = document.querySelector('#toolsMachinesTable tbody');
+    tbody.innerHTML = '';
+
+    if (!toolsMachines.length) {
+        const row = document.createElement('tr');
+        row.classList.add('no-tools-row');
+        row.innerHTML = `<td colspan="11" class="text-center text-muted py-4">No tools or machines added yet.</td>`;
+        tbody.appendChild(row);
+        document.getElementById('toolsFooter').classList.add('d-none');
+        renderSummary();
+        return;
+    }
+
+    const currency = document.getElementById('currency').value;
+    const currencySymbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : (currency === 'INR' ? '₹' : 'Rs');
+    let totalToolsCost = 0;
+
+    toolsMachines.forEach((item, index) => {
+        totalToolsCost += item.total_cost;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td><strong>${item.name}</strong></td>
+            <td>${item.rental_total > 0 ? formatValueWithRounding(item.rental_total, roundValue(item.rental_total, 2), ' ' + currencySymbol, 2) : '-'}</td>
+            <td>${item.fuel_total > 0 ? formatValueWithRounding(item.fuel_total, roundValue(item.fuel_total, 2), ' ' + currencySymbol, 2) : '-'}</td>
+            <td>${item.operator_total > 0 ? formatValueWithRounding(item.operator_total, roundValue(item.operator_total, 2), ' ' + currencySymbol, 2) : '-'}</td>
+            <td>${item.maintenance_cost > 0 ? formatValueWithRounding(item.maintenance_cost, roundValue(item.maintenance_cost, 2), ' ' + currencySymbol, 2) : '-'}</td>
+            <td>${item.transport_cost > 0 ? formatValueWithRounding(item.transport_cost, roundValue(item.transport_cost, 2), ' ' + currencySymbol, 2) : '-'}</td>
+            <td>${item.other_cost > 0 ? formatValueWithRounding(item.other_cost, roundValue(item.other_cost, 2), ' ' + currencySymbol, 2) : '-'}</td>
+            <td><strong>${formatValueWithRounding(item.total_cost, roundValue(item.total_cost, 2), ' ' + currencySymbol, 2)}</strong></td>
+            <td><small class="text-muted">${item.notes || '-'}</small></td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-link text-danger" onclick="removeToolMachine(${item.id})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    document.getElementById('totalToolsCost').innerHTML = formatValueWithRounding(totalToolsCost, roundValue(totalToolsCost, 2), ' ' + currencySymbol, 2);
+    document.getElementById('toolsFooter').classList.remove('d-none');
+    renderSummary();
+}
+
 function calculateCost(materials, unitCosts) {
     const breakdown = {
         cement: (materials.cement_bags || 0) * (unitCosts.cement_bag || 0),
@@ -1030,6 +1312,32 @@ function calculateCost(materials, unitCosts) {
         soling: ((materials.soling_volume_m3 || materials.material_volume_m3 || 0) * (unitCosts.soling_m3 || 0)),
         steel: (materials.steel_kg || 0) * (unitCosts.steel_kg || 0),
     };
+    
+    // Calculate labour cost based on volume (m³) for concrete, masonry, soling
+    let labourVolume = 0;
+    if (materials.concrete_volume_m3_exact !== undefined) {
+        labourVolume = materials.concrete_volume_m3_exact;
+    } else if (materials.wall_volume_m3_exact !== undefined) {
+        labourVolume = materials.wall_volume_m3_exact;
+    } else if (materials.soling_volume_m3_exact !== undefined) {
+        labourVolume = materials.soling_volume_m3_exact;
+    }
+    
+    if (labourVolume > 0) {
+        breakdown.labour = labourVolume * (unitCosts.labour_m3 || 0);
+    }
+    
+    // Calculate labour cost based on area (m²) for plaster
+    if (materials.plaster_area_m2_exact !== undefined) {
+        // For plaster, use labour per m²
+        breakdown.labour = (breakdown.labour || 0) + (materials.plaster_area_m2_exact * (unitCosts.labour_m2 || 0));
+    }
+    
+    // Calculate centering cost for concrete works (formwork area)
+    if (materials.formwork_area_m2_exact !== undefined) {
+        breakdown.centering = materials.formwork_area_m2_exact * (unitCosts.centering_m2 || 0);
+    }
+    
     const total = Object.values(breakdown).reduce((sum, value) => sum + value, 0);
     return { breakdown, total };
 }
@@ -1142,6 +1450,21 @@ function renderSummary() {
     document.getElementById('totalSoling').innerHTML = formatValueWithRounding(totals.soling_volume_m3_exact, roundValue(totals.soling_volume_m3_exact, 3), ' m³', 3);
     document.getElementById('totalSteel').innerHTML = formatValueWithRounding(totals.steel_kg_exact, roundValue(totals.steel_kg_exact, 2), ' kg', 2);
     document.getElementById('totalCost').innerHTML = formatValueWithRounding(totals.total_cost_exact, roundValue(totals.total_cost_exact, 2), ' ' + currencySymbol, 2);
+    
+    // Add tools and machines cost to total
+    const toolsMachinesTotal = toolsMachines.reduce((sum, item) => sum + item.total_cost, 0);
+    const grandTotal = totals.total_cost_exact + toolsMachinesTotal;
+    
+    if (toolsMachinesTotal > 0) {
+        document.getElementById('toolsMachinesCostInTable').innerHTML = formatValueWithRounding(toolsMachinesTotal, roundValue(toolsMachinesTotal, 2), ' ' + currencySymbol, 2);
+        document.getElementById('grandTotalCost').innerHTML = formatValueWithRounding(grandTotal, roundValue(grandTotal, 2), ' ' + currencySymbol, 2);
+        document.getElementById('toolsMachinesCostRow').classList.remove('d-none');
+        document.getElementById('grandTotalRow').classList.remove('d-none');
+    } else {
+        document.getElementById('toolsMachinesCostRow').classList.add('d-none');
+        document.getElementById('grandTotalRow').classList.add('d-none');
+    }
+    
     document.getElementById('resultsFooter').classList.remove('d-none');
 
     updateExportPayload(totals);
@@ -1164,6 +1487,9 @@ function updateExportPayload(totals = null) {
         });
     });
 
+    const toolsMachinesTotal = toolsMachines.reduce((sum, item) => sum + item.total_cost, 0);
+    const grandTotal = totals ? (totals.total_cost || 0) + toolsMachinesTotal : toolsMachinesTotal;
+    
     const summary = {
         totals: totals ? {
             cement_bags: roundValue(totals.cement_bags || 0),
@@ -1175,9 +1501,25 @@ function updateExportPayload(totals = null) {
             soling_volume_m3: roundValue(totals.soling_volume_m3 || 0),
             steel_kg: roundValue(totals.steel_kg || 0),
             total_cost: roundValue(totals.total_cost || 0, 2),
-        } : {},
+            tools_machines_cost: roundValue(toolsMachinesTotal, 2),
+            grand_total: roundValue(grandTotal, 2),
+        } : {
+            tools_machines_cost: roundValue(toolsMachinesTotal, 2),
+            grand_total: roundValue(grandTotal, 2),
+        },
         unit_costs: unitCosts,
         currency,
+        tools_machines: toolsMachines.map(item => ({
+            name: item.name,
+            rental_total: roundValue(item.rental_total, 2),
+            fuel_total: roundValue(item.fuel_total, 2),
+            operator_total: roundValue(item.operator_total, 2),
+            maintenance_cost: roundValue(item.maintenance_cost, 2),
+            transport_cost: roundValue(item.transport_cost, 2),
+            other_cost: roundValue(item.other_cost, 2),
+            total_cost: roundValue(item.total_cost, 2),
+            notes: item.notes,
+        })),
     };
 
     document.querySelector('#excelExportForm input[name="calculations"]').value = JSON.stringify(payloadItems);

@@ -45,31 +45,48 @@
                         <div class="text-danger small">{{ $message }}</div>
                     @enderror
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Length (m) *</label>
-                    <input type="number" name="length" id="length" class="form-control" step="0.001" min="0" value="{{ old('length') }}" required oninput="calculateQuantity()">
-                    @error('length')
-                        <div class="text-danger small">{{ $message }}</div>
-                    @enderror
+                <div class="col-md-12 mb-3">
+                    <label class="form-label fw-semibold">Quantity Input Method *</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="quantity_input_method" id="input_method_dimensions" value="dimensions" {{ old('quantity_input_method', 'dimensions') == 'dimensions' ? 'checked' : '' }} onchange="toggleInputMethod()">
+                        <label class="btn btn-outline-primary" for="input_method_dimensions">
+                            <i class="bi bi-rulers me-1"></i> Calculate from Dimensions (L × B × H)
+                        </label>
+                        <input type="radio" class="btn-check" name="quantity_input_method" id="input_method_direct" value="direct" {{ old('quantity_input_method') == 'direct' ? 'checked' : '' }} onchange="toggleInputMethod()">
+                        <label class="btn btn-outline-primary" for="input_method_direct">
+                            <i class="bi bi-123 me-1"></i> Enter Total Quantity Directly
+                        </label>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Width (m) *</label>
-                    <input type="number" name="width" id="width" class="form-control" step="0.001" min="0" value="{{ old('width') }}" required oninput="calculateQuantity()">
-                    @error('width')
-                        <div class="text-danger small">{{ $message }}</div>
-                    @enderror
+                
+                <div id="dimensionsSection" class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Length (m) <span id="lengthRequired">*</span></label>
+                        <input type="number" name="length" id="length" class="form-control" step="0.001" min="0" value="{{ old('length') }}" oninput="calculateQuantity()">
+                        @error('length')
+                            <div class="text-danger small">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Width/Breadth (m) <span id="widthRequired">*</span></label>
+                        <input type="number" name="width" id="width" class="form-control" step="0.001" min="0" value="{{ old('width') }}" oninput="calculateQuantity()">
+                        @error('width')
+                            <div class="text-danger small">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Height/Thickness (m) <span id="heightRequired">*</span></label>
+                        <input type="number" name="height" id="height" class="form-control" step="0.001" min="0" value="{{ old('height') }}" oninput="calculateQuantity()">
+                        <small class="text-muted">Height for walls, Thickness for PCC/Soling/Plaster</small>
+                        @error('height')
+                            <div class="text-danger small">{{ $message }}</div>
+                        @enderror
+                    </div>
                 </div>
+                
                 <div class="col-md-4">
-                    <label class="form-label">Height/Thickness (m) *</label>
-                    <input type="number" name="height" id="height" class="form-control" step="0.001" min="0" value="{{ old('height') }}" required oninput="calculateQuantity()">
-                    <small class="text-muted">Height for walls, Thickness for PCC/Soling/Plaster</small>
-                    @error('height')
-                        <div class="text-danger small">{{ $message }}</div>
-                    @enderror
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Calculated Quantity</label>
-                    <input type="number" name="quantity" id="quantity" class="form-control" step="0.001" min="0" value="{{ old('quantity') }}" readonly>
+                    <label class="form-label">Quantity <span id="quantityRequired">*</span></label>
+                    <input type="number" name="quantity" id="quantity" class="form-control" step="0.001" min="0" value="{{ old('quantity') }}" oninput="handleQuantityInput()">
                     <small class="text-muted" id="quantityHint">Auto-calculated based on work type</small>
                     @error('quantity')
                         <div class="text-danger small">{{ $message }}</div>
@@ -107,37 +124,106 @@
 
 @push('scripts')
 <script>
+function toggleInputMethod() {
+    const inputMethod = document.querySelector('input[name="quantity_input_method"]:checked').value;
+    const dimensionsSection = document.getElementById('dimensionsSection');
+    const lengthInput = document.getElementById('length');
+    const widthInput = document.getElementById('width');
+    const heightInput = document.getElementById('height');
+    const quantityInput = document.getElementById('quantity');
+    const lengthRequired = document.getElementById('lengthRequired');
+    const widthRequired = document.getElementById('widthRequired');
+    const heightRequired = document.getElementById('heightRequired');
+    const quantityRequired = document.getElementById('quantityRequired');
+    
+    if (inputMethod === 'dimensions') {
+        // Show dimensions section, make them required
+        dimensionsSection.style.display = 'block';
+        lengthInput.required = true;
+        widthInput.required = true;
+        heightInput.required = true;
+        quantityInput.readOnly = true;
+        lengthRequired.style.display = 'inline';
+        widthRequired.style.display = 'inline';
+        heightRequired.style.display = 'inline';
+        quantityRequired.style.display = 'none';
+        calculateQuantity();
+    } else {
+        // Hide dimensions section, make them optional
+        dimensionsSection.style.display = 'none';
+        lengthInput.required = false;
+        widthInput.required = false;
+        heightInput.required = false;
+        quantityInput.readOnly = false;
+        lengthRequired.style.display = 'none';
+        widthRequired.style.display = 'none';
+        heightRequired.style.display = 'none';
+        quantityRequired.style.display = 'inline';
+        quantityInput.value = '';
+        document.getElementById('quantityHint').textContent = 'Enter total quantity directly';
+    }
+}
+
+function handleQuantityInput() {
+    const inputMethod = document.querySelector('input[name="quantity_input_method"]:checked').value;
+    if (inputMethod === 'direct') {
+        // User is entering quantity directly, no calculation needed
+        const quantityInput = document.getElementById('quantity');
+        if (quantityInput.value && parseFloat(quantityInput.value) > 0) {
+            document.getElementById('quantityHint').textContent = 'Total quantity entered';
+        }
+    }
+}
+
 function updateUOM() {
     const workType = document.getElementById('work_type').value;
     const uomInput = document.getElementById('uom');
     const quantityHint = document.getElementById('quantityHint');
+    const inputMethod = document.querySelector('input[name="quantity_input_method"]:checked')?.value || 'dimensions';
     
     switch(workType) {
         case 'PCC':
         case 'Concrete':
             uomInput.value = 'm³';
-            quantityHint.textContent = 'Volume (m³) = Length × Width × Height';
+            if (inputMethod === 'dimensions') {
+                quantityHint.textContent = 'Volume (m³) = Length × Width × Height';
+            }
             break;
         case 'Soling':
             uomInput.value = 'm³';
-            quantityHint.textContent = 'Volume (m³) = Length × Width × Height';
+            if (inputMethod === 'dimensions') {
+                quantityHint.textContent = 'Volume (m³) = Length × Width × Height';
+            }
             break;
         case 'Masonry':
             uomInput.value = 'm³';
-            quantityHint.textContent = 'Volume (m³) = Length × Height × Thickness';
+            if (inputMethod === 'dimensions') {
+                quantityHint.textContent = 'Volume (m³) = Length × Height × Thickness';
+            }
             break;
         case 'Plaster':
             uomInput.value = 'm²';
-            quantityHint.textContent = 'Area (m²) = Length × Width';
+            if (inputMethod === 'dimensions') {
+                quantityHint.textContent = 'Area (m²) = Length × Width';
+            }
             break;
         default:
             uomInput.value = '';
             quantityHint.textContent = 'Select work type first';
     }
-    calculateQuantity();
+    
+    if (inputMethod === 'dimensions') {
+        calculateQuantity();
+    }
 }
 
 function calculateQuantity() {
+    const inputMethod = document.querySelector('input[name="quantity_input_method"]:checked')?.value || 'dimensions';
+    
+    if (inputMethod !== 'dimensions') {
+        return; // Don't calculate if direct input mode
+    }
+    
     const workType = document.getElementById('work_type').value;
     const length = parseFloat(document.getElementById('length').value) || 0;
     const width = parseFloat(document.getElementById('width').value) || 0;
@@ -183,6 +269,7 @@ function calculateQuantity() {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
+    toggleInputMethod();
     updateUOM();
 });
 </script>

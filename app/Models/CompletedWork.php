@@ -23,6 +23,7 @@ class CompletedWork extends Model
         'description',
         'uom',
         'quantity',
+        'quantity_input_method',
         'work_date',
         'recorded_by',
         'status',
