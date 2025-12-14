@@ -5,6 +5,6 @@ deployment:
 
     - export DEPLOYPATH=/home/jbtechco/public_html/
 
-    - /bin/cp * $DEPLOYPATH
+    - /bin/cp * $DEPLOYPATH 
 
 
