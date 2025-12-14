@@ -3,16 +3,18 @@
 namespace App\Models;
 
 use App\Models\Traits\CompanyScoped;
+use App\Models\Traits\ProjectScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ConstructionMaterial extends Model
 {
     use HasFactory;
-    use CompanyScoped;
+    use CompanyScoped, ProjectScoped;
 
     protected $fillable = [
         'company_id',
+        'project_id',
         'material_name',
         'material_category',
         'unit',
@@ -46,6 +48,11 @@ class ConstructionMaterial extends Model
     public function purchasedBy()
     {
         return $this->belongsTo(PurchasedBy::class);
+    }
+
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
     }
 
     protected $casts = [

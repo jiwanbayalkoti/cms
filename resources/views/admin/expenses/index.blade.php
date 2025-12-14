@@ -10,6 +10,25 @@
     </a>
 </div>
 
+@if($projects->count() > 0)
+<div class="mb-4 bg-white shadow-lg rounded-lg p-4">
+    <form method="GET" action="{{ route('admin.expenses.index') }}" class="flex gap-4 items-end">
+        <div class="flex-1">
+            <label for="project_id" class="block text-sm font-medium text-gray-700 mb-2">Filter by Project</label>
+            <select name="project_id" id="project_id" onchange="this.form.submit()"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="">All Projects</option>
+                @foreach($projects as $project)
+                    <option value="{{ $project->id }}" {{ request('project_id') == $project->id ? 'selected' : '' }}>
+                        {{ $project->name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+    </form>
+</div>
+@endif
+
 <div class="bg-white shadow-lg rounded-lg overflow-hidden">
     <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
@@ -17,6 +36,7 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item/Description</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -39,6 +59,9 @@
                     </td>
                     <td class="px-6 py-4">
                         <div class="text-sm font-medium text-gray-900">{{ $expense->item_name ?? ($expense->description ? Str::limit($expense->description, 30) : 'N/A') }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ $expense->project ? $expense->project->name : 'N/A' }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm text-gray-900">{{ $expense->category->name }}</div>
@@ -76,7 +99,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">
                         No expense records found. <a href="{{ route('admin.expenses.create') }}" class="text-indigo-600 hover:text-indigo-900">Add one now</a>
                     </td>
                 </tr>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Income;
 use App\Models\Category;
 use App\Models\Subcategory;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use App\Support\CompanyContext;
 
@@ -22,13 +23,25 @@ class IncomeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         $companyId = CompanyContext::getActiveCompanyId();
-        $incomes = Income::with(['category', 'subcategory', 'creator', 'updater'])
-            ->where('company_id', $companyId)
-            ->latest('date')->paginate(15);
-        return view('admin.incomes.index', compact('incomes'));
+        $query = Income::with(['category', 'subcategory', 'project', 'creator', 'updater'])
+            ->where('company_id', $companyId);
+        
+        // Filter by project
+        if ($request->filled('project_id')) {
+            $query->where('project_id', $request->project_id);
+        }
+        
+        $incomes = $query->latest('date')->paginate(15)->withQueryString();
+        
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
+        
+        return view('admin.incomes.index', compact('incomes', 'projects'));
     }
 
     /**
@@ -36,11 +49,16 @@ class IncomeController extends Controller
      */
     public function create()
     {
+        $companyId = CompanyContext::getActiveCompanyId();
         $categories = Category::where('type', 'income')->where('is_active', true)->orderBy('name')->get();
         $subcategories = Subcategory::whereHas('category', function($q) {
             $q->where('type', 'income')->where('is_active', true);
         })->where('is_active', true)->orderBy('name')->get();
-        return view('admin.incomes.create', compact('categories', 'subcategories'));
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
+        return view('admin.incomes.create', compact('categories', 'subcategories', 'projects'));
     }
 
     /**
@@ -74,7 +92,7 @@ class IncomeController extends Controller
         if ($income->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
         }
-        $income->load(['category', 'subcategory', 'creator', 'updater']);
+        $income->load(['category', 'subcategory', 'project', 'creator', 'updater']);
         return view('admin.incomes.show', compact('income'));
     }
 
@@ -86,11 +104,16 @@ class IncomeController extends Controller
         if ($income->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
         }
+        $companyId = CompanyContext::getActiveCompanyId();
         $categories = Category::where('type', 'income')->where('is_active', true)->orderBy('name')->get();
         $subcategories = Subcategory::whereHas('category', function($q) {
             $q->where('type', 'income')->where('is_active', true);
         })->where('is_active', true)->orderBy('name')->get();
-        return view('admin.incomes.edit', compact('income', 'categories', 'subcategories'));
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
+        return view('admin.incomes.edit', compact('income', 'categories', 'subcategories', 'projects'));
     }
 
     /**
@@ -102,6 +125,7 @@ class IncomeController extends Controller
             abort(403);
         }
         $validated = $request->validate([
+            'project_id' => 'nullable|exists:projects,id',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'nullable|exists:subcategories,id',
             'source' => 'required|string|max:255',

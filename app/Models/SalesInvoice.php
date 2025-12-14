@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Traits\CompanyScoped;
+use App\Models\Traits\ProjectScoped;
 
 class SalesInvoice extends Model
 {
-    use HasFactory, CompanyScoped;
+    use HasFactory, CompanyScoped, ProjectScoped;
 
     protected $fillable = [
         'company_id',

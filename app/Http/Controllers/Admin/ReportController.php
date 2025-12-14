@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Support\CompanyContext;
+use App\Support\ProjectContext;
 
 class ReportController extends Controller
 {
@@ -42,31 +43,49 @@ class ReportController extends Controller
     {
         $startDate = $request->get('start_date', date('Y-m-01'));
         $endDate = $request->get('end_date', date('Y-m-d'));
+        $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
 
-        $totalIncome = Income::where('incomes.company_id', $companyId)
-            ->whereBetween('incomes.date', [$startDate, $endDate])->sum('amount');
-        $totalExpenses = Expense::where('expenses.company_id', $companyId)
-            ->whereBetween('expenses.date', [$startDate, $endDate])->sum('amount');
+        $incomeQuery = Income::where('incomes.company_id', $companyId)
+            ->whereBetween('incomes.date', [$startDate, $endDate]);
+        $expenseQuery = Expense::where('expenses.company_id', $companyId)
+            ->whereBetween('expenses.date', [$startDate, $endDate]);
+        
+        if ($projectId) {
+            $incomeQuery->where('project_id', $projectId);
+            $expenseQuery->where('project_id', $projectId);
+        }
+        
+        $totalIncome = $incomeQuery->sum('amount');
+        $totalExpenses = $expenseQuery->sum('amount');
         $netBalance = $totalIncome - $totalExpenses;
 
         // Income by category
-        $incomeByCategory = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate])
-            ->join('categories', 'incomes.category_id', '=', 'categories.id')
+        $incomeByCategoryQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $incomeByCategoryQuery->where('project_id', $projectId);
+        }
+        $incomeByCategory = $incomeByCategoryQuery->join('categories', 'incomes.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(incomes.amount) as total'))
             ->groupBy('categories.id', 'categories.name')
             ->get();
 
         // Expenses by category
-        $expensesByCategory = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])
-            ->join('categories', 'expenses.category_id', '=', 'categories.id')
+        $expensesByCategoryQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $expensesByCategoryQuery->where('project_id', $projectId);
+        }
+        $expensesByCategory = $expensesByCategoryQuery->join('categories', 'expenses.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(expenses.amount) as total'))
             ->groupBy('categories.id', 'categories.name')
             ->get();
 
         // Expenses by type
-        $expensesByType = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])
-            ->select('expense_type', DB::raw('SUM(amount) as total'))
+        $expensesByTypeQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $expensesByTypeQuery->where('project_id', $projectId);
+        }
+        $expensesByType = $expensesByTypeQuery->select('expense_type', DB::raw('SUM(amount) as total'))
             ->groupBy('expense_type')
             ->get();
 
@@ -77,16 +96,31 @@ class ReportController extends Controller
             $monthStart = $month . '-01';
             $monthEnd = date('Y-m-t', strtotime($monthStart));
             
+            $monthIncomeQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$monthStart, $monthEnd]);
+            $monthExpenseQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$monthStart, $monthEnd]);
+            
+            if ($projectId) {
+                $monthIncomeQuery->where('project_id', $projectId);
+                $monthExpenseQuery->where('project_id', $projectId);
+            }
+            
             $monthlyTrend[] = [
                 'month' => date('M Y', strtotime($monthStart)),
-                'income' => Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$monthStart, $monthEnd])->sum('amount'),
-                'expenses' => Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$monthStart, $monthEnd])->sum('amount'),
+                'income' => $monthIncomeQuery->sum('amount'),
+                'expenses' => $monthExpenseQuery->sum('amount'),
             ];
         }
+        
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
 
         return view('admin.reports.financial-summary', compact(
             'startDate',
             'endDate',
+            'projectId',
+            'projects',
             'totalIncome',
             'totalExpenses',
             'netBalance',
@@ -105,40 +139,57 @@ class ReportController extends Controller
         $startDate = $request->get('start_date', date('Y-m-01'));
         $endDate = $request->get('end_date', date('Y-m-d'));
         $categoryId = $request->get('category_id');
+        $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
 
-        $query = Income::with(['category', 'subcategory'])
+        $query = Income::with(['category', 'subcategory', 'project'])
             ->where('incomes.company_id', $companyId)
             ->whereBetween('incomes.date', [$startDate, $endDate]);
 
         if ($categoryId) {
             $query->where('category_id', $categoryId);
         }
+        
+        if ($projectId) {
+            $query->where('project_id', $projectId);
+        }
 
         $incomes = $query->orderBy('date', 'desc')->get();
         $totalIncome = $incomes->sum('amount');
 
         // Income by category
-        $incomeByCategory = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate])
-            ->join('categories', 'incomes.category_id', '=', 'categories.id')
+        $incomeByCategoryQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $incomeByCategoryQuery->where('project_id', $projectId);
+        }
+        $incomeByCategory = $incomeByCategoryQuery->join('categories', 'incomes.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(incomes.amount) as total'))
             ->groupBy('categories.id', 'categories.name')
             ->get();
 
         // Income by source
-        $incomeBySource = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate])
-            ->select('source', DB::raw('SUM(amount) as total'))
+        $incomeBySourceQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $incomeBySourceQuery->where('project_id', $projectId);
+        }
+        $incomeBySource = $incomeBySourceQuery->select('source', DB::raw('SUM(amount) as total'))
             ->groupBy('source')
             ->orderByDesc('total')
             ->limit(10)
             ->get();
 
         $categories = Category::where('type', 'income')->where('is_active', true)->orderBy('name')->get();
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
 
         return view('admin.reports.income', compact(
             'startDate',
             'endDate',
             'categoryId',
+            'projectId',
+            'projects',
             'incomes',
             'totalIncome',
             'incomeByCategory',
@@ -156,9 +207,10 @@ class ReportController extends Controller
         $endDate = $request->get('end_date', date('Y-m-d'));
         $categoryId = $request->get('category_id');
         $expenseType = $request->get('expense_type');
+        $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
 
-        $query = Expense::with(['category', 'subcategory', 'staff'])
+        $query = Expense::with(['category', 'subcategory', 'staff', 'project'])
             ->where('expenses.company_id', $companyId)
             ->whereBetween('expenses.date', [$startDate, $endDate]);
 
@@ -169,30 +221,46 @@ class ReportController extends Controller
         if ($expenseType) {
             $query->where('expense_type', $expenseType);
         }
+        
+        if ($projectId) {
+            $query->where('project_id', $projectId);
+        }
 
         $expenses = $query->orderBy('date', 'desc')->get();
         $totalExpenses = $expenses->sum('amount');
 
         // Expenses by category
-        $expensesByCategory = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])
-            ->join('categories', 'expenses.category_id', '=', 'categories.id')
+        $expensesByCategoryQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $expensesByCategoryQuery->where('project_id', $projectId);
+        }
+        $expensesByCategory = $expensesByCategoryQuery->join('categories', 'expenses.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(expenses.amount) as total'))
             ->groupBy('categories.id', 'categories.name')
             ->get();
 
         // Expenses by type
-        $expensesByType = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])
-            ->select('expense_type', DB::raw('SUM(amount) as total'))
+        $expensesByTypeQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $expensesByTypeQuery->where('project_id', $projectId);
+        }
+        $expensesByType = $expensesByTypeQuery->select('expense_type', DB::raw('SUM(amount) as total'))
             ->groupBy('expense_type')
             ->get();
 
         $categories = Category::where('type', 'expense')->where('is_active', true)->orderBy('name')->get();
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
 
         return view('admin.reports.expense', compact(
             'startDate',
             'endDate',
             'categoryId',
             'expenseType',
+            'projectId',
+            'projects',
             'expenses',
             'totalExpenses',
             'expensesByCategory',
@@ -335,9 +403,10 @@ class ReportController extends Controller
         $startDate = $request->get('start_date', date('Y-m-01'));
         $endDate = $request->get('end_date', date('Y-m-d'));
         $staffId = $request->get('staff_id');
+        $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
 
-        $query = Expense::with(['staff'])
+        $query = Expense::with(['staff', 'project'])
             ->whereIn('expense_type', ['salary', 'advance'])
             ->where('expenses.company_id', $companyId)
             ->whereBetween('expenses.date', [$startDate, $endDate]);
@@ -345,33 +414,49 @@ class ReportController extends Controller
         if ($staffId) {
             $query->where('staff_id', $staffId);
         }
+        
+        if ($projectId) {
+            $query->where('project_id', $projectId);
+        }
 
         $payments = $query->orderBy('date', 'desc')->get();
         $totalPayments = $payments->sum('amount');
 
         // Payments by staff
-        $paymentsByStaff = Expense::whereIn('expense_type', ['salary', 'advance'])
-            ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])
-            ->join('staff', 'expenses.staff_id', '=', 'staff.id')
+        $paymentsByStaffQuery = Expense::whereIn('expense_type', ['salary', 'advance'])
+            ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $paymentsByStaffQuery->where('project_id', $projectId);
+        }
+        $paymentsByStaff = $paymentsByStaffQuery->join('staff', 'expenses.staff_id', '=', 'staff.id')
             ->select('staff.name', 'expenses.expense_type', DB::raw('SUM(expenses.amount) as total'))
             ->groupBy('staff.id', 'staff.name', 'expenses.expense_type')
             ->get();
 
         // Total by staff
-        $totalByStaff = Expense::whereIn('expense_type', ['salary', 'advance'])
-            ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])
-            ->join('staff', 'expenses.staff_id', '=', 'staff.id')
+        $totalByStaffQuery = Expense::whereIn('expense_type', ['salary', 'advance'])
+            ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $totalByStaffQuery->where('project_id', $projectId);
+        }
+        $totalByStaff = $totalByStaffQuery->join('staff', 'expenses.staff_id', '=', 'staff.id')
             ->select('staff.name', DB::raw('SUM(expenses.amount) as total'))
             ->groupBy('staff.id', 'staff.name')
             ->orderByDesc('total')
             ->get();
 
         $staff = Staff::where('is_active', true)->orderBy('name')->get();
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
 
         return view('admin.reports.staff-payment', compact(
             'startDate',
             'endDate',
             'staffId',
+            'projectId',
+            'projects',
             'payments',
             'totalPayments',
             'paymentsByStaff',
@@ -387,13 +472,22 @@ class ReportController extends Controller
     {
         $startDate = $request->get('start_date', date('Y-m-01'));
         $endDate = $request->get('end_date', date('Y-m-d'));
+        $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
 
         // Total Income (Credit)
-        $totalIncome = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate])->sum('amount');
+        $incomeQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $incomeQuery->where('project_id', $projectId);
+        }
+        $totalIncome = $incomeQuery->sum('amount');
         
         // Total Expenses (Debit)
-        $totalExpenses = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])->sum('amount');
+        $expenseQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $expenseQuery->where('project_id', $projectId);
+        }
+        $totalExpenses = $expenseQuery->sum('amount');
         
         // Net Profit/Loss
         $netProfit = $totalIncome - $totalExpenses;
@@ -404,36 +498,53 @@ class ReportController extends Controller
         $balance = abs($totalCredits - $totalDebits);
 
         // Debit Details by Category
-        $debitByCategory = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])
-            ->join('categories', 'expenses.category_id', '=', 'categories.id')
+        $debitByCategoryQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $debitByCategoryQuery->where('project_id', $projectId);
+        }
+        $debitByCategory = $debitByCategoryQuery->join('categories', 'expenses.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(expenses.amount) as total'))
             ->groupBy('categories.id', 'categories.name')
             ->orderByDesc('total')
             ->get();
 
         // Credit Details by Category
-        $creditByCategory = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate])
-            ->join('categories', 'incomes.category_id', '=', 'categories.id')
+        $creditByCategoryQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $creditByCategoryQuery->where('project_id', $projectId);
+        }
+        $creditByCategory = $creditByCategoryQuery->join('categories', 'incomes.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(incomes.amount) as total'))
             ->groupBy('categories.id', 'categories.name')
             ->orderByDesc('total')
             ->get();
 
         // Detailed Debit Records
-        $debitRecords = Expense::with(['category', 'subcategory'])
-            ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])
-            ->orderBy('date', 'asc')
-            ->get();
+        $debitRecordsQuery = Expense::with(['category', 'subcategory', 'project'])
+            ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $debitRecordsQuery->where('project_id', $projectId);
+        }
+        $debitRecords = $debitRecordsQuery->orderBy('date', 'asc')->get();
 
         // Detailed Credit Records
-        $creditRecords = Income::with(['category', 'subcategory'])
-            ->where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate])
-            ->orderBy('date', 'asc')
+        $creditRecordsQuery = Income::with(['category', 'subcategory', 'project'])
+            ->where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        if ($projectId) {
+            $creditRecordsQuery->where('project_id', $projectId);
+        }
+        $creditRecords = $creditRecordsQuery->orderBy('date', 'asc')->get();
+        
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
             ->get();
 
         return view('admin.reports.balance-sheet', compact(
             'startDate',
             'endDate',
+            'projectId',
+            'projects',
             'totalIncome',
             'totalExpenses',
             'netProfit',

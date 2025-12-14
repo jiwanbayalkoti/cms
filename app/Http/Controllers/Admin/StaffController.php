@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Staff;
 use App\Models\Position;
+use App\Models\Project;
 use Illuminate\Http\Request;
+use App\Support\CompanyContext;
 
 class StaffController extends Controller
 {
@@ -20,10 +22,25 @@ class StaffController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $staff = Staff::with('position')->latest()->paginate(10);
-        return view('admin.staff.index', compact('staff'));
+        $companyId = CompanyContext::getActiveCompanyId();
+        $query = Staff::with(['position', 'project'])
+            ->where('company_id', $companyId);
+        
+        // Filter by project
+        if ($request->filled('project_id')) {
+            $query->where('project_id', $request->project_id);
+        }
+        
+        $staff = $query->latest()->paginate(10)->withQueryString();
+        
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
+        
+        return view('admin.staff.index', compact('staff', 'projects'));
     }
 
     /**
@@ -31,8 +48,13 @@ class StaffController extends Controller
      */
     public function create()
     {
+        $companyId = CompanyContext::getActiveCompanyId();
         $positions = Position::where('is_active', true)->orderBy('name')->get();
-        return view('admin.staff.create', compact('positions'));
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
+        return view('admin.staff.create', compact('positions', 'projects'));
     }
 
     /**
@@ -41,6 +63,7 @@ class StaffController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'project_id' => 'nullable|exists:projects,id',
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:staff,email',
             'phone' => 'nullable|string|max:20',
@@ -52,6 +75,7 @@ class StaffController extends Controller
         ]);
 
         $validated['is_active'] = $request->has('is_active');
+        $validated['company_id'] = CompanyContext::getActiveCompanyId();
 
         Staff::create($validated);
 
@@ -64,7 +88,7 @@ class StaffController extends Controller
      */
     public function show(Staff $staff)
     {
-        $staff->load('position');
+        $staff->load(['position', 'project']);
         return view('admin.staff.show', compact('staff'));
     }
 
@@ -73,8 +97,13 @@ class StaffController extends Controller
      */
     public function edit(Staff $staff)
     {
+        $companyId = CompanyContext::getActiveCompanyId();
         $positions = Position::where('is_active', true)->orderBy('name')->get();
-        return view('admin.staff.edit', compact('staff', 'positions'));
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
+        return view('admin.staff.edit', compact('staff', 'positions', 'projects'));
     }
 
     /**
@@ -83,6 +112,7 @@ class StaffController extends Controller
     public function update(Request $request, Staff $staff)
     {
         $validated = $request->validate([
+            'project_id' => 'nullable|exists:projects,id',
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:staff,email,' . $staff->id,
             'phone' => 'nullable|string|max:20',

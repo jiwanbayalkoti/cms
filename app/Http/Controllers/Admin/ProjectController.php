@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Support\CompanyContext;
+use App\Support\ProjectContext;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
@@ -16,9 +17,16 @@ class ProjectController extends Controller
 
     public function index()
     {
-        $projects = Project::with('company')
-            ->latest('updated_at')
-            ->paginate(12);
+        $companyId = CompanyContext::getActiveCompanyId();
+        
+        $query = Project::with('company');
+        
+        // Filter by company if not super admin
+        if ($companyId && (int) $companyId !== 1) {
+            $query->where('company_id', $companyId);
+        }
+        
+        $projects = $query->latest('updated_at')->paginate(12);
 
         return view('admin.projects.index', [
             'projects' => $projects,
@@ -97,6 +105,29 @@ class ProjectController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
+    }
+
+    public function switch(Request $request)
+    {
+        $request->validate([
+            'project_id' => 'nullable|exists:projects,id',
+        ]);
+
+        $projectId = $request->input('project_id');
+        
+        // Verify project belongs to active company
+        if ($projectId) {
+            $activeCompanyId = CompanyContext::getActiveCompanyId();
+            $project = Project::find($projectId);
+            
+            if ($project && $activeCompanyId && (int) $activeCompanyId !== 1 && $project->company_id !== $activeCompanyId) {
+                return back()->with('error', 'Project does not belong to active company.');
+            }
+        }
+
+        ProjectContext::setActiveProjectId($projectId ? (int) $projectId : null);
+        
+        return back()->with('success', $projectId ? 'Active project switched.' : 'Project filter cleared.');
     }
 
     protected function authorizeCompanyAccess(Project $project): void

@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Models\Traits\CompanyScoped;
+use App\Models\Traits\ProjectScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BillModule extends Model
 {
-    use HasFactory, CompanyScoped, SoftDeletes;
+    use HasFactory, CompanyScoped, ProjectScoped, SoftDeletes;
 
     protected $fillable = [
         'company_id',

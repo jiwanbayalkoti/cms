@@ -320,9 +320,10 @@
         <!-- Sidebar -->
         <aside class="sidebar expanded bg-gradient-to-b from-gray-800 via-gray-800 to-gray-900 min-h-screen relative" id="sidebar">
             <div class="p-4 h-full flex flex-col">
-
-                @php($activeCompanyId = session('active_company_id') ?: Auth::user()->company_id)
-                @php($activeCompany = \App\Models\Company::find($activeCompanyId))
+                @php
+                    $activeCompanyId = session('active_company_id') ?: Auth::user()->company_id;
+                    $activeCompany = \App\Models\Company::find($activeCompanyId);
+                @endphp
 
                 <!-- Sidebar Header with Toggle -->
                 <div class="flex items-center justify-between mb-6">
@@ -340,13 +341,15 @@
                 </div>
 
                 <nav class="space-y-1 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800" id="sidebar-nav" style="scrollbar-width: thin; scrollbar-color: #4b5563 #1f2937;">
-                    @php($projectsOpen = $projectsOpen ?? request()->routeIs('admin.projects.*'))
-                    @php($materialsOpen = $materialsOpen ?? (request()->routeIs('admin.construction-materials.*') || request()->routeIs('admin.material-*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.work-types.*') || request()->routeIs('admin.payment-modes.*') || request()->routeIs('admin.purchased-bies.*')))
-                    @php($billingOpen = $billingOpen ?? (request()->routeIs('admin.bill-*') || request()->routeIs('admin.completed-works.*')))
-                    @php($staffOpen = $staffOpen ?? (request()->routeIs('admin.staff.*') || request()->routeIs('admin.positions.*') || request()->routeIs('admin.users.*')))
-                    @php($financeOpen = $financeOpen ?? (request()->routeIs('admin.incomes.*') || request()->routeIs('admin.expenses.*') || request()->routeIs('admin.reports.*') || request()->routeIs('admin.categories.*') || request()->routeIs('admin.subcategories.*')))
-                    @php($accountingOpen = $accountingOpen ?? (request()->routeIs('admin.chart-of-accounts.*') || request()->routeIs('admin.journal-entries.*') || request()->routeIs('admin.bank-accounts.*') || request()->routeIs('admin.purchase-invoices.*') || request()->routeIs('admin.sales-invoices.*') || request()->routeIs('admin.customers.*')))
-                    @php($vehicleRentOpen = $vehicleRentOpen ?? request()->routeIs('admin.vehicle-rents.*'))
+                    @php
+                        $projectsOpen = $projectsOpen ?? request()->routeIs('admin.projects.*');
+                        $materialsOpen = $materialsOpen ?? (request()->routeIs('admin.construction-materials.*') || request()->routeIs('admin.material-*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.work-types.*') || request()->routeIs('admin.payment-modes.*') || request()->routeIs('admin.purchased-bies.*'));
+                        $billingOpen = $billingOpen ?? (request()->routeIs('admin.bill-*') || request()->routeIs('admin.completed-works.*'));
+                        $staffOpen = $staffOpen ?? (request()->routeIs('admin.staff.*') || request()->routeIs('admin.positions.*') || request()->routeIs('admin.users.*'));
+                        $financeOpen = $financeOpen ?? (request()->routeIs('admin.incomes.*') || request()->routeIs('admin.expenses.*') || request()->routeIs('admin.reports.*') || request()->routeIs('admin.categories.*') || request()->routeIs('admin.subcategories.*'));
+                        $accountingOpen = $accountingOpen ?? (request()->routeIs('admin.chart-of-accounts.*') || request()->routeIs('admin.journal-entries.*') || request()->routeIs('admin.bank-accounts.*') || request()->routeIs('admin.purchase-invoices.*') || request()->routeIs('admin.sales-invoices.*') || request()->routeIs('admin.customers.*'));
+                        $vehicleRentOpen = $vehicleRentOpen ?? request()->routeIs('admin.vehicle-rents.*');
+                    @endphp
                     <a href="{{ route('admin.dashboard') }}" data-tooltip="Dashboard" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
@@ -568,7 +571,9 @@
                                 <form method="POST" action="{{ route('admin.companies.switch') }}" class="hidden sm:flex items-center space-x-2">
                                     @csrf
                                     <select name="company_id" onchange="this.form.submit()" class="border rounded px-2 py-1 text-sm">
-                                        @php($activeCompanyId = session('active_company_id') ?: Auth::user()->company_id)
+                                        @php
+                                            $activeCompanyId = session('active_company_id') ?: Auth::user()->company_id;
+                                        @endphp
                                         @foreach(\App\Models\Company::orderBy('name')->get() as $company)
                                             <option value="{{ $company->id }}" {{ $activeCompanyId == $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
                                         @endforeach
@@ -577,6 +582,39 @@
                             @elseif(Auth::user()->role !== 'super_admin')
                                 <span class="hidden sm:inline text-gray-700 text-sm">{{ optional(Auth::user()->company)->name }}</span>
                             @endif
+                            
+                            @php
+                                use App\Support\CompanyContext;
+                                use App\Support\ProjectContext;
+                                
+                                $activeCompanyId = CompanyContext::getActiveCompanyId();
+                                $activeProjectId = ProjectContext::getActiveProjectId();
+                                $headerProjects = collect([]);
+                                
+                                if (!empty($activeCompanyId)) {
+                                    try {
+                                        $headerProjects = \App\Models\Project::where('company_id', $activeCompanyId)
+                                            ->where('status', '!=', 'cancelled')
+                                            ->orderBy('name')
+                                            ->get();
+                                    } catch (\Exception $e) {
+                                        $headerProjects = collect([]);
+                                    }
+                                }
+                            @endphp
+                            
+                            @if(isset($headerProjects) && $headerProjects instanceof \Illuminate\Support\Collection && $headerProjects->count() > 0)
+                                <form method="POST" action="{{ route('admin.projects.switch') }}" class="hidden sm:flex items-center space-x-2">
+                                    @csrf
+                                    <select name="project_id" onchange="this.form.submit()" class="border rounded px-2 py-1 text-sm">
+                                        <option value="">All Projects</option>
+                                        @foreach($headerProjects as $project)
+                                            <option value="{{ $project->id }}" {{ $activeProjectId == $project->id ? 'selected' : '' }}>{{ $project->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </form>
+                            @endif
+                            
                             <span class="hidden sm:inline text-gray-700 text-sm truncate max-w-[100px]">{{ Auth::user()->name }}</span>
                             <form method="POST" action="{{ route('admin.logout') }}">
                                 @csrf

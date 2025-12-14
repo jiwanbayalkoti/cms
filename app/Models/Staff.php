@@ -12,6 +12,7 @@ class Staff extends Model
 
     protected $fillable = [
         'company_id',
+        'project_id',
         'name',
         'email',
         'phone',
@@ -34,5 +35,13 @@ class Staff extends Model
     public function position()
     {
         return $this->belongsTo(Position::class);
+    }
+
+    /**
+     * Get the project.
+     */
+    public function project()
+    {
+        return $this->belongsTo(Project::class);
     }
 }

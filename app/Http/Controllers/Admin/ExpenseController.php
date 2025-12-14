@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\Category;
 use App\Models\Subcategory;
 use App\Models\Staff;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Support\CompanyContext;
@@ -24,13 +25,25 @@ class ExpenseController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         $companyId = CompanyContext::getActiveCompanyId();
-        $expenses = Expense::with(['category', 'subcategory', 'staff', 'creator', 'updater'])
-            ->where('company_id', $companyId)
-            ->latest('date')->paginate(15);
-        return view('admin.expenses.index', compact('expenses'));
+        $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'creator', 'updater'])
+            ->where('company_id', $companyId);
+        
+        // Filter by project
+        if ($request->filled('project_id')) {
+            $query->where('project_id', $request->project_id);
+        }
+        
+        $expenses = $query->latest('date')->paginate(15)->withQueryString();
+        
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
+        
+        return view('admin.expenses.index', compact('expenses', 'projects'));
     }
 
     /**
@@ -38,12 +51,17 @@ class ExpenseController extends Controller
      */
     public function create()
     {
+        $companyId = CompanyContext::getActiveCompanyId();
         $categories = Category::where('type', 'expense')->where('is_active', true)->orderBy('name')->get();
         $subcategories = Subcategory::whereHas('category', function($q) {
             $q->where('type', 'expense')->where('is_active', true);
         })->where('is_active', true)->orderBy('name')->get();
         $staff = Staff::where('is_active', true)->orderBy('name')->get();
-        return view('admin.expenses.create', compact('categories', 'subcategories', 'staff'));
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
+        return view('admin.expenses.create', compact('categories', 'subcategories', 'staff', 'projects'));
     }
 
     /**
@@ -52,6 +70,7 @@ class ExpenseController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'project_id' => 'nullable|exists:projects,id',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'nullable|exists:subcategories,id',
             'expense_type' => 'required|in:purchase,salary,advance,rent',
@@ -91,7 +110,7 @@ class ExpenseController extends Controller
         if ($expense->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
         }
-        $expense->load(['category', 'subcategory', 'staff', 'creator', 'updater']);
+        $expense->load(['category', 'subcategory', 'staff', 'project', 'creator', 'updater']);
         return view('admin.expenses.show', compact('expense'));
     }
 
@@ -103,12 +122,17 @@ class ExpenseController extends Controller
         if ($expense->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
         }
+        $companyId = CompanyContext::getActiveCompanyId();
         $categories = Category::where('type', 'expense')->where('is_active', true)->orderBy('name')->get();
         $subcategories = Subcategory::whereHas('category', function($q) {
             $q->where('type', 'expense')->where('is_active', true);
         })->where('is_active', true)->orderBy('name')->get();
         $staff = Staff::where('is_active', true)->orderBy('name')->get();
-        return view('admin.expenses.edit', compact('expense', 'categories', 'subcategories', 'staff'));
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
+        return view('admin.expenses.edit', compact('expense', 'categories', 'subcategories', 'staff', 'projects'));
     }
 
     /**
@@ -120,6 +144,7 @@ class ExpenseController extends Controller
             abort(403);
         }
         $validated = $request->validate([
+            'project_id' => 'nullable|exists:projects,id',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'nullable|exists:subcategories,id',
             'expense_type' => 'required|in:purchase,salary,advance,rent',

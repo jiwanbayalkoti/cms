@@ -69,6 +69,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         
         // Projects CRUD
         Route::resource('projects', ProjectController::class);
+        Route::post('projects/switch', [ProjectController::class, 'switch'])->name('projects.switch');
         
         // Construction Materials CRUD
         Route::resource('construction-materials', ConstructionMaterialController::class);

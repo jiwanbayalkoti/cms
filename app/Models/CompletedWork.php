@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Models\Traits\CompanyScoped;
+use App\Models\Traits\ProjectScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class CompletedWork extends Model
 {
-    use HasFactory, CompanyScoped;
+    use HasFactory, CompanyScoped, ProjectScoped;
 
     protected $fillable = [
         'company_id',
