@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\Project;
 use App\Support\CompanyContext;
 use App\Support\ProjectContext;
@@ -43,10 +44,31 @@ class ProjectController extends Controller
     public function store(Request $request)
     {
         $validated = $this->validateProject($request);
-        $validated['company_id'] = CompanyContext::getActiveCompanyId() ?? auth()->user()->company_id;
+        
+        // Get company_id and validate it exists
+        $companyId = CompanyContext::getActiveCompanyId() ?? auth()->user()->company_id;
+        
+        // Validate company exists
+        if ($companyId && !Company::find($companyId)) {
+            return back()
+                ->withInput()
+                ->with('error', 'Invalid company selected. Please select a valid company.');
+        }
+        
+        $validated['company_id'] = $companyId;
         $validated['created_by'] = auth()->id();
 
-        Project::create($validated);
+        try {
+            Project::create($validated);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() == 23000) {
+                // Foreign key constraint violation
+                return back()
+                    ->withInput()
+                    ->with('error', 'Cannot create project: Invalid company selected. Please ensure you have selected a valid company.');
+            }
+            throw $e;
+        }
 
         return redirect()->route('admin.projects.index')
             ->with('success', 'Project created successfully.');
@@ -77,7 +99,17 @@ class ProjectController extends Controller
         $validated = $this->validateProject($request, $project);
         $validated['updated_by'] = auth()->id();
 
-        $project->update($validated);
+        try {
+            $project->update($validated);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() == 23000) {
+                // Foreign key constraint violation
+                return back()
+                    ->withInput()
+                    ->with('error', 'Cannot update project: Invalid company or related data. Please check your selections.');
+            }
+            throw $e;
+        }
 
         return redirect()->route('admin.projects.index')
             ->with('success', 'Project updated successfully.');
