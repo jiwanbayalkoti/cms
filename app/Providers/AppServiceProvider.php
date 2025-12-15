@@ -11,7 +11,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        /**
+         * Ensure helper functions are always loaded (covers shared hosting where
+         * composer dump-autoload may not be run after deploy).
+         */
+        $helpers = app_path('Helpers/functions.php');
+        if (file_exists($helpers)) {
+            require_once $helpers;
+        }
     }
 
     /**
