@@ -78,9 +78,12 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">QR Code Image</label>
-                        @if($supplier->qr_code_image)
+                        @php
+                            $qrUrl = storage_url($supplier->qr_code_image);
+                        @endphp
+                        @if($qrUrl)
                             <div class="mb-2">
-                                <img src="{{ asset('storage/' . $supplier->qr_code_image) }}" alt="Current QR Code" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                                <img src="{{ $qrUrl }}" alt="Current QR Code" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
                                 <p class="text-muted small mt-1">Current QR Code Image</p>
                             </div>
                         @endif

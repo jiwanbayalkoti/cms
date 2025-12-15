@@ -32,9 +32,12 @@
 
                     <div class="col-md-12">
                         <label class="form-label fw-semibold">Company Logo</label>
-                        @if($company->logo)
+                        @php
+                            $logoUrl = $company->getLogoUrl();
+                        @endphp
+                        @if($logoUrl)
                             <div class="mb-3">
-                                <img src="{{ asset('storage/' . $company->logo) }}" alt="Company Logo" 
+                                <img src="{{ $logoUrl }}" alt="Company Logo" 
                                     class="img-thumbnail" style="max-height: 120px;">
                                 <p class="text-muted small mt-2">Current logo</p>
                             </div>
@@ -49,9 +52,12 @@
 
                     <div class="col-md-12">
                         <label class="form-label fw-semibold">Favicon</label>
+                        @php
+                            $faviconUrl = $company->getFaviconUrl();
+                        @endphp
                         @if($company->favicon)
                             <div class="mb-3">
-                                <img src="{{ asset('storage/' . $company->favicon) }}" alt="Company Favicon" 
+                                <img src="{{ $faviconUrl }}" alt="Company Favicon" 
                                     class="img-thumbnail" style="max-height: 32px; width: 32px;">
                                 <p class="text-muted small mt-2">Current favicon</p>
                             </div>

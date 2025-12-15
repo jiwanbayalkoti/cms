@@ -182,18 +182,24 @@
                 <div class="col-md-6">
                     <label class="form-label">Bill Attachment (PDF / Image)</label>
                     <input type="file" name="bill_attachment" class="form-control">
-                    @if($material->bill_attachment)
+                    @php
+                        $billUrl = storage_url($material->bill_attachment);
+                    @endphp
+                    @if($billUrl)
                         <small class="d-block mt-1">
-                            Current: <a href="{{ asset('storage/'.$material->bill_attachment) }}" target="_blank">View</a>
+                            Current: <a href="{{ $billUrl }}" target="_blank">View</a>
                         </small>
                     @endif
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Delivery Photo</label>
                     <input type="file" name="delivery_photo" class="form-control">
-                    @if($material->delivery_photo)
+                    @php
+                        $photoUrl = storage_url($material->delivery_photo);
+                    @endphp
+                    @if($photoUrl)
                         <small class="d-block mt-1">
-                            Current: <a href="{{ asset('storage/'.$material->delivery_photo) }}" target="_blank">View</a>
+                            Current: <a href="{{ $photoUrl }}" target="_blank">View</a>
                         </small>
                     @endif
                 </div>

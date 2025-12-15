@@ -346,7 +346,12 @@
                 <div class="flex items-center justify-between mb-6">
                     <a href="{{ route('admin.dashboard') }}" class="flex items-center space-x-2 sm:space-x-3 sidebar-content min-w-0 flex-1">
                         @if($activeCompany && $activeCompany->logo)
-                            <img src="{{ asset('storage/' . $activeCompany->logo) }}" alt="Company Logo" class="h-10 w-10 sm:h-12 sm:w-12 rounded-lg shadow-lg bg-white p-1 object-contain flex-shrink-0">
+                            @php
+                                $logoUrl = $activeCompany->getLogoUrl();
+                            @endphp
+                            @if($logoUrl)
+                                <img src="{{ $logoUrl }}" alt="Company Logo" class="h-10 w-10 sm:h-12 sm:w-12 rounded-lg shadow-lg bg-white p-1 object-contain flex-shrink-0">
+                            @endif
                         @endif
                         <span class="text-base sm:text-xl font-bold text-white truncate">{{ $activeCompany?->name ?? 'Admin Panel' }}</span>
                     </a>

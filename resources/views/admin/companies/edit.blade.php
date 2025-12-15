@@ -23,9 +23,12 @@
 
   <div class="mb-4">
     <label class="block text-sm font-medium mb-1">Logo</label>
-    @if($company->logo)
+    @php
+      $logoUrl = $company->getLogoUrl();
+    @endphp
+    @if($logoUrl)
       <div class="mb-2">
-        <img src="{{ asset('storage/' . $company->logo) }}" alt="Company Logo" class="h-16 rounded shadow">
+        <img src="{{ $logoUrl }}" alt="Company Logo" class="h-16 rounded shadow">
       </div>
     @endif
     <input type="file" name="logo" accept="image/*" class="w-full border rounded px-3 py-2 @error('logo') border-red-500 @enderror">
@@ -34,9 +37,12 @@
 
   <div class="mb-4">
     <label class="block text-sm font-medium mb-1">Favicon</label>
+    @php
+      $faviconUrl = $company->getFaviconUrl();
+    @endphp
     @if($company->favicon)
       <div class="mb-2">
-        <img src="{{ asset('storage/' . $company->favicon) }}" alt="Company Favicon" class="h-8 w-8 rounded shadow">
+        <img src="{{ $faviconUrl }}" alt="Company Favicon" class="h-8 w-8 rounded shadow">
       </div>
     @endif
     <input type="file" name="favicon" accept="image/*" class="w-full border rounded px-3 py-2 @error('favicon') border-red-500 @enderror">

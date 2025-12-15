@@ -13,8 +13,11 @@
 
 <div class="bg-white rounded shadow p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
   <div class="md:col-span-1 flex items-start justify-center">
-    @if($company->logo)
-      <img src="{{ asset('storage/'.$company->logo) }}" alt="Logo" class="h-32 rounded shadow bg-white p-2">
+    @php
+      $logoUrl = $company->getLogoUrl();
+    @endphp
+    @if($logoUrl)
+      <img src="{{ $logoUrl }}" alt="Logo" class="h-32 rounded shadow bg-white p-2">
     @else
       <div class="h-32 w-32 flex items-center justify-center rounded bg-gray-100 text-gray-600 font-semibold">
         {{ $company->name }}

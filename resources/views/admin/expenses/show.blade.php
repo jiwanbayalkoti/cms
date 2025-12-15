@@ -107,9 +107,14 @@
     <h2 class="text-xl font-semibold text-gray-900 mb-4">Images</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         @foreach($expense->images as $image)
-            <div class="relative group">
-                <img src="{{ asset('storage/' . $image) }}" class="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer" alt="Expense Image" onclick="openImageModal('{{ asset('storage/' . $image) }}')">
-            </div>
+            @php
+                $imageUrl = storage_url($image);
+            @endphp
+            @if($imageUrl)
+                <div class="relative group">
+                    <img src="{{ $imageUrl }}" class="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer" alt="Expense Image" onclick="openImageModal('{{ $imageUrl }}')">
+                </div>
+            @endif
         @endforeach
     </div>
 </div>

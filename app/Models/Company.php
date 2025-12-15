@@ -45,6 +45,26 @@ class Company extends Model
     }
 
     /**
+     * Get logo URL
+     */
+    public function getLogoUrl(): ?string
+    {
+        if (!$this->logo) {
+            return null;
+        }
+        
+        $storage = \Illuminate\Support\Facades\Storage::disk('public');
+        
+        if ($storage->exists($this->logo)) {
+            return $storage->url($this->logo);
+        }
+        
+        // File doesn't exist - clear it from database
+        $this->update(['logo' => null]);
+        return null;
+    }
+
+    /**
      * Get favicon URL, generating default if needed
      */
     public function getFaviconUrl(): string

@@ -167,8 +167,11 @@
                 <div class="mb-2">
                     <strong>Bill Attachment:</strong>
                     <div>
-                        @if($material->bill_attachment)
-                            <a href="{{ asset('storage/'.$material->bill_attachment) }}" target="_blank">View Bill</a>
+                        @php
+                            $billUrl = storage_url($material->bill_attachment);
+                        @endphp
+                        @if($billUrl)
+                            <a href="{{ $billUrl }}" target="_blank">View Bill</a>
                         @else
                             <span class="text-muted">Not uploaded</span>
                         @endif
@@ -177,8 +180,11 @@
                 <div class="mb-2">
                     <strong>Delivery Photo:</strong>
                     <div>
-                        @if($material->delivery_photo)
-                            <a href="{{ asset('storage/'.$material->delivery_photo) }}" target="_blank">View Photo</a>
+                        @php
+                            $photoUrl = storage_url($material->delivery_photo);
+                        @endphp
+                        @if($photoUrl)
+                            <a href="{{ $photoUrl }}" target="_blank">View Photo</a>
                         @else
                             <span class="text-muted">Not uploaded</span>
                         @endif

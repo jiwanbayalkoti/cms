@@ -171,15 +171,20 @@
                         <p class="text-sm font-medium text-gray-700 mb-2">Current Images:</p>
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                             @foreach($expense->images as $image)
-                                <div class="relative group">
-                                    <img src="{{ asset('storage/' . $image) }}" class="w-full h-32 object-cover rounded-lg border border-gray-200" alt="Expense Image">
-                                    <label class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                                        <input type="checkbox" name="delete_images[]" value="{{ $image }}" class="hidden" onchange="this.previousElementSibling.style.opacity = this.checked ? '1' : '0'">
-                                        <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                    </label>
-                                </div>
+                                @php
+                                    $imageUrl = storage_url($image);
+                                @endphp
+                                @if($imageUrl)
+                                    <div class="relative group">
+                                        <img src="{{ $imageUrl }}" class="w-full h-32 object-cover rounded-lg border border-gray-200" alt="Expense Image">
+                                        <label class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                            <input type="checkbox" name="delete_images[]" value="{{ $image }}" class="hidden" onchange="this.previousElementSibling.style.opacity = this.checked ? '1' : '0'">
+                                            <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </label>
+                                    </div>
+                                @endif
                             @endforeach
                         </div>
                         <p class="text-xs text-gray-500 mt-2">Check images to delete them</p>

@@ -105,7 +105,12 @@
                     <h5 class="mb-0">QR Code</h5>
                 </div>
                 <div class="card-body text-center">
-                    <img src="{{ asset('storage/' . $supplier->qr_code_image) }}" alt="QR Code" class="img-fluid" style="max-width: 300px;">
+                    @php
+                        $qrUrl = storage_url($supplier->qr_code_image);
+                    @endphp
+                    @if($qrUrl)
+                        <img src="{{ $qrUrl }}" alt="QR Code" class="img-fluid" style="max-width: 300px;">
+                    @endif
                     <p class="text-muted small mt-2">Bank QR Code</p>
                 </div>
             </div>
