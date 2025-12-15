@@ -267,6 +267,7 @@
             
             /* Sidebar - hidden by default, overlays when open */
             .sidebar {
+                display: none;
                 position: fixed;
                 left: 0;
                 top: 0;
@@ -280,6 +281,7 @@
             }
             
             .sidebar.mobile-open {
+                display: block;
                 transform: translateX(0);
             }
             
