@@ -49,8 +49,17 @@ class Company extends Model
      */
     public function getFaviconUrl(): string
     {
-        if ($this->favicon && \Illuminate\Support\Facades\Storage::disk('public')->exists($this->favicon)) {
-            return asset('storage/' . $this->favicon);
+        $storage = \Illuminate\Support\Facades\Storage::disk('public');
+        
+        // Check if favicon exists in database and on disk
+        if ($this->favicon) {
+            if ($storage->exists($this->favicon)) {
+                // Use Storage URL helper for better compatibility
+                return $storage->url($this->favicon);
+            } else {
+                // File path exists in DB but file doesn't exist - clear it
+                $this->update(['favicon' => null]);
+            }
         }
         
         // Generate default if not exists
@@ -58,14 +67,19 @@ class Company extends Model
             try {
                 $faviconService = app(\App\Services\FaviconGeneratorService::class);
                 $faviconPath = $faviconService->generateDefaultFavicon($this->name);
-                $this->update(['favicon' => $faviconPath]);
-                return asset('storage/' . $faviconPath);
+                
+                // Verify file was created
+                if ($storage->exists($faviconPath)) {
+                    $this->update(['favicon' => $faviconPath]);
+                    return $storage->url($faviconPath);
+                }
             } catch (\Exception $e) {
-                // Fallback if generation fails
-                return asset('favicon.ico');
+                // Log error for debugging
+                \Log::error('Favicon generation failed: ' . $e->getMessage());
             }
         }
         
+        // Fallback
         return asset('favicon.ico');
     }
 }

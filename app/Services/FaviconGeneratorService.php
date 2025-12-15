@@ -73,19 +73,26 @@ class FaviconGeneratorService
         
         imagestring($image, $fontSize, $x, $y, $firstLetter, $white);
         
-        // Save to storage
+        // Save to storage using Storage facade for better compatibility
         $filename = 'companies/favicons/' . md5($companyName) . '.png';
-        $path = storage_path('app/public/' . $filename);
+        
+        // Use Storage to ensure proper path handling
+        $storage = Storage::disk('public');
         
         // Ensure directory exists
-        $directory = dirname($path);
-        if (!is_dir($directory)) {
-            mkdir($directory, 0755, true);
+        $directory = dirname($filename);
+        if (!$storage->exists($directory)) {
+            $storage->makeDirectory($directory);
         }
         
-        // Save image
-        imagepng($image, $path);
+        // Save image to temporary file first, then move to storage
+        $tempPath = sys_get_temp_dir() . '/' . uniqid('favicon_') . '.png';
+        imagepng($image, $tempPath);
         imagedestroy($image);
+        
+        // Move to storage
+        $storage->put($filename, file_get_contents($tempPath));
+        @unlink($tempPath); // Clean up temp file
         
         return $filename;
     }
@@ -117,19 +124,26 @@ class FaviconGeneratorService
         imagecopyresampled($image, $sourceImage, 0, 0, 0, 0, $size, $size, $sourceWidth, $sourceHeight);
         imagedestroy($sourceImage);
         
-        // Save to storage
+        // Save to storage using Storage facade for better compatibility
         $filename = 'companies/favicons/' . md5($companyName . time()) . '.png';
-        $path = storage_path('app/public/' . $filename);
+        
+        // Use Storage to ensure proper path handling
+        $storage = Storage::disk('public');
         
         // Ensure directory exists
-        $directory = dirname($path);
-        if (!is_dir($directory)) {
-            mkdir($directory, 0755, true);
+        $directory = dirname($filename);
+        if (!$storage->exists($directory)) {
+            $storage->makeDirectory($directory);
         }
         
-        // Save image
-        imagepng($image, $path);
+        // Save image to temporary file first, then move to storage
+        $tempPath = sys_get_temp_dir() . '/' . uniqid('favicon_') . '.png';
+        imagepng($image, $tempPath);
         imagedestroy($image);
+        
+        // Move to storage
+        $storage->put($filename, file_get_contents($tempPath));
+        @unlink($tempPath); // Clean up temp file
         
         return $filename;
     }
@@ -139,19 +153,32 @@ class FaviconGeneratorService
      */
     public function getFaviconUrl($company): string
     {
-        if ($company->favicon && Storage::disk('public')->exists($company->favicon)) {
-            return asset('storage/' . $company->favicon);
+        $storage = Storage::disk('public');
+        
+        // Check if favicon exists in database and on disk
+        if ($company->favicon) {
+            if ($storage->exists($company->favicon)) {
+                // Use Storage URL helper for better compatibility
+                return $storage->url($company->favicon);
+            } else {
+                // File path exists in DB but file doesn't exist - clear it
+                $company->update(['favicon' => null]);
+            }
         }
         
         // Generate default if not exists
         if ($company->name) {
             try {
                 $faviconPath = $this->generateDefaultFavicon($company->name);
-                $company->update(['favicon' => $faviconPath]);
-                return asset('storage/' . $faviconPath);
+                
+                // Verify file was created
+                if ($storage->exists($faviconPath)) {
+                    $company->update(['favicon' => $faviconPath]);
+                    return $storage->url($faviconPath);
+                }
             } catch (\Exception $e) {
-                // Fallback if generation fails
-                return asset('favicon.ico');
+                // Log error for debugging
+                \Log::error('Favicon generation failed: ' . $e->getMessage());
             }
         }
         
