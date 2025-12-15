@@ -8,9 +8,9 @@
     <p class="mt-2 text-gray-600">Generate and view financial reports</p>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
     <!-- Financial Summary Report -->
-    <a href="{{ route('admin.reports.financial-summary') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200">
+    <a href="{{ route('admin.reports.financial-summary') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200 w-full max-w-full overflow-hidden break-words text-left">
         <div class="flex items-center">
             <div class="flex-shrink-0">
                 <svg class="h-12 w-12 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -25,7 +25,7 @@
     </a>
 
     <!-- Income Report -->
-    <a href="{{ route('admin.reports.income') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200">
+    <a href="{{ route('admin.reports.income') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200 w-full max-w-full overflow-hidden break-words text-left">
         <div class="flex items-center">
             <div class="flex-shrink-0">
                 <svg class="h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,7 +40,7 @@
     </a>
 
     <!-- Expense Report -->
-    <a href="{{ route('admin.reports.expense') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200">
+    <a href="{{ route('admin.reports.expense') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200 w-full max-w-full overflow-hidden break-words text-left">
         <div class="flex items-center">
             <div class="flex-shrink-0">
                 <svg class="h-12 w-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,7 +55,7 @@
     </a>
 
     <!-- Project Material Report -->
-    <a href="{{ route('admin.reports.project-materials') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200">
+    <a href="{{ route('admin.reports.project-materials') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200 w-full max-w-full overflow-hidden break-words text-left">
         <div class="flex items-center">
             <div class="flex-shrink-0">
                 <svg class="h-12 w-12 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,7 +70,7 @@
     </a>
 
     <!-- Staff Payment Report -->
-    <a href="{{ route('admin.reports.staff-payment') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200">
+    <a href="{{ route('admin.reports.staff-payment') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200 w-full max-w-full overflow-hidden break-words text-left">
         <div class="flex items-center">
             <div class="flex-shrink-0">
                 <svg class="h-12 w-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,7 +85,7 @@
     </a>
 
     <!-- Balance Sheet Report -->
-    <a href="{{ route('admin.reports.balance-sheet') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200">
+    <a href="{{ route('admin.reports.balance-sheet') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200 w-full max-w-full overflow-hidden break-words text-left">
         <div class="flex items-center">
             <div class="flex-shrink-0">
                 <svg class="h-12 w-12 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

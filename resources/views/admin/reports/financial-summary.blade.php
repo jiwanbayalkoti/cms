@@ -12,20 +12,34 @@
 
 <!-- Date Filter -->
 <div class="bg-white shadow-lg rounded-lg p-6 mb-6">
-    <form method="GET" action="{{ route('admin.reports.financial-summary') }}" class="flex items-end gap-4">
-        <div class="flex-1">
+    <form method="GET" action="{{ route('admin.reports.financial-summary') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div>
             <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
             <input type="date" name="start_date" id="start_date" value="{{ $startDate }}" required
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
         </div>
-        <div class="flex-1">
+        <div>
             <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
             <input type="date" name="end_date" id="end_date" value="{{ $endDate }}" required
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
         </div>
-        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg transition duration-200">
-            Filter
-        </button>
+        <div>
+            <label for="project_id" class="block text-sm font-medium text-gray-700 mb-2">Project</label>
+            <select name="project_id" id="project_id"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="">All Projects</option>
+                @foreach($projects as $project)
+                    <option value="{{ $project->id }}" {{ (int)$projectId === $project->id ? 'selected' : '' }}>
+                        {{ $project->name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+        <div class="flex md:block">
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg transition duration-200">
+                Filter
+            </button>
+        </div>
     </form>
 </div>
 

@@ -45,8 +45,9 @@
         
         /* Sidebar Styles */
         .sidebar {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s ease;
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 50;
         }
         
         .sidebar.collapsed {
@@ -271,13 +272,18 @@
                 height: 100vh;
                 width: 256px !important;
                 max-width: 85vw;
-                transform: translateX(-100%);
+                transform: translateX(-110%);
                 transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 box-shadow: 2px 0 20px rgba(0, 0, 0, 0.3);
             }
             
             .sidebar.mobile-open {
                 transform: translateX(0);
+            }
+            
+            /* Keep main content full width on mobile */
+            .flex-1.flex.flex-col {
+                width: 100%;
             }
             
             .sidebar.collapsed,
@@ -733,6 +739,9 @@
                         toggleIcon.style.transform = 'rotate(180deg)';
                     }
                 }
+            } else {
+                // Hide sidebar on initial load for mobile
+                closeSidebarMobile();
             }
             
             // Toggle sidebar (desktop only)

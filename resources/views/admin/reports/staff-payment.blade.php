@@ -12,7 +12,7 @@
 
 <!-- Date Filter -->
 <div class="bg-white shadow-lg rounded-lg p-6 mb-6">
-    <form method="GET" action="{{ route('admin.reports.staff-payment') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <form method="GET" action="{{ route('admin.reports.staff-payment') }}" class="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div>
             <label for="start_date" class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
             <input type="date" name="start_date" id="start_date" value="{{ $startDate }}" required
@@ -22,6 +22,18 @@
             <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
             <input type="date" name="end_date" id="end_date" value="{{ $endDate }}" required
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div>
+            <label for="project_id" class="block text-sm font-medium text-gray-700 mb-2">Project</label>
+            <select name="project_id" id="project_id"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="">All Projects</option>
+                @foreach($projects as $project)
+                    <option value="{{ $project->id }}" {{ (int)$projectId === $project->id ? 'selected' : '' }}>
+                        {{ $project->name }}
+                    </option>
+                @endforeach
+            </select>
         </div>
         <div>
             <label for="staff_id" class="block text-sm font-medium text-gray-700 mb-2">Staff Member</label>
