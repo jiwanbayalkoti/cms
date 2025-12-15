@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title', 'Admin Panel') - {{ config('app.name', 'Laravel') }}</title>
-    
+
     @php
         use App\Support\CompanyContext;
         $activeCompanyId = CompanyContext::getActiveCompanyId();

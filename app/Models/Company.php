@@ -56,19 +56,8 @@ class Company extends Model
         $storage = \Illuminate\Support\Facades\Storage::disk('public');
         
         if ($storage->exists($this->logo)) {
-            // Try multiple URL generation methods for compatibility
-            $url = asset('storage/' . $this->logo);
-            
-            // For live server compatibility, also check if we need absolute URL
-            if (config('app.env') === 'production') {
-                // Ensure we have a full URL if APP_URL is set
-                $appUrl = config('app.url');
-                if ($appUrl && !str_starts_with($url, 'http')) {
-                    $url = rtrim($appUrl, '/') . '/' . ltrim($url, '/');
-                }
-            }
-            
-            return $url;
+            // Use asset() for better compatibility with different server configurations
+            return asset('storage/' . $this->logo);
         }
         
         // File doesn't exist - clear it from database
@@ -86,19 +75,8 @@ class Company extends Model
         // Check if favicon exists in database and on disk
         if ($this->favicon) {
             if ($storage->exists($this->favicon)) {
-                // Try multiple URL generation methods for compatibility
-                $url = asset('storage/' . $this->favicon);
-                
-                // For live server compatibility, also check if we need absolute URL
-                if (config('app.env') === 'production') {
-                    // Ensure we have a full URL if APP_URL is set
-                    $appUrl = config('app.url');
-                    if ($appUrl && !str_starts_with($url, 'http')) {
-                        $url = rtrim($appUrl, '/') . '/' . ltrim($url, '/');
-                    }
-                }
-                
-                return $url;
+                // Use asset() for better compatibility with different server configurations
+                return asset('storage/' . $this->favicon);
             } else {
                 // File path exists in DB but file doesn't exist - clear it
                 $this->update(['favicon' => null]);
@@ -114,17 +92,7 @@ class Company extends Model
                 // Verify file was created
                 if ($storage->exists($faviconPath)) {
                     $this->update(['favicon' => $faviconPath]);
-                    $url = asset('storage/' . $faviconPath);
-                    
-                    // For live server compatibility
-                    if (config('app.env') === 'production') {
-                        $appUrl = config('app.url');
-                        if ($appUrl && !str_starts_with($url, 'http')) {
-                            $url = rtrim($appUrl, '/') . '/' . ltrim($url, '/');
-                        }
-                    }
-                    
-                    return $url;
+                    return asset('storage/' . $faviconPath);
                 }
             } catch (\Exception $e) {
                 // Log error for debugging

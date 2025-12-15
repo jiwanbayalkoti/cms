@@ -116,7 +116,7 @@ class CompletedWorkController extends Controller
         // Auto-generate description if not provided
         if (empty($validated['description'])) {
             if ($inputMethod === 'dimensions' && isset($validated['length']) && isset($validated['width']) && isset($validated['height'])) {
-                $validated['description'] = $validated['work_type'] . ' ' . $validated['length'] . 'm × ' . $validated['width'] . 'm × ' . $validated['height'] . 'm';
+            $validated['description'] = $validated['work_type'] . ' ' . $validated['length'] . 'm × ' . $validated['width'] . 'm × ' . $validated['height'] . 'm';
             } else {
                 $validated['description'] = $validated['work_type'] . ' - Quantity: ' . $validated['quantity'] . ' ' . $validated['uom'];
             }
@@ -181,7 +181,7 @@ class CompletedWorkController extends Controller
         // Auto-generate description if not provided
         if (empty($validated['description'])) {
             if ($inputMethod === 'dimensions' && isset($validated['length']) && isset($validated['width']) && isset($validated['height'])) {
-                $validated['description'] = $validated['work_type'] . ' ' . $validated['length'] . 'm × ' . $validated['width'] . 'm × ' . $validated['height'] . 'm';
+            $validated['description'] = $validated['work_type'] . ' ' . $validated['length'] . 'm × ' . $validated['width'] . 'm × ' . $validated['height'] . 'm';
             } else {
                 $validated['description'] = $validated['work_type'] . ' - Quantity: ' . $validated['quantity'] . ' ' . $validated['uom'];
             }

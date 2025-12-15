@@ -1489,7 +1489,7 @@ function updateExportPayload(totals = null) {
 
     const toolsMachinesTotal = toolsMachines.reduce((sum, item) => sum + item.total_cost, 0);
     const grandTotal = totals ? (totals.total_cost || 0) + toolsMachinesTotal : toolsMachinesTotal;
-    
+
     const summary = {
         totals: totals ? {
             cement_bags: roundValue(totals.cement_bags || 0),

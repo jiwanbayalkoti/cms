@@ -12,10 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasTable('staff') && !Schema::hasColumn('staff', 'project_id')) {
-            Schema::table('staff', function (Blueprint $table) {
+        Schema::table('staff', function (Blueprint $table) {
                 $table->foreignId('project_id')->nullable()->after('company_id')->constrained('projects')->nullOnDelete();
                 $table->index('project_id');
-            });
+        });
         }
     }
 
@@ -25,10 +25,10 @@ return new class extends Migration
     public function down(): void
     {
         if (Schema::hasTable('staff') && Schema::hasColumn('staff', 'project_id')) {
-            Schema::table('staff', function (Blueprint $table) {
+        Schema::table('staff', function (Blueprint $table) {
                 $table->dropForeign(['project_id']);
                 $table->dropColumn('project_id');
-            });
+        });
         }
     }
 };
