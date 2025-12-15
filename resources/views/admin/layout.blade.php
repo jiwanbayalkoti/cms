@@ -6,6 +6,23 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title', 'Admin Panel') - {{ config('app.name', 'Laravel') }}</title>
+    
+    @php
+        use App\Support\CompanyContext;
+        $activeCompanyId = CompanyContext::getActiveCompanyId();
+        $faviconUrl = asset('favicon.ico');
+        if ($activeCompanyId) {
+            try {
+                $company = \App\Models\Company::find($activeCompanyId);
+                if ($company) {
+                    $faviconUrl = $company->getFaviconUrl();
+                }
+            } catch (\Exception $e) {
+                // Fallback to default
+            }
+        }
+    @endphp
+    <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -584,10 +601,9 @@
                             @endif
                             
                             @php
-                                use App\Support\CompanyContext;
                                 use App\Support\ProjectContext;
                                 
-                                $activeCompanyId = CompanyContext::getActiveCompanyId();
+                                $activeCompanyId = \App\Support\CompanyContext::getActiveCompanyId();
                                 $activeProjectId = ProjectContext::getActiveProjectId();
                                 $headerProjects = collect([]);
                                 

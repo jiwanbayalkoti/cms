@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Support\CompanyContext;
+use App\Services\FaviconGeneratorService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class CompanyController extends Controller
 {
@@ -41,13 +43,25 @@ class CompanyController extends Controller
             'country' => 'nullable|string|max:100',
             'zip' => 'nullable|string|max:20',
             'logo' => 'nullable|image|max:5120',
+            'favicon' => 'nullable|image|max:1024',
         ]);
 
         if ($request->hasFile('logo')) {
             $validated['logo'] = $request->file('logo')->store('companies', 'public');
         }
 
-        Company::create($validated);
+        $company = Company::create($validated);
+
+        // Handle favicon
+        $faviconService = app(FaviconGeneratorService::class);
+        if ($request->hasFile('favicon')) {
+            $validated['favicon'] = $faviconService->generateFromFile($request->file('favicon'), $company->name);
+            $company->update(['favicon' => $validated['favicon']]);
+        } else {
+            // Generate default favicon from first letter
+            $validated['favicon'] = $faviconService->generateDefaultFavicon($company->name);
+            $company->update(['favicon' => $validated['favicon']]);
+        }
 
         return redirect()->route('admin.companies.index')->with('success', 'Company created successfully.');
     }
@@ -151,14 +165,28 @@ class CompanyController extends Controller
             'country' => 'nullable|string|max:100',
             'zip' => 'nullable|string|max:20',
             'logo' => 'nullable|image|max:5120',
+            'favicon' => 'nullable|image|max:1024',
         ]);
 
         if ($request->hasFile('logo')) {
             // delete old logo file if exists
-            if ($company->logo && \Illuminate\Support\Facades\Storage::disk('public')->exists($company->logo)) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($company->logo);
+            if ($company->logo && Storage::disk('public')->exists($company->logo)) {
+                Storage::disk('public')->delete($company->logo);
             }
             $validated['logo'] = $request->file('logo')->store('companies', 'public');
+        }
+
+        // Handle favicon
+        $faviconService = app(FaviconGeneratorService::class);
+        if ($request->hasFile('favicon')) {
+            // delete old favicon file if exists
+            if ($company->favicon && Storage::disk('public')->exists($company->favicon)) {
+                Storage::disk('public')->delete($company->favicon);
+            }
+            $validated['favicon'] = $faviconService->generateFromFile($request->file('favicon'), $company->name);
+        } elseif (!$company->favicon) {
+            // Generate default favicon if none exists
+            $validated['favicon'] = $faviconService->generateDefaultFavicon($company->name);
         }
 
         $company->update($validated);

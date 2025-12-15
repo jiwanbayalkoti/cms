@@ -48,6 +48,23 @@
                     </div>
 
                     <div class="col-md-12">
+                        <label class="form-label fw-semibold">Favicon</label>
+                        @if($company->favicon)
+                            <div class="mb-3">
+                                <img src="{{ asset('storage/' . $company->favicon) }}" alt="Company Favicon" 
+                                    class="img-thumbnail" style="max-height: 32px; width: 32px;">
+                                <p class="text-muted small mt-2">Current favicon</p>
+                            </div>
+                        @endif
+                        <input type="file" name="favicon" accept="image/*" 
+                            class="form-control @error('favicon') is-invalid @enderror">
+                        <small class="text-muted">Max file size: 1MB. Recommended size: 32x32px. If not provided, a default favicon will be generated using the first letter of the company name.</small>
+                        @error('favicon')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-12">
                         <label class="form-label fw-semibold">Address</label>
                         <input type="text" name="address" value="{{ old('address', $company->address) }}" 
                             class="form-control @error('address') is-invalid @enderror">

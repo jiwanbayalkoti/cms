@@ -21,6 +21,7 @@ class Company extends Model
         'country',
         'zip',
         'logo',
+        'favicon',
     ];
 
     public function users()
@@ -41,6 +42,31 @@ class Company extends Model
     public function projects()
     {
         return $this->hasMany(Project::class);
+    }
+
+    /**
+     * Get favicon URL, generating default if needed
+     */
+    public function getFaviconUrl(): string
+    {
+        if ($this->favicon && \Illuminate\Support\Facades\Storage::disk('public')->exists($this->favicon)) {
+            return asset('storage/' . $this->favicon);
+        }
+        
+        // Generate default if not exists
+        if ($this->name) {
+            try {
+                $faviconService = app(\App\Services\FaviconGeneratorService::class);
+                $faviconPath = $faviconService->generateDefaultFavicon($this->name);
+                $this->update(['favicon' => $faviconPath]);
+                return asset('storage/' . $faviconPath);
+            } catch (\Exception $e) {
+                // Fallback if generation fails
+                return asset('favicon.ico');
+            }
+        }
+        
+        return asset('favicon.ico');
     }
 }
 

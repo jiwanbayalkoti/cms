@@ -32,6 +32,18 @@
     @error('logo')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
   </div>
 
+  <div class="mb-4">
+    <label class="block text-sm font-medium mb-1">Favicon</label>
+    @if($company->favicon)
+      <div class="mb-2">
+        <img src="{{ asset('storage/' . $company->favicon) }}" alt="Company Favicon" class="h-8 w-8 rounded shadow">
+      </div>
+    @endif
+    <input type="file" name="favicon" accept="image/*" class="w-full border rounded px-3 py-2 @error('favicon') border-red-500 @enderror">
+    <p class="text-gray-500 text-xs mt-1">Upload a favicon (32x32 recommended). If not provided, a default favicon will be generated using the first letter of the company name.</p>
+    @error('favicon')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
+  </div>
+
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div>
       <label class="block text-sm font-medium mb-1">Email</label>
