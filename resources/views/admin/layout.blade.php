@@ -2,7 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title', 'Admin Panel') - {{ config('app.name', 'Laravel') }}</title>
@@ -250,17 +250,33 @@
         }
         
         @media (max-width: 768px) {
+            /* Full screen layout on mobile */
+            body {
+                margin: 0;
+                padding: 0;
+                width: 100vw;
+                overflow-x: hidden;
+            }
+            
+            .min-h-screen {
+                min-height: 100vh;
+                width: 100vw;
+                margin: 0;
+                padding: 0;
+            }
+            
+            /* Sidebar - hidden by default, overlays when open */
             .sidebar {
                 position: fixed;
                 left: 0;
                 top: 0;
-                z-index: 50;
+                z-index: 1000;
                 height: 100vh;
-                width: 256px !important;
+                width: 280px !important;
                 max-width: 85vw;
                 transform: translateX(-100%);
                 transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                box-shadow: 2px 0 20px rgba(0, 0, 0, 0.3);
+                box-shadow: 2px 0 20px rgba(0, 0, 0, 0.5);
             }
             
             .sidebar.mobile-open {
@@ -269,7 +285,7 @@
             
             .sidebar.collapsed,
             .sidebar.expanded {
-                width: 256px !important;
+                width: 280px !important;
                 max-width: 85vw;
             }
             
@@ -277,18 +293,21 @@
                 display: none !important;
             }
             
+            /* Overlay - shows when sidebar is open */
             .sidebar-overlay {
                 display: none;
                 position: fixed;
                 inset: 0;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: 40;
+                background: rgba(0, 0, 0, 0.6);
+                z-index: 999;
                 transition: opacity 0.3s ease;
                 backdrop-filter: blur(2px);
+                opacity: 0;
             }
             
             .sidebar-overlay.active {
                 display: block;
+                opacity: 1;
             }
             
             /* Ensure sidebar content is always visible on mobile */
@@ -301,8 +320,15 @@
                 display: block !important;
             }
             
+            /* Submenu handling on mobile */
             .sidebar .submenu {
-                display: block !important;
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease-out;
+            }
+            
+            .sidebar .submenu:not(.hidden) {
+                max-height: 500px;
             }
             
             /* Prevent body scroll when sidebar is open */
@@ -310,11 +336,48 @@
                 overflow: hidden;
                 position: fixed;
                 width: 100%;
+                height: 100%;
             }
             
-            /* Ensure main content doesn't shift on mobile */
+            /* Main content - full width on mobile */
             .flex-1.flex.flex-col {
+                width: 100vw;
+                margin: 0;
+                padding: 0;
+            }
+            
+            /* Header adjustments */
+            nav {
+                width: 100vw;
+                margin: 0;
+                padding: 0 0.5rem;
+            }
+            
+            /* Main content area */
+            main {
+                width: 100vw;
+                margin: 0;
+                padding: 0.5rem;
+                overflow-x: hidden;
+            }
+            
+            main .max-w-7xl {
+                max-width: 100%;
+                padding: 0;
+                margin: 0;
+            }
+            
+            /* Ensure cards and content fit mobile */
+            .card, .bg-white {
                 width: 100%;
+                max-width: 100%;
+            }
+            
+            /* Fix table overflow on mobile */
+            .table-responsive {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
         }
         
@@ -403,7 +466,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="projects-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $projectsOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="projects-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $projectsOpen ? 'mt-2' : 'hidden' }}">
                         <a href="{{ route('admin.projects.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.projects.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">All Projects</span>
                         </a>
@@ -419,7 +482,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="materials-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $materialsOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="materials-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $materialsOpen ? 'mt-2' : 'hidden' }}">
                     <a href="{{ route('admin.material-calculator.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.material-calculator.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Material Calculator</span>
                         </a>   
@@ -460,7 +523,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="billing-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $billingOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="billing-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $billingOpen ? 'mt-2' : 'hidden' }}">
                         <a href="{{ route('admin.bill-modules.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.bill-modules.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Final Bills / Estimates</span>
                         </a>
@@ -485,7 +548,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="staff-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $staffOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="staff-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $staffOpen ? 'mt-2' : 'hidden' }}">
                         <a href="{{ route('admin.staff.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.staff.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Staff</span>
                         </a>
@@ -509,7 +572,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="finance-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $financeOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="finance-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $financeOpen ? 'mt-2' : 'hidden' }}">
                         <a href="{{ route('admin.incomes.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.incomes.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Income</span>
                         </a>
@@ -537,7 +600,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="accounting-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $accountingOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="accounting-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $accountingOpen ? 'mt-2' : 'hidden' }}">
                         <a href="{{ route('admin.chart-of-accounts.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.chart-of-accounts.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Chart of Accounts</span>
                         </a>
@@ -784,33 +847,65 @@
                 document.body.classList.remove('sidebar-open');
             }
             
-            // Handle submenu toggles
+            // Handle submenu toggles (works on both desktop and mobile)
             document.querySelectorAll('#sidebar-nav .group-toggle').forEach(function (button) {
-                button.addEventListener('click', function () {
+                button.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
                     const targetId = button.getAttribute('data-target');
                     const panel = document.getElementById(targetId);
                     const expanded = button.getAttribute('aria-expanded') === 'true';
 
                     if (panel) {
+                        // Toggle hidden class
                         panel.classList.toggle('hidden');
-                        button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+                        
+                        // Update aria-expanded
+                        const newExpanded = !expanded;
+                        button.setAttribute('aria-expanded', newExpanded ? 'true' : 'false');
+                        
+                        // Toggle chevron icon rotation
                         const icon = button.querySelector('[data-icon="chevron"]');
                         if (icon) {
-                            icon.classList.toggle('rotate-180', !expanded);
+                            if (newExpanded) {
+                                icon.classList.add('rotate-180');
+                            } else {
+                                icon.classList.remove('rotate-180');
+                            }
                         }
                     }
                 });
             });
             
-            // Close mobile sidebar when clicking outside
+            // Close mobile sidebar when clicking outside or on overlay
             document.addEventListener('click', function(event) {
                 if (isMobile() && 
                     sidebar.classList.contains('mobile-open') &&
                     !sidebar.contains(event.target) && 
                     sidebarToggleMobile && 
-                    !sidebarToggleMobile.contains(event.target)) {
+                    !sidebarToggleMobile.contains(event.target) &&
+                    event.target !== sidebarOverlay) {
                     closeSidebarMobile();
                 }
+            });
+            
+            // Prevent sidebar from closing when clicking inside it
+            if (sidebar) {
+                sidebar.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                });
+            }
+            
+            // Handle window resize
+            let resizeTimer;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    if (!isMobile() && sidebar.classList.contains('mobile-open')) {
+                        closeSidebarMobile();
+                    }
+                }, 250);
             });
             
             // Handle window resize
