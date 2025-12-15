@@ -158,8 +158,8 @@ class FaviconGeneratorService
         // Check if favicon exists in database and on disk
         if ($company->favicon) {
             if ($storage->exists($company->favicon)) {
-                // Use Storage URL helper for better compatibility
-                return $storage->url($company->favicon);
+                // Use asset() for better compatibility with different server configurations
+                return asset('storage/' . $company->favicon);
             } else {
                 // File path exists in DB but file doesn't exist - clear it
                 $company->update(['favicon' => null]);
@@ -174,7 +174,7 @@ class FaviconGeneratorService
                 // Verify file was created
                 if ($storage->exists($faviconPath)) {
                     $company->update(['favicon' => $faviconPath]);
-                    return $storage->url($faviconPath);
+                    return asset('storage/' . $faviconPath);
                 }
             } catch (\Exception $e) {
                 // Log error for debugging

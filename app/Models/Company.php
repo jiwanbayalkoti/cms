@@ -56,7 +56,8 @@ class Company extends Model
         $storage = \Illuminate\Support\Facades\Storage::disk('public');
         
         if ($storage->exists($this->logo)) {
-            return $storage->url($this->logo);
+            // Use asset() for better compatibility with different server configurations
+            return asset('storage/' . $this->logo);
         }
         
         // File doesn't exist - clear it from database
@@ -74,8 +75,8 @@ class Company extends Model
         // Check if favicon exists in database and on disk
         if ($this->favicon) {
             if ($storage->exists($this->favicon)) {
-                // Use Storage URL helper for better compatibility
-                return $storage->url($this->favicon);
+                // Use asset() for better compatibility with different server configurations
+                return asset('storage/' . $this->favicon);
             } else {
                 // File path exists in DB but file doesn't exist - clear it
                 $this->update(['favicon' => null]);
@@ -91,7 +92,7 @@ class Company extends Model
                 // Verify file was created
                 if ($storage->exists($faviconPath)) {
                     $this->update(['favicon' => $faviconPath]);
-                    return $storage->url($faviconPath);
+                    return asset('storage/' . $faviconPath);
                 }
             } catch (\Exception $e) {
                 // Log error for debugging

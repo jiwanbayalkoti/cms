@@ -18,7 +18,8 @@ if (!function_exists('storage_url')) {
         $storage = Storage::disk('public');
         
         if ($storage->exists($path)) {
-            return $storage->url($path);
+            // Use asset() for better compatibility with different server configurations
+            return asset('storage/' . $path);
         }
         
         return null;
