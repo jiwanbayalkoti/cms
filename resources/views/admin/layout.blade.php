@@ -357,9 +357,54 @@
 <div class="flex flex-col items-center justify-center mb-6 gap-1">
   <!-- Top row: logo and toggle button -->
   <div class="flex flex-row items-center justify-center gap-2 w-full">
-    <a href="{{ route('admin.dashboard') }}" class="block">
+    <!-- <a href="{{ route('admin.dashboard') }}" class="block">
       <img src="{{ asset('logo.svg') }}" alt="Company Logo" class="w-full max-w-[120px] h-auto rounded-lg shadow-lg bg-white p-1 object-contain" style="object-fit:contain;">
-                    </a>
+                    </a> -->
+                    <svg width="150" height="50" viewBox="0 0 340 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cmsBlue" x1="0" y1="0" x2="340" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1176d7"/>
+      <stop offset="1" stop-color="#43bafc"/>
+    </linearGradient>
+    <linearGradient id="cmsLight" x1="25" y1="75" x2="330" y2="100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#63d4ff"/>
+      <stop offset="1" stop-color="#3aafea"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#1c3045" flood-opacity=".2"/>
+    </filter>
+  </defs>
+  <!-- Main CMS letters with slant and gradient -->
+  <text x="0" y="73"
+        font-family="'Arial Black', Impact, Arial, sans-serif"
+        font-size="85" font-weight="bold"
+        font-style="italic"
+        fill="url(#cmsBlue)"
+        letter-spacing="2"
+        filter="url(#shadow)">CMS</text>
+  <!-- The wave underline with gradient and highlight -->
+  <path d="M22 81
+           Q90 95 170 81
+           Q255 65 320 81
+           Q300 98 170 97
+           Q55 94 22 81
+           Z"
+        fill="url(#cmsLight)"
+        stroke="#49bdff" stroke-width="1"/>
+  <!-- Optional: subtle highlight outline for the top edge of the wave -->
+  <path d="M24 83
+           Q90 95 170 80
+           Q255 65 318 83"
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="2"
+        opacity="0.2"/>
+  <!-- Vertical subtitle -->
+  <text x="230" y="25" font-size="17" font-family="Arial, sans-serif" fill="#ffffff">construction</text>
+  <text x="230" y="48" font-size="17" font-family="Arial, sans-serif" fill="#ffffff">management</text>
+  <text x="230" y="71" font-size="17" font-family="Arial, sans-serif" fill="#ffffff">system</text>
+</svg>
+
     <button id="sidebarToggle" class="sidebar-toggle-btn h-[44px] px-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-all duration-200 flex items-center justify-center flex-shrink-0" aria-label="Toggle Sidebar">
       <svg id="sidebarToggleIcon" class="w-6 h-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
         <rect y="4" width="24" height="2" rx="1" fill="currentColor"/>
