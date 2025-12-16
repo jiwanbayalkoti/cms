@@ -30,9 +30,6 @@
                         <td>{{ Str::limit($unit->description, 80) }}</td>
                         <td class="text-end">
                             <div class="d-flex gap-1 justify-content-end">
-                                <a href="{{ route('admin.material-units.show', $unit) }}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-eye me-1"></i> View
-                                </a>
                                 <a href="{{ route('admin.material-units.edit', $unit) }}" class="btn btn-sm btn-outline-warning">
                                     <i class="bi bi-pencil me-1"></i> Edit
                                 </a>

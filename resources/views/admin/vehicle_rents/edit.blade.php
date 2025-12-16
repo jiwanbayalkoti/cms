@@ -40,6 +40,18 @@
                 </div>
                 
                 <div class="col-md-3 mb-3">
+                    <label class="form-label">Supplier</label>
+                    <select name="supplier_id" class="form-select">
+                        <option value="">None</option>
+                        @foreach($suppliers as $supplier)
+                            <option value="{{ $supplier->id }}" {{ old('supplier_id', $vehicleRent->supplier_id) == $supplier->id ? 'selected' : '' }}>
+                                {{ $supplier->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                
+                <div class="col-md-3 mb-3">
                     <label class="form-label">Vehicle Type <span class="text-danger">*</span></label>
                     <select name="vehicle_type" id="vehicle_type" class="form-select @error('vehicle_type') is-invalid @enderror" required onchange="handleVehicleTypeChange()">
                         <option value="">Select Vehicle Type</option>

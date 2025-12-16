@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\VehicleRent;
 use App\Models\Project;
+use App\Models\Supplier;
 use App\Models\BankAccount;
+use App\Models\AdvancePayment;
 use App\Support\CompanyContext;
 use App\Exports\VehicleRentExport;
 use Illuminate\Http\Request;
@@ -26,7 +28,7 @@ class VehicleRentController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
         
         $query = VehicleRent::where('company_id', $companyId)
-            ->with(['project', 'bankAccount', 'creator'])
+            ->with(['project', 'supplier', 'bankAccount', 'creator'])
             ->orderBy('rent_date', 'desc')
             ->orderBy('created_at', 'desc');
         
@@ -50,6 +52,11 @@ class VehicleRentController extends Controller
             $query->where('rate_type', $request->rate_type);
         }
         
+        // Filter by supplier
+        if ($request->filled('supplier_id')) {
+            $query->where('supplier_id', $request->supplier_id);
+        }
+        
         // Filter by date range
         if ($request->filled('start_date')) {
             $query->where('rent_date', '>=', $request->start_date);
@@ -65,6 +72,7 @@ class VehicleRentController extends Controller
         $totalAmount = 0;
         $totalPaid = 0;
         $totalBalance = 0;
+        $totalAdvancePayments = 0;
         
         foreach ($allRents as $rent) {
             // Use calculated amounts for ongoing daywise rents
@@ -76,6 +84,19 @@ class VehicleRentController extends Controller
             $totalBalance += $rentBalance;
         }
         
+        // Calculate advance payments only when supplier filter is selected
+        $totalAdvancePayments = 0;
+        $netBalance = $totalBalance;
+        
+        if ($request->filled('supplier_id')) {
+            $totalAdvancePayments = AdvancePayment::where('company_id', $companyId)
+                ->where('supplier_id', $request->supplier_id)
+                ->sum('amount');
+            
+            // Calculate net balance (after advance payments)
+            $netBalance = $totalBalance - $totalAdvancePayments;
+        }
+        
         // Paginate results (calculations for ongoing rents will be done dynamically in views)
         $vehicleRents = $query->paginate(10);
         
@@ -84,9 +105,14 @@ class VehicleRentController extends Controller
             ->orderBy('name')
             ->get();
         
+        $suppliers = Supplier::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        
         $vehicleTypes = VehicleRent::getVehicleTypes();
         
-        return view('admin.vehicle_rents.index', compact('vehicleRents', 'projects', 'vehicleTypes', 'totalAmount', 'totalPaid', 'totalBalance'));
+        return view('admin.vehicle_rents.index', compact('vehicleRents', 'projects', 'suppliers', 'vehicleTypes', 'totalAmount', 'totalPaid', 'totalBalance', 'totalAdvancePayments', 'netBalance'));
     }
 
     /**
@@ -97,7 +123,7 @@ class VehicleRentController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
         
         $query = VehicleRent::where('company_id', $companyId)
-            ->with(['project', 'bankAccount', 'creator'])
+            ->with(['project', 'supplier', 'bankAccount', 'creator'])
             ->orderBy('rent_date', 'desc')
             ->orderBy('created_at', 'desc');
         
@@ -143,6 +169,11 @@ class VehicleRentController extends Controller
             ->orderBy('name')
             ->get();
         
+        $suppliers = Supplier::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        
         $bankAccounts = BankAccount::where('company_id', $companyId)
             ->where('is_active', true)
             ->orderBy('account_name')
@@ -150,7 +181,7 @@ class VehicleRentController extends Controller
         
         $vehicleTypes = VehicleRent::getVehicleTypes();
         
-        return view('admin.vehicle_rents.create', compact('projects', 'bankAccounts', 'vehicleTypes'));
+        return view('admin.vehicle_rents.create', compact('projects', 'suppliers', 'bankAccounts', 'vehicleTypes'));
     }
 
     /**
@@ -166,6 +197,7 @@ class VehicleRentController extends Controller
         
         $validated = $request->validate([
             'project_id' => 'nullable|exists:projects,id',
+            'supplier_id' => 'nullable|exists:suppliers,id',
             'vehicle_type' => 'required|string|max:100',
             'vehicle_number' => 'nullable|string|max:100',
             'driver_name' => 'nullable|string|max:255',
@@ -256,7 +288,15 @@ class VehicleRentController extends Controller
         // Calculate balance using final total amount
         $paidAmount = $validated['paid_amount'] ?? 0;
         $finalTotalAmount = $validated['total_amount'];
-        $balanceAmount = $finalTotalAmount - $paidAmount;
+        
+        // Validate that paid amount doesn't exceed total amount
+        if ($paidAmount > $finalTotalAmount && $finalTotalAmount > 0) {
+            return back()
+                ->withInput()
+                ->withErrors(['paid_amount' => 'Advance payment cannot exceed total amount.']);
+        }
+        
+        $balanceAmount = max(0, $finalTotalAmount - $paidAmount);
         
         // Determine payment status
         $paymentStatus = 'unpaid';
@@ -299,6 +339,11 @@ class VehicleRentController extends Controller
             ->orderBy('name')
             ->get();
         
+        $suppliers = Supplier::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        
         $bankAccounts = BankAccount::where('company_id', $companyId)
             ->where('is_active', true)
             ->orderBy('account_name')
@@ -306,7 +351,7 @@ class VehicleRentController extends Controller
         
         $vehicleTypes = VehicleRent::getVehicleTypes();
         
-        return view('admin.vehicle_rents.edit', compact('vehicleRent', 'projects', 'bankAccounts', 'vehicleTypes'));
+        return view('admin.vehicle_rents.edit', compact('vehicleRent', 'projects', 'suppliers', 'bankAccounts', 'vehicleTypes'));
     }
 
     /**
@@ -320,6 +365,7 @@ class VehicleRentController extends Controller
         
         $validated = $request->validate([
             'project_id' => 'nullable|exists:projects,id',
+            'supplier_id' => 'nullable|exists:suppliers,id',
             'vehicle_type' => 'required|string|max:100',
             'vehicle_number' => 'nullable|string|max:100',
             'driver_name' => 'nullable|string|max:255',

@@ -130,6 +130,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Vehicle Rent Management
         Route::resource('vehicle-rents', \App\Http\Controllers\Admin\VehicleRentController::class);
         Route::get('vehicle-rents/export/excel', [\App\Http\Controllers\Admin\VehicleRentController::class, 'export'])->name('vehicle-rents.export');
+        
+        // Advance Payments
+        Route::resource('advance-payments', \App\Http\Controllers\Admin\AdvancePaymentController::class);
 
         // Reports
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');

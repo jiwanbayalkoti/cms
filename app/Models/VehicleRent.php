@@ -14,6 +14,7 @@ class VehicleRent extends Model
     protected $fillable = [
         'company_id',
         'project_id',
+        'supplier_id',
         'vehicle_type',
         'vehicle_number',
         'driver_name',
@@ -77,6 +78,14 @@ class VehicleRent extends Model
     public function project()
     {
         return $this->belongsTo(Project::class);
+    }
+
+    /**
+     * Get the supplier.
+     */
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     /**

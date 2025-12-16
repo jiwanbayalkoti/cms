@@ -14,6 +14,8 @@ use App\Models\Project;
 use App\Models\PurchasedBy;
 use App\Models\Supplier;
 use App\Models\WorkType;
+use App\Models\AdvancePayment;
+use App\Support\CompanyContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -28,14 +30,20 @@ class ConstructionMaterialController extends Controller
 
     public function index(Request $request)
     {
-        $query = ConstructionMaterial::query();
+        $companyId = CompanyContext::getActiveCompanyId();
+        
+        $query = ConstructionMaterial::where('company_id', $companyId);
 
         if ($request->filled('material_name')) {
             $query->where('material_name', 'like', '%' . $request->material_name . '%');
         }
 
-        if ($request->filled('supplier_name')) {
-            $query->where('supplier_name', 'like', '%' . $request->supplier_name . '%');
+        if ($request->filled('supplier_id')) {
+            // Get supplier name by ID and filter materials by supplier_name
+            $supplier = Supplier::where('company_id', $companyId)->find($request->supplier_id);
+            if ($supplier) {
+                $query->where('supplier_name', $supplier->name);
+            }
         }
 
         if ($request->filled('project_name')) {
@@ -54,22 +62,58 @@ class ConstructionMaterialController extends Controller
             $query->whereDate('delivery_date', '<=', $request->to_date);
         }
 
+        // Get all filtered results for calculations (before pagination)
+        $allMaterials = $query->get();
+        
+        // Calculate totals
+        $totalCost = $allMaterials->sum('total_cost');
+        $totalQuantityReceived = $allMaterials->sum('quantity_received');
+        $totalQuantityUsed = $allMaterials->sum('quantity_used');
+        $totalQuantityRemaining = $allMaterials->sum('quantity_remaining');
+        
+        // Calculate advance payments only when supplier filter is selected
+        $totalAdvancePayments = 0;
+        $netBalance = $totalCost;
+        
+        if ($request->filled('supplier_id')) {
+            $totalAdvancePayments = AdvancePayment::where('company_id', $companyId)
+                ->where('payment_type', 'material_payment')
+                ->where('supplier_id', $request->supplier_id)
+                ->sum('amount');
+            
+            // Calculate net balance (after advance payments)
+            $netBalance = $totalCost - $totalAdvancePayments;
+        }
+
+        // Paginate results
         $materials = $query->latest()->paginate(15)->withQueryString();
+        
         $materialNames = MaterialName::orderBy('name')->get();
-        $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
-        $projects = Project::orderBy('name')->get();
+        $suppliers = Supplier::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
         $purchasedBies = PurchasedBy::where('is_active', true)->orderBy('name')->get();
 
-        return view('admin.construction_materials.index', compact('materials', 'materialNames', 'suppliers', 'projects', 'purchasedBies'));
+        return view('admin.construction_materials.index', compact('materials', 'materialNames', 'suppliers', 'projects', 'purchasedBies', 'totalCost', 'totalQuantityReceived', 'totalQuantityUsed', 'totalQuantityRemaining', 'totalAdvancePayments', 'netBalance'));
     }
 
     public function create()
     {
+        $companyId = CompanyContext::getActiveCompanyId();
+        
         $categories = MaterialCategory::where('is_active', true)->orderBy('name')->get();
         $units = MaterialUnit::orderBy('name')->get();
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
         $workTypes = WorkType::where('is_active', true)->orderBy('name')->get();
-        $projects = Project::orderBy('name')->get();
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
         $materialNames = MaterialName::orderBy('name')->get();
         $paymentModes = PaymentMode::orderBy('name')->get();
         $purchasedBies = PurchasedBy::where('is_active', true)->orderBy('name')->get();
@@ -111,11 +155,16 @@ class ConstructionMaterialController extends Controller
 
     public function edit(ConstructionMaterial $construction_material)
     {
+        $companyId = CompanyContext::getActiveCompanyId();
+        
         $categories = MaterialCategory::where('is_active', true)->orderBy('name')->get();
         $units = MaterialUnit::orderBy('name')->get();
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
         $workTypes = WorkType::where('is_active', true)->orderBy('name')->get();
-        $projects = Project::orderBy('name')->get();
+        $projects = Project::where('company_id', $companyId)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('name')
+            ->get();
         $materialNames = MaterialName::orderBy('name')->get();
         $paymentModes = PaymentMode::orderBy('name')->get();
         $purchasedBies = PurchasedBy::where('is_active', true)->orderBy('name')->get();

@@ -38,6 +38,17 @@
                 </select>
             </div>
             <div class="col-md-2">
+                <label class="form-label small mb-1">Supplier</label>
+                <select name="supplier_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">All Suppliers</option>
+                    @foreach($suppliers as $supplier)
+                        <option value="{{ $supplier->id }}" {{ request('supplier_id') == $supplier->id ? 'selected' : '' }}>
+                            {{ $supplier->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-2">
                 <label class="form-label small mb-1">Vehicle Type</label>
                 <select name="vehicle_type" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">All Types</option>
@@ -77,6 +88,7 @@
                 <label class="form-label small mb-1">End Date</label>
                 <input type="date" name="end_date" class="form-control form-control-sm" value="{{ request('end_date') }}" onchange="this.form.submit()">
             </div>
+            <div class="col-md-12"></div>
             <div class="col-md-12 mt-2">
                 <a href="{{ route('admin.vehicle-rents.index') }}" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-arrow-clockwise me-1"></i> Reset Filters
@@ -91,7 +103,7 @@
 <div class="card mb-4 shadow-sm">
     <div class="card-body py-3">
         <div class="row g-3 mb-0">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="d-flex align-items-center p-3 bg-light rounded">
                     <div class="flex-shrink-0">
                         <i class="bi bi-cash-stack text-primary fs-4"></i>
@@ -102,7 +114,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="d-flex align-items-center p-3 bg-light rounded">
                     <div class="flex-shrink-0">
                         <i class="bi bi-check-circle-fill text-success fs-4"></i>
@@ -113,7 +125,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="d-flex align-items-center p-3 bg-light rounded">
                     <div class="flex-shrink-0">
                         <i class="bi bi-{{ $totalBalance > 0 ? 'exclamation-triangle-fill text-danger' : 'check-circle-fill text-success' }} fs-4"></i>
@@ -129,7 +141,43 @@
                     </div>
                 </div>
             </div>
+            <div class="col-md-3">
+                <div class="d-flex align-items-center p-3 bg-light rounded">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-wallet-fill text-info fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <small class="text-muted d-block mb-1">Advance Payments</small>
+                        <h5 class="mb-0 text-info fw-bold">{{ number_format($totalAdvancePayments ?? 0, 2) }}</h5>
+                        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Total Advances</small>
+                    </div>
+                </div>
+            </div>
         </div>
+        @if(isset($netBalance))
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="alert alert-{{ $netBalance > 0 ? 'warning' : ($netBalance < 0 ? 'success' : 'info') }} mb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong><i class="bi bi-calculator me-2"></i>Net Balance (After Advance Payments):</strong>
+                            <span class="ms-2 fs-5 fw-bold">{{ number_format($netBalance, 2) }}</span>
+                        </div>
+                        <div>
+                            @if($netBalance > 0)
+                                <span class="badge bg-warning text-dark"><i class="bi bi-arrow-up-circle me-1"></i>Outstanding Amount</span>
+                            @elseif($netBalance < 0)
+                                <span class="badge bg-success"><i class="bi bi-arrow-down-circle me-1"></i>Overpaid/Advance Credit</span>
+                            @else
+                                <span class="badge bg-info"><i class="bi bi-check-circle me-1"></i>Balanced</span>
+                            @endif
+                        </div>
+                    </div>
+                    <small class="text-muted mt-2 d-block">Calculation: Remaining Balance ({{ number_format($totalBalance, 2) }}) - Advance Payments ({{ number_format($totalAdvancePayments ?? 0, 2) }}) = Net Balance</small>
+                </div>
+            </div>
+        </div>
+        @endif
     </div>
 </div>
 @endif
@@ -146,6 +194,7 @@
                         <th>Route</th>
                         <th>Rate Type</th>
                         <th>Project</th>
+                        <th>Supplier</th>
                         <th class="text-end">Total Amount</th>
                         <th class="text-end">Paid</th>
                         <th class="text-end">Balance</th>
@@ -182,6 +231,7 @@
                                 <span class="badge bg-secondary">{{ $rateTypeLabel }}</span>
                             </td>
                             <td>{{ $rent->project->name ?? '—' }}</td>
+                            <td>{{ $rent->supplier->name ?? '—' }}</td>
                             <td class="text-end">
                                 @if($rent->is_ongoing)
                                     <strong>{{ number_format($rent->calculated_total_amount, 2) }}</strong>
@@ -227,7 +277,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" class="text-center py-4">
+                            <td colspan="12" class="text-center py-4">
                                 <p class="text-muted mb-0">No vehicle rent records found.</p>
                                 <a href="{{ route('admin.vehicle-rents.create') }}" class="btn btn-primary btn-sm mt-2">Add First Record</a>
                             </td>
@@ -237,12 +287,24 @@
                     @if($vehicleRents->count() > 0)
                     <tfoot>
                         <tr class="table-primary">
-                            <td colspan="6" class="text-end"><strong>Totals:</strong></td>
+                            <td colspan="7" class="text-end"><strong>Subtotals:</strong></td>
                             <td class="text-end"><strong>{{ number_format($vehicleRents->sum('total_amount'), 2) }}</strong></td>
                             <td class="text-end"><strong>{{ number_format($vehicleRents->sum('paid_amount'), 2) }}</strong></td>
                             <td class="text-end"><strong>{{ number_format($vehicleRents->sum('balance_amount'), 2) }}</strong></td>
                             <td colspan="2"></td>
                         </tr>
+                        @if(request('supplier_id') && isset($totalAdvancePayments) && $totalAdvancePayments > 0)
+                        <tr class="table-info">
+                            <td colspan="9" class="text-end"><strong>Less: Advance Payments</strong></td>
+                            <td class="text-end"><strong class="text-info">({{ number_format($totalAdvancePayments, 2) }})</strong></td>
+                            <td colspan="2"></td>
+                        </tr>
+                        <tr class="table-success">
+                            <td colspan="9" class="text-end"><strong>Net Balance (After Advance Payments):</strong></td>
+                            <td class="text-end"><strong class="{{ $netBalance > 0 ? 'text-danger' : ($netBalance < 0 ? 'text-success' : 'text-secondary') }}">{{ number_format($netBalance, 2) }}</strong></td>
+                            <td colspan="2"></td>
+                        </tr>
+                        @endif
                     </tfoot>
                 @endif
             </table>
@@ -251,5 +313,6 @@
         <x-pagination :paginator="$vehicleRents" :show-info="true" />
     </div>
 </div>
+
 @endsection
 

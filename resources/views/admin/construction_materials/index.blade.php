@@ -23,10 +23,10 @@
         <strong>Search &amp; Filter</strong>
     </div>
     <div class="card-body">
-        <form method="GET" action="{{ route('admin.construction-materials.index') }}" class="row g-3">
+        <form method="GET" action="{{ route('admin.construction-materials.index') }}" class="row g-2 align-items-end">
             <div class="col-md-3">
-                <label class="form-label">Material Name</label>
-                <select name="material_name" class="form-select">
+                <label class="form-label small mb-1">Material Name</label>
+                <select name="material_name" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">All materials</option>
                     @foreach($materialNames as $materialName)
                         <option value="{{ $materialName->name }}" {{ request('material_name') === $materialName->name ? 'selected' : '' }}>
@@ -36,19 +36,19 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Supplier</label>
-                <select name="supplier_name" class="form-select">
+                <label class="form-label small mb-1">Supplier</label>
+                <select name="supplier_id" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">All suppliers</option>
                     @foreach($suppliers as $supplier)
-                        <option value="{{ $supplier->name }}" {{ request('supplier_name') === $supplier->name ? 'selected' : '' }}>
+                        <option value="{{ $supplier->id }}" {{ request('supplier_id') == $supplier->id ? 'selected' : '' }}>
                             {{ $supplier->name }}
                         </option>
                     @endforeach
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Project</label>
-                <select name="project_name" class="form-select">
+                <label class="form-label small mb-1">Project</label>
+                <select name="project_name" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">All projects</option>
                     @foreach($projects as $project)
                         <option value="{{ $project->name }}" {{ request('project_name') === $project->name ? 'selected' : '' }}>
@@ -58,8 +58,8 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Purchased / Payment By</label>
-                <select name="purchased_by_id" class="form-select">
+                <label class="form-label small mb-1">Purchased / Payment By</label>
+                <select name="purchased_by_id" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">All</option>
                     @foreach($purchasedBies as $person)
                         <option value="{{ $person->id }}" {{ request('purchased_by_id') == $person->id ? 'selected' : '' }}>{{ $person->name }}</option>
@@ -67,20 +67,70 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label">From Delivery Date</label>
-                <input type="date" name="from_date" value="{{ request('from_date') }}" class="form-control">
+                <label class="form-label small mb-1">From Delivery Date</label>
+                <input type="date" name="from_date" value="{{ request('from_date') }}" class="form-control form-control-sm" onchange="this.form.submit()">
             </div>
             <div class="col-md-3">
-                <label class="form-label">To Delivery Date</label>
-                <input type="date" name="to_date" value="{{ request('to_date') }}" class="form-control">
+                <label class="form-label small mb-1">To Delivery Date</label>
+                <input type="date" name="to_date" value="{{ request('to_date') }}" class="form-control form-control-sm" onchange="this.form.submit()">
             </div>
-            <div class="col-md-12 d-flex justify-content-end mt-2">
-                <a href="{{ route('admin.construction-materials.index') }}" class="btn btn-outline-secondary me-2">Reset</a>
-                <button type="submit" class="btn btn-primary">Search</button>
+            <div class="col-md-12 mt-2">
+                <a href="{{ route('admin.construction-materials.index') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Reset Filters
+                </a>
+                <small class="text-muted ms-2">Filters apply automatically when changed</small>
             </div>
         </form>
     </div>
 </div>
+
+@if($materials->count() > 0)
+<div class="card mb-4 shadow-sm">
+    <div class="card-body py-3">
+        <div class="row g-3 mb-0">
+            <div class="col-md-3">
+                <div class="d-flex align-items-center p-3 bg-light rounded">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-cash-stack text-primary fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <small class="text-muted d-block mb-1">Total Cost</small>
+                        <h5 class="mb-0 text-primary fw-bold">{{ number_format($totalCost, 2) }}</h5>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="d-flex align-items-center p-3 bg-light rounded">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-wallet-fill text-info fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <small class="text-muted d-block mb-1">Advance Payments</small>
+                        <h5 class="mb-0 text-info fw-bold">{{ number_format($totalAdvancePayments ?? 0, 2) }}</h5>
+                        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Material Payments</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="d-flex align-items-center p-3 bg-light rounded">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-{{ $netBalance > 0 ? 'exclamation-triangle-fill text-danger' : 'check-circle-fill text-success' }} fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <small class="text-muted d-block mb-1">Remaining Balance</small>
+                        <h5 class="mb-0 text-{{ $netBalance > 0 ? 'danger' : 'success' }} fw-bold">{{ number_format($netBalance ?? $totalCost, 2) }}</h5>
+                        @if($netBalance > 0)
+                            <small class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Outstanding</small>
+                        @else
+                            <small class="text-success"><i class="bi bi-check-circle me-1"></i>All Paid</small>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 
 <div class="card">
     <div class="card-header">
@@ -145,6 +195,27 @@
                     </tr>
                 @endforelse
             </tbody>
+            @if($materials->count() > 0)
+            <tfoot>
+                <tr class="table-secondary">
+                    <td colspan="7" class="text-end"><strong>Total:</strong></td>
+                    <td class="text-end"><strong>{{ number_format($totalCost, 2) }}</strong></td>
+                    <td colspan="2"></td>
+                </tr>
+                @if(request('supplier_id') && isset($totalAdvancePayments) && $totalAdvancePayments > 0)
+                <tr class="table-info">
+                    <td colspan="7" class="text-end"><strong>Less: Advance Payments</strong></td>
+                    <td class="text-end"><strong class="text-info">({{ number_format($totalAdvancePayments, 2) }})</strong></td>
+                    <td colspan="2"></td>
+                </tr>
+                <tr class="table-success">
+                    <td colspan="7" class="text-end"><strong>Net Balance (After Advance Payments):</strong></td>
+                    <td class="text-end"><strong class="{{ $netBalance > 0 ? 'text-danger' : ($netBalance < 0 ? 'text-success' : 'text-secondary') }}">{{ number_format($netBalance, 2) }}</strong></td>
+                    <td colspan="2"></td>
+                </tr>
+                @endif
+            </tfoot>
+            @endif
         </table>
     </div>
     <x-pagination :paginator="$materials" wrapper-class="card-footer" />
