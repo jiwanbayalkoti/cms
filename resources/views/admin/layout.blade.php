@@ -358,50 +358,19 @@
   <!-- Top row: logo and toggle button -->
   <div class="flex flex-row items-center justify-center gap-2 w-full">
     <a href="{{ route('admin.dashboard') }}" class="block">
-      <span class="w-full max-w-[120px] h-auto rounded-lg shadow-lg bg-white p-1 flex items-center justify-center" style="display:inline-flex;object-fit:contain;">
-  <svg width="110" height="40" viewBox="0 0 340 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="cmsBlue" x1="0" y1="0" x2="340" y2="0" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#1176d7"/>
-        <stop offset="1" stop-color="#43bafc"/>
-      </linearGradient>
-      <linearGradient id="cmsLight" x1="25" y1="75" x2="330" y2="100" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#63d4ff"/>
-        <stop offset="1" stop-color="#3aafea"/>
-      </linearGradient>
-      <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-        <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#1c3045" flood-opacity=".2"/>
-      </filter>
-    </defs>
-    <text x="0" y="73"
-          font-family="'Arial Black', Impact, Arial, sans-serif"
-          font-size="85" font-weight="bold"
-          font-style="italic"
-          fill="url(#cmsBlue)"
-          letter-spacing="2"
-          filter="url(#shadow)">CMS</text>
-    <path d="M22 81 Q90 95 170 81 Q255 65 320 81 Q300 98 170 97 Q55 94 22 81 Z"
-          fill="url(#cmsLight)"
-          stroke="#49bdff" stroke-width="1"/>
-    <path d="M24 83 Q90 95 170 80 Q255 65 318 83"
-          fill="none"
-          stroke="#ffffff"
-          stroke-width="2"
-          opacity="0.2"/>
-  </svg>
-</span>
-    </a>
+      <img src="{{ asset('logo.svg') }}" alt="Company Logo" class="w-full max-w-[120px] h-auto rounded-lg shadow-lg bg-white p-1 object-contain" style="object-fit:contain;">
+                    </a>
     <button id="sidebarToggle" class="sidebar-toggle-btn h-[44px] px-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-all duration-200 flex items-center justify-center flex-shrink-0" aria-label="Toggle Sidebar">
       <svg id="sidebarToggleIcon" class="w-6 h-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
         <rect y="4" width="24" height="2" rx="1" fill="currentColor"/>
         <rect y="10" width="24" height="2" rx="1" fill="currentColor"/>
         <rect y="16" width="24" height="2" rx="1" fill="currentColor"/>
-      </svg>
-    </button>
+                        </svg>
+                    </button>
   </div>
   <!-- Second row: company name -->
   <span class="block text-base sm:text-xl font-bold text-white text-center truncate w-full mt-1">{{ $activeCompany?->name ?? 'Admin Panel' }}</span>
-</div>
+                </div>
 
                 <nav class="space-y-1 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800" id="sidebar-nav" style="scrollbar-width: thin; scrollbar-color: #4b5563 #1f2937;">
                     @php
