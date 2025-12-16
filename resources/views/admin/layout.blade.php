@@ -7,22 +7,7 @@
 
     <title>@yield('title', 'Admin Panel') - {{ config('app.name', 'Laravel') }}</title>
 
-    @php
-        use App\Support\CompanyContext;
-        $activeCompanyId = CompanyContext::getActiveCompanyId();
-        $faviconUrl = asset('favicon.ico');
-        if ($activeCompanyId) {
-            try {
-                $company = \App\Models\Company::find($activeCompanyId);
-                if ($company) {
-                    $faviconUrl = $company->getFaviconUrl();
-                }
-            } catch (\Exception $e) {
-                // Fallback to default
-            }
-        }
-    @endphp
-    <link rel="icon" type="image/png" href="{{ $faviconUrl }}">
+    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -369,24 +354,23 @@
                 @endphp
 
                 <!-- Sidebar Header with Toggle -->
-                <div class="flex items-center justify-between mb-6">
-                    <a href="{{ route('admin.dashboard') }}" class="flex items-center space-x-2 sm:space-x-3 sidebar-content min-w-0 flex-1">
-                        @if($activeCompany && $activeCompany->logo)
-                            @php
-                                $logoUrl = $activeCompany->getLogoUrl();
-                            @endphp
-                            @if($logoUrl)
-                                <img src="{{ $logoUrl }}" alt="Company Logo" class="h-10 w-10 sm:h-12 sm:w-12 rounded-lg shadow-lg bg-white p-1 object-contain flex-shrink-0">
-                            @endif
-                        @endif
-                        <span class="text-base sm:text-xl font-bold text-white truncate">{{ $activeCompany?->name ?? 'Admin Panel' }}</span>
-                    </a>
-                    <button id="sidebarToggle" class="sidebar-toggle-btn p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-all duration-200 flex-shrink-0" aria-label="Toggle Sidebar">
-                        <svg id="sidebarToggleIcon" class="w-5 h-5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
-                        </svg>
-                    </button>
-                </div>
+<div class="flex flex-col items-center justify-center mb-6 gap-1">
+  <!-- Top row: logo and toggle button -->
+  <div class="flex flex-row items-center justify-center gap-2 w-full">
+    <a href="{{ route('admin.dashboard') }}" class="block">
+      <img src="{{ asset('logo.svg') }}" alt="Company Logo" class="w-full max-w-[120px] h-auto rounded-lg shadow-lg bg-white p-1 object-contain" style="object-fit:contain;">
+    </a>
+    <button id="sidebarToggle" class="sidebar-toggle-btn h-[44px] px-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-all duration-200 flex items-center justify-center flex-shrink-0" aria-label="Toggle Sidebar">
+      <svg id="sidebarToggleIcon" class="w-6 h-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+        <rect y="4" width="24" height="2" rx="1" fill="currentColor"/>
+        <rect y="10" width="24" height="2" rx="1" fill="currentColor"/>
+        <rect y="16" width="24" height="2" rx="1" fill="currentColor"/>
+      </svg>
+    </button>
+  </div>
+  <!-- Second row: company name -->
+  <span class="block text-base sm:text-xl font-bold text-white text-center truncate w-full mt-1">{{ $activeCompany?->name ?? 'Admin Panel' }}</span>
+</div>
 
                 <nav class="space-y-1 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800" id="sidebar-nav" style="scrollbar-width: thin; scrollbar-color: #4b5563 #1f2937;">
                     @php
