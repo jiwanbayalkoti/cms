@@ -28,7 +28,7 @@ class ExpenseController extends Controller
     public function index(Request $request)
     {
         $companyId = CompanyContext::getActiveCompanyId();
-        $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'creator', 'updater'])
+        $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment'])
             ->where('company_id', $companyId);
         
         // Filter by project
@@ -110,7 +110,7 @@ class ExpenseController extends Controller
         if ($expense->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
         }
-        $expense->load(['category', 'subcategory', 'staff', 'project', 'creator', 'updater']);
+        $expense->load(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment']);
         return view('admin.expenses.show', compact('expense'));
     }
 

@@ -14,6 +14,8 @@ class Expense extends Model
     protected $fillable = [
         'company_id',
         'project_id',
+        'construction_material_id',
+        'advance_payment_id',
         'category_id',
         'subcategory_id',
         'expense_type',
@@ -80,5 +82,21 @@ class Expense extends Model
     public function project()
     {
         return $this->belongsTo(Project::class);
+    }
+
+    /**
+     * Get the construction material associated with this expense.
+     */
+    public function constructionMaterial()
+    {
+        return $this->belongsTo(ConstructionMaterial::class);
+    }
+
+    /**
+     * Get the advance payment associated with this expense.
+     */
+    public function advancePayment()
+    {
+        return $this->belongsTo(AdvancePayment::class);
     }
 }

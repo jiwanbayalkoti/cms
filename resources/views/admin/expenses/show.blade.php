@@ -68,6 +68,38 @@
                 </dd>
             </div>
             @endif
+            @if($expense->constructionMaterial)
+            <div>
+                <dt class="text-sm font-medium text-gray-500">Linked Material Purchase</dt>
+                <dd class="mt-1">
+                    <a href="{{ route('admin.construction-materials.show', $expense->constructionMaterial) }}" class="text-sm text-indigo-600 hover:text-indigo-900">
+                        {{ $expense->constructionMaterial->material_name }} ({{ $expense->constructionMaterial->quantity_received }} {{ $expense->constructionMaterial->unit }})
+                    </a>
+                    <div class="text-xs text-gray-500 mt-1">
+                        Supplier: {{ $expense->constructionMaterial->supplier_name }}
+                        @if($expense->constructionMaterial->bill_number)
+                            | Bill #{{ $expense->constructionMaterial->bill_number }}
+                        @endif
+                    </div>
+                </dd>
+            </div>
+            @endif
+            @if($expense->advancePayment)
+            <div>
+                <dt class="text-sm font-medium text-gray-500">Linked Advance Payment</dt>
+                <dd class="mt-1">
+                    <a href="{{ route('admin.advance-payments.show', $expense->advancePayment) }}" class="text-sm text-indigo-600 hover:text-indigo-900">
+                        Advance Payment - {{ ucfirst(str_replace('_', ' ', $expense->advancePayment->payment_type)) }}
+                    </a>
+                    <div class="text-xs text-gray-500 mt-1">
+                        Supplier: {{ $expense->advancePayment->supplier->name ?? 'N/A' }}
+                        @if($expense->advancePayment->transaction_reference)
+                            | Ref: {{ $expense->advancePayment->transaction_reference }}
+                        @endif
+                    </div>
+                </dd>
+            </div>
+            @endif
             <div>
                 <dt class="text-sm font-medium text-gray-500">Payment Method</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ $expense->payment_method ?? 'N/A' }}</dd>

@@ -55,6 +55,14 @@ class ConstructionMaterial extends Model
         return $this->belongsTo(Project::class);
     }
 
+    /**
+     * Get the expense entry linked to this material purchase.
+     */
+    public function expense()
+    {
+        return $this->hasOne(Expense::class);
+    }
+
     protected $casts = [
         'quantity_received' => 'decimal:2',
         'rate_per_unit' => 'decimal:2',

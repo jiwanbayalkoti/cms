@@ -103,4 +103,12 @@ class AdvancePayment extends Model
             'other' => 'Other',
         ];
     }
+
+    /**
+     * Get the expense entry linked to this advance payment.
+     */
+    public function expense()
+    {
+        return $this->hasOne(Expense::class);
+    }
 }

@@ -15,6 +15,8 @@ use App\Models\PurchasedBy;
 use App\Models\Supplier;
 use App\Models\WorkType;
 use App\Models\AdvancePayment;
+use App\Models\Expense;
+use App\Models\Category;
 use App\Support\CompanyContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -26,6 +28,56 @@ class ConstructionMaterialController extends Controller
     public function __construct()
     {
         $this->middleware('admin');
+    }
+
+    /**
+     * Get or create the "Materials" category for expenses.
+     */
+    private function getOrCreateMaterialsCategory($companyId)
+    {
+        $category = Category::where('company_id', $companyId)
+            ->where('type', 'expense')
+            ->where('name', 'Materials')
+            ->first();
+
+        if (!$category) {
+            $category = Category::create([
+                'company_id' => $companyId,
+                'name' => 'Materials',
+                'type' => 'expense',
+                'description' => 'Construction materials and supplies',
+                'is_active' => true,
+            ]);
+        }
+
+        return $category;
+    }
+
+    /**
+     * Create expense entry for material purchase when payment is made.
+     */
+    private function createExpenseFromMaterial(ConstructionMaterial $material)
+    {
+        // Only create expense if payment status is 'Paid' and no expense exists
+        if ($material->payment_status === 'Paid' && !$material->expense) {
+            $companyId = $material->company_id;
+            $category = $this->getOrCreateMaterialsCategory($companyId);
+
+            Expense::create([
+                'company_id' => $companyId,
+                'project_id' => $material->project_id,
+                'construction_material_id' => $material->id,
+                'category_id' => $category->id,
+                'expense_type' => 'purchase',
+                'item_name' => $material->material_name,
+                'description' => "Material: {$material->material_name} ({$material->quantity_received} {$material->unit}) - Bill #{$material->bill_number}",
+                'amount' => $material->total_cost,
+                'date' => $material->bill_date ?? $material->delivery_date ?? now(),
+                'payment_method' => $material->payment_mode,
+                'notes' => "Supplier: {$material->supplier_name}" . ($material->supplier_contact ? " ({$material->supplier_contact})" : ''),
+                'created_by' => auth()->id(),
+            ]);
+        }
     }
 
     public function index(Request $request)
@@ -140,7 +192,10 @@ class ConstructionMaterialController extends Controller
             $data['delivery_photo'] = $request->file('delivery_photo')->store('materials/photos', 'public');
         }
 
-        ConstructionMaterial::create($data);
+        $material = ConstructionMaterial::create($data);
+
+        // Auto-create expense entry if payment status is 'Paid'
+        $this->createExpenseFromMaterial($material);
 
         return redirect()->route('admin.construction-materials.index')
             ->with('success', 'Construction material record created successfully.');
@@ -148,6 +203,7 @@ class ConstructionMaterialController extends Controller
 
     public function show(ConstructionMaterial $construction_material)
     {
+        $construction_material->load('expense', 'project', 'purchasedBy');
         return view('admin.construction_materials.show', [
             'material' => $construction_material,
         ]);
@@ -207,7 +263,32 @@ class ConstructionMaterialController extends Controller
             $data['delivery_photo'] = $request->file('delivery_photo')->store('materials/photos', 'public');
         }
 
+        // Store old payment status to check if it changed
+        $oldPaymentStatus = $construction_material->payment_status;
+
         $construction_material->update($data);
+
+        // Refresh the model to get updated values
+        $construction_material->refresh();
+
+        // Auto-create expense entry if payment status changed to 'Paid'
+        if ($oldPaymentStatus !== 'Paid' && $construction_material->payment_status === 'Paid') {
+            $this->createExpenseFromMaterial($construction_material);
+        }
+
+        // Update existing expense if payment status changed and expense exists
+        if ($construction_material->expense) {
+            $expense = $construction_material->expense;
+            $expense->update([
+                'amount' => $construction_material->total_cost,
+                'date' => $construction_material->bill_date ?? $construction_material->delivery_date ?? $expense->date,
+                'payment_method' => $construction_material->payment_mode ?? $expense->payment_method,
+                'item_name' => $construction_material->material_name,
+                'description' => "Material: {$construction_material->material_name} ({$construction_material->quantity_received} {$construction_material->unit}) - Bill #{$construction_material->bill_number}",
+                'notes' => "Supplier: {$construction_material->supplier_name}" . ($construction_material->supplier_contact ? " ({$construction_material->supplier_contact})" : ''),
+                'updated_by' => auth()->id(),
+            ]);
+        }
 
         return redirect()->route('admin.construction-materials.index')
             ->with('success', 'Construction material record updated successfully.');

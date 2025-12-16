@@ -7,6 +7,8 @@ use App\Models\AdvancePayment;
 use App\Models\Supplier;
 use App\Models\Project;
 use App\Models\BankAccount;
+use App\Models\Expense;
+use App\Models\Category;
 use App\Support\CompanyContext;
 use Illuminate\Http\Request;
 
@@ -15,6 +17,62 @@ class AdvancePaymentController extends Controller
     public function __construct()
     {
         $this->middleware('admin');
+    }
+
+    /**
+     * Get or create the "Advance Payments" category for expenses.
+     */
+    private function getOrCreateAdvancePaymentCategory($companyId)
+    {
+        $category = Category::where('company_id', $companyId)
+            ->where('type', 'expense')
+            ->where('name', 'Advance Payments')
+            ->first();
+
+        if (!$category) {
+            $category = Category::create([
+                'company_id' => $companyId,
+                'name' => 'Advance Payments',
+                'type' => 'expense',
+                'description' => 'Advance payments to suppliers and vendors',
+                'is_active' => true,
+            ]);
+        }
+
+        return $category;
+    }
+
+    /**
+     * Create expense entry for advance payment.
+     */
+    private function createExpenseFromAdvancePayment(AdvancePayment $advancePayment)
+    {
+        // Only create expense if no expense exists
+        if (!$advancePayment->expense) {
+            $companyId = $advancePayment->company_id;
+            $category = $this->getOrCreateAdvancePaymentCategory($companyId);
+
+            $paymentTypeLabel = $advancePayment->payment_type === 'vehicle_rent' 
+                ? 'Vehicle Rent' 
+                : ($advancePayment->payment_type === 'material_payment' ? 'Material Payment' : 'Advance Payment');
+
+            $supplierName = $advancePayment->supplier ? $advancePayment->supplier->name : 'N/A';
+
+            Expense::create([
+                'company_id' => $companyId,
+                'project_id' => $advancePayment->project_id,
+                'advance_payment_id' => $advancePayment->id,
+                'category_id' => $category->id,
+                'expense_type' => 'purchase',
+                'item_name' => "Advance Payment - {$paymentTypeLabel}",
+                'description' => "Advance payment for {$paymentTypeLabel} - Supplier: {$supplierName}",
+                'amount' => $advancePayment->amount,
+                'date' => $advancePayment->payment_date,
+                'payment_method' => $advancePayment->payment_method,
+                'notes' => "Transaction Reference: {$advancePayment->transaction_reference}" . ($advancePayment->notes ? " | Notes: {$advancePayment->notes}" : ''),
+                'created_by' => auth()->id(),
+            ]);
+        }
     }
 
     /**
@@ -117,7 +175,10 @@ class AdvancePaymentController extends Controller
         $validated['company_id'] = $companyId;
         $validated['created_by'] = auth()->id();
         
-        AdvancePayment::create($validated);
+        $advancePayment = AdvancePayment::create($validated);
+
+        // Auto-create expense entry
+        $this->createExpenseFromAdvancePayment($advancePayment);
         
         return redirect()->route('admin.advance-payments.index')
             ->with('success', 'Advance payment recorded successfully.');
@@ -128,7 +189,7 @@ class AdvancePaymentController extends Controller
      */
     public function show(AdvancePayment $advancePayment)
     {
-        $advancePayment->load(['project', 'supplier', 'bankAccount', 'creator', 'updater']);
+        $advancePayment->load(['project', 'supplier', 'bankAccount', 'creator', 'updater', 'expense']);
         return view('admin.advance_payments.show', compact('advancePayment'));
     }
 
@@ -177,6 +238,31 @@ class AdvancePaymentController extends Controller
         $validated['updated_by'] = auth()->id();
         
         $advancePayment->update($validated);
+
+        // Refresh the model to get updated values
+        $advancePayment->refresh();
+
+        // Auto-create expense entry if it doesn't exist
+        $this->createExpenseFromAdvancePayment($advancePayment);
+
+        // Update existing expense if it exists
+        if ($advancePayment->expense) {
+            $expense = $advancePayment->expense;
+            $paymentTypeLabel = $advancePayment->payment_type === 'vehicle_rent' 
+                ? 'Vehicle Rent' 
+                : ($advancePayment->payment_type === 'material_payment' ? 'Material Payment' : 'Advance Payment');
+            $supplierName = $advancePayment->supplier ? $advancePayment->supplier->name : 'N/A';
+
+            $expense->update([
+                'amount' => $advancePayment->amount,
+                'date' => $advancePayment->payment_date,
+                'payment_method' => $advancePayment->payment_method,
+                'item_name' => "Advance Payment - {$paymentTypeLabel}",
+                'description' => "Advance payment for {$paymentTypeLabel} - Supplier: {$supplierName}",
+                'notes' => "Transaction Reference: {$advancePayment->transaction_reference}" . ($advancePayment->notes ? " | Notes: {$advancePayment->notes}" : ''),
+                'updated_by' => auth()->id(),
+            ]);
+        }
         
         return redirect()->route('admin.advance-payments.index')
             ->with('success', 'Advance payment updated successfully.');

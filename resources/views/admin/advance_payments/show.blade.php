@@ -70,6 +70,28 @@
                         <td>{{ $advancePayment->notes }}</td>
                     </tr>
                     @endif
+                    @if($advancePayment->expense)
+                    <tr>
+                        <th>Linked Expense Entry:</th>
+                        <td>
+                            <a href="{{ route('admin.expenses.show', $advancePayment->expense) }}" class="text-primary">
+                                View Expense Entry
+                            </a>
+                            <div class="text-muted small mt-1">
+                                Created: {{ $advancePayment->expense->created_at->format('Y-m-d H:i') }}
+                            </div>
+                        </td>
+                    </tr>
+                    @else
+                    <tr>
+                        <th>Expense Entry:</th>
+                        <td>
+                            <div class="alert alert-info small mb-0 py-2">
+                                <i class="bi bi-info-circle"></i> Expense entry will be created automatically.
+                            </div>
+                        </td>
+                    </tr>
+                    @endif
                 </table>
             </div>
         </div>

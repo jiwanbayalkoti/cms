@@ -59,6 +59,16 @@
                     </td>
                     <td class="px-6 py-4">
                         <div class="text-sm font-medium text-gray-900">{{ $expense->item_name ?? ($expense->description ? Str::limit($expense->description, 30) : 'N/A') }}</div>
+                        @if($expense->constructionMaterial)
+                            <div class="text-xs text-indigo-600 mt-1">
+                                <i class="bi bi-link-45deg"></i> Linked to Material Purchase
+                            </div>
+                        @endif
+                        @if($expense->advancePayment)
+                            <div class="text-xs text-purple-600 mt-1">
+                                <i class="bi bi-link-45deg"></i> Linked to Advance Payment
+                            </div>
+                        @endif
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm text-gray-900">{{ $expense->project ? $expense->project->name : 'N/A' }}</div>

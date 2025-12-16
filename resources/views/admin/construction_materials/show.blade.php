@@ -140,6 +140,25 @@
                     <strong>Payment Mode:</strong>
                     <div>{{ $material->payment_mode }}</div>
                 </div>
+                @if($material->expense)
+                <div class="mb-2">
+                    <strong>Linked Expense Entry:</strong>
+                    <div>
+                        <a href="{{ route('admin.expenses.show', $material->expense) }}" class="text-primary">
+                            View Expense Entry
+                        </a>
+                        <div class="text-muted small">
+                            Created: {{ $material->expense->created_at->format('Y-m-d H:i') }}
+                        </div>
+                    </div>
+                </div>
+                @elseif($material->payment_status === 'Paid')
+                <div class="mb-2">
+                    <div class="alert alert-info small mb-0">
+                        <i class="bi bi-info-circle"></i> Expense entry will be created automatically when payment status is set to "Paid".
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
 

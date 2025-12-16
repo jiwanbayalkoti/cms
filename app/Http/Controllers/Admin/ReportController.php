@@ -210,7 +210,7 @@ class ReportController extends Controller
         $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
 
-        $query = Expense::with(['category', 'subcategory', 'staff', 'project'])
+        $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'constructionMaterial', 'advancePayment'])
             ->where('expenses.company_id', $companyId)
             ->whereBetween('expenses.date', [$startDate, $endDate]);
 
