@@ -7,7 +7,7 @@
 
     <title>@yield('title', 'Admin Panel') - {{ config('app.name', 'Laravel') }}</title>
 
-    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%2329a7f6'/><text x='16' y='22' font-family='Arial Rounded MT Bold, Arial, sans-serif' font-weight='bold' font-size='16' text-anchor='middle' fill='%23fff'>cms</text></svg>">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
