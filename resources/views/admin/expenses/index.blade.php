@@ -269,6 +269,9 @@
                             <a href="{{ route('admin.expenses.edit', $expense) }}" class="btn btn-outline-warning btn-sm">
                                 <i class="bi bi-pencil me-1"></i> Edit
                             </a>
+                            <a href="{{ route('admin.expenses.clone', $expense) }}" class="btn btn-outline-info btn-sm" onclick="return confirm('Are you sure you want to duplicate this expense?');">
+                                <i class="bi bi-files me-1"></i> Duplicate
+                            </a>
                             <form action="{{ route('admin.expenses.destroy', $expense) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this expense record?');">
                                 @csrf
                                 @method('DELETE')

@@ -243,4 +243,47 @@ class ExpenseController extends Controller
         return redirect()->route('admin.expenses.index')
             ->with('success', 'Expense record deleted successfully.');
     }
+
+    /**
+     * Clone/Duplicate an expense record.
+     */
+    public function clone(Expense $expense)
+    {
+        if ($expense->company_id !== CompanyContext::getActiveCompanyId()) {
+            abort(403);
+        }
+
+        // Create a new expense with the same data (excluding relationships and IDs)
+        $newExpense = $expense->replicate();
+        $newExpense->construction_material_id = null;
+        $newExpense->advance_payment_id = null;
+        $newExpense->vehicle_rent_id = null;
+        $newExpense->created_by = auth()->id();
+        $newExpense->updated_by = null;
+        $newExpense->created_at = now();
+        $newExpense->updated_at = now();
+        
+        // Copy images if they exist (create new file references)
+        if ($expense->images && count($expense->images) > 0) {
+            $newImagePaths = [];
+            foreach ($expense->images as $imagePath) {
+                if (Storage::disk('public')->exists($imagePath)) {
+                    // Generate new filename
+                    $pathInfo = pathinfo($imagePath);
+                    $newFileName = $pathInfo['filename'] . '_copy_' . time() . '.' . ($pathInfo['extension'] ?? '');
+                    $newPath = $pathInfo['dirname'] . '/' . $newFileName;
+                    
+                    // Copy the file
+                    Storage::disk('public')->copy($imagePath, $newPath);
+                    $newImagePaths[] = $newPath;
+                }
+            }
+            $newExpense->images = $newImagePaths;
+        }
+        
+        $newExpense->save();
+
+        return redirect()->route('admin.expenses.edit', $newExpense)
+            ->with('success', 'Expense record duplicated successfully. You can now edit it.');
+    }
 }

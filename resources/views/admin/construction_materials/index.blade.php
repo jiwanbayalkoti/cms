@@ -177,6 +177,9 @@
                                 <a href="{{ route('admin.construction-materials.edit', $material) }}" class="btn btn-sm btn-outline-warning">
                                     <i class="bi bi-pencil me-1"></i> Edit
                                 </a>
+                                <a href="{{ route('admin.construction-materials.clone', $material) }}" class="btn btn-sm btn-outline-info" onclick="return confirm('Are you sure you want to duplicate this material record?');">
+                                    <i class="bi bi-files me-1"></i> Duplicate
+                                </a>
                                 <form action="{{ route('admin.construction-materials.destroy', $material) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this record?');">
                                     @csrf
                                     @method('DELETE')

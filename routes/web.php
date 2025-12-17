@@ -75,6 +75,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         
         // Construction Materials CRUD
         Route::resource('construction-materials', ConstructionMaterialController::class);
+        Route::get('construction-materials/{construction_material}/clone', [ConstructionMaterialController::class, 'clone'])->name('construction-materials.clone');
         Route::resource('material-categories', MaterialCategoryController::class)->except(['show']);
         Route::resource('material-units', MaterialUnitController::class)->except(['show']);
         Route::resource('suppliers', SupplierController::class);
@@ -88,6 +89,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         
         // Expenses CRUD
         Route::resource('expenses', ExpenseController::class);
+        Route::get('expenses/{expense}/clone', [ExpenseController::class, 'clone'])->name('expenses.clone');
         Route::resource('expense-types', ExpenseTypeController::class);
         
         // Bill Modules (Construction Final Bill / Estimate)

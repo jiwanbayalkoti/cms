@@ -335,6 +335,47 @@ class ConstructionMaterialController extends Controller
 
         return Excel::download(new ConstructionMaterialsExport($query), 'construction_materials.xlsx');
     }
+
+    /**
+     * Clone/Duplicate a construction material record.
+     */
+    public function clone(ConstructionMaterial $construction_material)
+    {
+        if ($construction_material->company_id !== CompanyContext::getActiveCompanyId()) {
+            abort(403);
+        }
+
+        // Create a new material with the same data (excluding expense relationship)
+        $newMaterial = $construction_material->replicate();
+        $newMaterial->created_at = now();
+        $newMaterial->updated_at = now();
+        
+        // Copy bill attachment if it exists
+        if ($construction_material->bill_attachment && Storage::disk('public')->exists($construction_material->bill_attachment)) {
+            $pathInfo = pathinfo($construction_material->bill_attachment);
+            $newFileName = $pathInfo['filename'] . '_copy_' . time() . '.' . ($pathInfo['extension'] ?? '');
+            $newPath = $pathInfo['dirname'] . '/' . $newFileName;
+            Storage::disk('public')->copy($construction_material->bill_attachment, $newPath);
+            $newMaterial->bill_attachment = $newPath;
+        }
+        
+        // Copy delivery photo if it exists
+        if ($construction_material->delivery_photo && Storage::disk('public')->exists($construction_material->delivery_photo)) {
+            $pathInfo = pathinfo($construction_material->delivery_photo);
+            $newFileName = $pathInfo['filename'] . '_copy_' . time() . '.' . ($pathInfo['extension'] ?? '');
+            $newPath = $pathInfo['dirname'] . '/' . $newFileName;
+            Storage::disk('public')->copy($construction_material->delivery_photo, $newPath);
+            $newMaterial->delivery_photo = $newPath;
+        }
+        
+        // Reset payment status to Unpaid for the clone
+        $newMaterial->payment_status = 'Unpaid';
+        
+        $newMaterial->save();
+
+        return redirect()->route('admin.construction-materials.edit', $newMaterial)
+            ->with('success', 'Construction material record duplicated successfully. You can now edit it.');
+    }
 }
 
 
