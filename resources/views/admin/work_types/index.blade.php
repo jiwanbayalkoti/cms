@@ -36,7 +36,7 @@
                         </td>
                         <td class="text-end">
                             <div class="d-flex gap-1 justify-content-end">
-                                <a href="{{ route('admin.work-types.show', $workType) }}" class="btn btn-sm btn-outline-primary">
+                                <a href="{{ route('admin.work-types.edit', $workType) }}" class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-eye me-1"></i> View
                                 </a>
                                 <a href="{{ route('admin.work-types.edit', $workType) }}" class="btn btn-sm btn-outline-warning">
