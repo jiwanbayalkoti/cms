@@ -85,8 +85,9 @@ class ReportController extends Controller
         if ($projectId) {
             $expensesByTypeQuery->where('project_id', $projectId);
         }
-        $expensesByType = $expensesByTypeQuery->select('expense_type', DB::raw('SUM(amount) as total'))
-            ->groupBy('expense_type')
+        $expensesByType = $expensesByTypeQuery->join('expense_types', 'expenses.expense_type_id', '=', 'expense_types.id')
+            ->select('expense_types.name as expense_type', DB::raw('SUM(expenses.amount) as total'))
+            ->groupBy('expense_types.id', 'expense_types.name')
             ->get();
 
         // Monthly trend (last 6 months)
@@ -219,7 +220,13 @@ class ReportController extends Controller
         }
 
         if ($expenseType) {
-            $query->where('expense_type', $expenseType);
+            // Try to find expense type by code or name
+            $expenseTypeModel = \App\Models\ExpenseType::where('code', $expenseType)
+                ->orWhere('name', $expenseType)
+                ->first();
+            if ($expenseTypeModel) {
+                $query->where('expense_type_id', $expenseTypeModel->id);
+            }
         }
         
         if ($projectId) {
@@ -244,8 +251,9 @@ class ReportController extends Controller
         if ($projectId) {
             $expensesByTypeQuery->where('project_id', $projectId);
         }
-        $expensesByType = $expensesByTypeQuery->select('expense_type', DB::raw('SUM(amount) as total'))
-            ->groupBy('expense_type')
+        $expensesByType = $expensesByTypeQuery->join('expense_types', 'expenses.expense_type_id', '=', 'expense_types.id')
+            ->select('expense_types.name as expense_type', DB::raw('SUM(expenses.amount) as total'))
+            ->groupBy('expense_types.id', 'expense_types.name')
             ->get();
 
         $categories = Category::where('type', 'expense')->where('is_active', true)->orderBy('name')->get();
@@ -406,8 +414,13 @@ class ReportController extends Controller
         $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
 
+        // Find expense type IDs for salary and advance
+        $salaryAdvanceTypes = \App\Models\ExpenseType::whereIn('code', ['salary', 'advance'])
+            ->orWhereIn('name', ['Salary', 'Advance'])
+            ->pluck('id');
+
         $query = Expense::with(['staff', 'project'])
-            ->whereIn('expense_type', ['salary', 'advance'])
+            ->whereIn('expense_type_id', $salaryAdvanceTypes)
             ->where('expenses.company_id', $companyId)
             ->whereBetween('expenses.date', [$startDate, $endDate]);
 
@@ -423,18 +436,19 @@ class ReportController extends Controller
         $totalPayments = $payments->sum('amount');
 
         // Payments by staff
-        $paymentsByStaffQuery = Expense::whereIn('expense_type', ['salary', 'advance'])
+        $paymentsByStaffQuery = Expense::whereIn('expense_type_id', $salaryAdvanceTypes)
             ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
         if ($projectId) {
             $paymentsByStaffQuery->where('project_id', $projectId);
         }
         $paymentsByStaff = $paymentsByStaffQuery->join('staff', 'expenses.staff_id', '=', 'staff.id')
-            ->select('staff.name', 'expenses.expense_type', DB::raw('SUM(expenses.amount) as total'))
-            ->groupBy('staff.id', 'staff.name', 'expenses.expense_type')
+            ->join('expense_types', 'expenses.expense_type_id', '=', 'expense_types.id')
+            ->select('staff.name', 'expense_types.name as expense_type', DB::raw('SUM(expenses.amount) as total'))
+            ->groupBy('staff.id', 'staff.name', 'expense_types.id', 'expense_types.name')
             ->get();
 
         // Total by staff
-        $totalByStaffQuery = Expense::whereIn('expense_type', ['salary', 'advance'])
+        $totalByStaffQuery = Expense::whereIn('expense_type_id', $salaryAdvanceTypes)
             ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
         if ($projectId) {
             $totalByStaffQuery->where('project_id', $projectId);
