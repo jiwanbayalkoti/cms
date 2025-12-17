@@ -22,7 +22,7 @@
                         <td>{{ $paymentMode->name }}</td>
                         <td>
                             <div class="d-flex gap-1">
-                                <a href="{{ route('admin.payment-modes.show', $paymentMode) }}" class="btn btn-sm btn-outline-primary">
+                                <a href="{{ route('admin.payment-modes.edit', $paymentMode) }}" class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-eye me-1"></i> View
                                 </a>
                                 <a href="{{ route('admin.payment-modes.edit', $paymentMode) }}" class="btn btn-sm btn-outline-warning">
