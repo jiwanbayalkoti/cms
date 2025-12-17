@@ -21,8 +21,15 @@
                     <label class="form-label">Payment Type <span class="text-danger">*</span></label>
                     <select name="payment_type" id="payment_type" class="form-select @error('payment_type') is-invalid @enderror" required>
                         <option value="">Select Payment Type</option>
-                        <option value="vehicle_rent" {{ old('payment_type') == 'vehicle_rent' ? 'selected' : '' }}>Vehicle Rent</option>
-                        <option value="material_payment" {{ old('payment_type') == 'material_payment' ? 'selected' : '' }}>Material Payment</option>
+                        @foreach($paymentTypes as $type)
+                            @php
+                                // Always use code, never ID - ensure it's a string
+                                $typeCode = !empty($type->code) ? $type->code : strtolower(str_replace(' ', '_', $type->name));
+                            @endphp
+                            <option value="{{ $typeCode }}" {{ old('payment_type') == $typeCode ? 'selected' : '' }}>
+                                {{ $type->name }}
+                            </option>
+                        @endforeach
                     </select>
                     @error('payment_type')
                         <div class="invalid-feedback">{{ $message }}</div>

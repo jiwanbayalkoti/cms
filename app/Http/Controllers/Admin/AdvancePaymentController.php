@@ -150,7 +150,8 @@ class AdvancePaymentController extends Controller
             ->orderBy('account_name')
             ->get();
         
-        return view('admin.advance_payments.create', compact('projects', 'suppliers', 'bankAccounts'));
+        $paymentTypes = \App\Models\PaymentType::orderBy('name')->get();
+        return view('admin.advance_payments.create', compact('projects', 'suppliers', 'bankAccounts', 'paymentTypes'));
     }
 
     /**
@@ -162,7 +163,7 @@ class AdvancePaymentController extends Controller
         
         $validated = $request->validate([
             'project_id' => 'nullable|exists:projects,id',
-            'payment_type' => 'required|in:vehicle_rent,material_payment',
+            'payment_type' => 'required|string',
             'supplier_id' => 'required|exists:suppliers,id',
             'amount' => 'required|numeric|min:0.01',
             'payment_date' => 'required|date',
@@ -171,6 +172,14 @@ class AdvancePaymentController extends Controller
             'transaction_reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
+        
+        // Convert payment_type ID to code if it's numeric (backward compatibility)
+        if (is_numeric($validated['payment_type'])) {
+            $paymentType = \App\Models\PaymentType::find($validated['payment_type']);
+            if ($paymentType) {
+                $validated['payment_type'] = $paymentType->code ?? strtolower(str_replace(' ', '_', $paymentType->name));
+            }
+        }
         
         $validated['company_id'] = $companyId;
         $validated['created_by'] = auth()->id();
@@ -215,7 +224,8 @@ class AdvancePaymentController extends Controller
             ->orderBy('account_name')
             ->get();
         
-        return view('admin.advance_payments.edit', compact('advancePayment', 'projects', 'suppliers', 'bankAccounts'));
+        $paymentTypes = \App\Models\PaymentType::orderBy('name')->get();
+        return view('admin.advance_payments.edit', compact('advancePayment', 'projects', 'suppliers', 'bankAccounts', 'paymentTypes'));
     }
 
     /**
@@ -225,7 +235,7 @@ class AdvancePaymentController extends Controller
     {
         $validated = $request->validate([
             'project_id' => 'nullable|exists:projects,id',
-            'payment_type' => 'required|in:vehicle_rent,material_payment',
+            'payment_type' => 'required|string',
             'supplier_id' => 'required|exists:suppliers,id',
             'amount' => 'required|numeric|min:0.01',
             'payment_date' => 'required|date',
@@ -234,6 +244,14 @@ class AdvancePaymentController extends Controller
             'transaction_reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
+        
+        // Convert payment_type ID to code if it's numeric (backward compatibility)
+        if (is_numeric($validated['payment_type'])) {
+            $paymentType = \App\Models\PaymentType::find($validated['payment_type']);
+            if ($paymentType) {
+                $validated['payment_type'] = $paymentType->code ?? strtolower(str_replace(' ', '_', $paymentType->name));
+            }
+        }
         
         $validated['updated_by'] = auth()->id();
         

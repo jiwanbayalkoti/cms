@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\WorkTypeController;
 use App\Http\Controllers\Admin\IncomeController;
 use App\Http\Controllers\Admin\ExpenseController;
 use App\Http\Controllers\Admin\ExpenseTypeController;
+use App\Http\Controllers\Admin\PaymentTypeController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\UserController;
@@ -138,6 +139,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         
         // Advance Payments
         Route::resource('advance-payments', \App\Http\Controllers\Admin\AdvancePaymentController::class);
+        Route::resource('payment-types', PaymentTypeController::class);
 
         // Reports
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
