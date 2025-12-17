@@ -205,9 +205,29 @@
                         <div class="text-sm text-gray-900">{{ $expense->date->format('M d, Y') }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-    {{ $expense->expenseType ? $expense->expenseType->name : '' }}
-</span>
+                        @php
+                            $typeName = '';
+                            $typeClass = 'bg-gray-100 text-gray-800';
+                            
+                            if ($expense->constructionMaterial) {
+                                $typeName = 'Purchase';
+                                $typeClass = 'bg-blue-100 text-blue-800';
+                            } elseif ($expense->advancePayment) {
+                                $typeName = 'Advance';
+                                $typeClass = 'bg-yellow-100 text-yellow-800';
+                            } elseif ($expense->vehicleRent) {
+                                $typeName = 'Vehicle rent';
+                                $typeClass = 'bg-purple-100 text-purple-800';
+                            } elseif ($expense->expenseType) {
+                                $typeName = $expense->expenseType->name;
+                                $typeClass = 'bg-gray-100 text-gray-800';
+                            } else {
+                                $typeName = 'N/A';
+                            }
+                        @endphp
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $typeClass }}">
+                            {{ $typeName }}
+                        </span>
                     </td>
                     <td class="px-6 py-4">
                         <div class="text-sm font-medium text-gray-900">{{ $expense->item_name ?? ($expense->description ? Str::limit($expense->description, 30) : 'N/A') }}</div>
