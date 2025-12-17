@@ -133,17 +133,17 @@
                     <label class="form-label">Received By</label>
                     <input type="text" name="received_by" class="form-control" value="{{ old('received_by', $material->received_by) }}">
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Project Name *</label>
-                    <select name="project_name" class="form-select" required>
-                        <option value="">Select project</option>
-                        @foreach($projects as $project)
-                            <option value="{{ $project->name }}" {{ old('project_name', $material->project_name) === $project->name ? 'selected' : '' }}>
-                                {{ $project->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+<div class="col-md-4">
+    <label class="form-label">Project *</label>
+    <select name="project_id" class="form-select" required>
+        <option value="">Select project</option>
+        @foreach($projects as $project)
+            <option value="{{ $project->id }}" {{ old('project_id', $material->project_id) == $project->id ? 'selected' : '' }}>
+                {{ $project->name }}
+            </option>
+        @endforeach
+    </select>
+</div>
                 <div class="col-md-4">
                     <label class="form-label">Work Type</label>
                     <select name="work_type" class="form-select">

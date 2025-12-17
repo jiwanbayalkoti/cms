@@ -54,7 +54,7 @@
                             {{ $expense->expense_type === 'salary' ? 'bg-blue-100 text-blue-800' : 
                                ($expense->expense_type === 'advance' ? 'bg-yellow-100 text-yellow-800' : 
                                ($expense->expense_type === 'rent' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800')) }}">
-                            {{ ucfirst($expense->expense_type) }}
+                            {{ Str::title(str_replace('_', ' ', $expense->expense_type)) }}
                         </span>
                     </td>
                     <td class="px-6 py-4">

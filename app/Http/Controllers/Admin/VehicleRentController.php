@@ -312,8 +312,8 @@ class VehicleRentController extends Controller
         $validated['balance_amount'] = $balanceAmount;
         $validated['payment_status'] = $paymentStatus;
 
-        VehicleRent::create($validated);
-
+        $vehicleRent = VehicleRent::create($validated);
+        $this->createExpenseFromVehicleRent($vehicleRent);
         return redirect()->route('admin.vehicle-rents.index')
             ->with('success', 'Vehicle rent record created successfully.');
     }
@@ -472,7 +472,7 @@ class VehicleRentController extends Controller
         $validated['payment_status'] = $paymentStatus;
 
         $vehicleRent->update($validated);
-
+        $this->createExpenseFromVehicleRent($vehicleRent);
         return redirect()->route('admin.vehicle-rents.index')
             ->with('success', 'Vehicle rent record updated successfully.');
     }
@@ -486,6 +486,42 @@ class VehicleRentController extends Controller
 
         return redirect()->route('admin.vehicle-rents.index')
             ->with('success', 'Vehicle rent record deleted successfully.');
+    }
+
+    /**
+     * Create an expense record for a PAID vehicle rent, once only.
+     */
+    private function createExpenseFromVehicleRent(\App\Models\VehicleRent $vehicleRent)
+    {
+        if ($vehicleRent->payment_status === 'paid' && !\App\Models\Expense::where('vehicle_rent_id', $vehicleRent->id)->exists()) {
+            // Try to find a Transport/Vehicle Rent category; fallback to first company category
+            $category = \App\Models\Category::where('company_id', $vehicleRent->company_id)
+                ->where(function ($q) {
+                    $q->where('name', 'like', '%Vehicle%')
+                      ->orWhere('name', 'like', '%Transport%')
+                      ->orWhere('name', 'like', '%Rent%');
+                })->first();
+
+            if (!$category) {
+                $category = \App\Models\Category::where('company_id', $vehicleRent->company_id)->first();
+            }
+
+            $vehicleType = ucfirst($vehicleRent->vehicle_type ?? 'vehicle');
+            \App\Models\Expense::create([
+                'company_id'        => $vehicleRent->company_id,
+                'project_id'        => $vehicleRent->project_id,
+                'vehicle_rent_id'   => $vehicleRent->id,
+                'category_id'       => $category ? $category->id : 1,
+                'expense_type'      => 'Vehicle rent',
+                'item_name'         => "$vehicleType Rent",
+                'description'       => "Vehicle No: {$vehicleRent->vehicle_number}, Driver: {$vehicleRent->driver_name}" . ($vehicleRent->notes ? " | Notes: {$vehicleRent->notes}" : ''),
+                'amount'            => $vehicleRent->total_amount,
+                'date'              => $vehicleRent->payment_date ?? $vehicleRent->rent_date ?? now(),
+                'payment_method'    => null,
+                'notes'             => $vehicleRent->notes,
+                'created_by'        => auth()->id(),
+            ]);
+        }
     }
 }
 

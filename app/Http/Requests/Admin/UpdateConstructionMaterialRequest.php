@@ -32,7 +32,7 @@ class UpdateConstructionMaterialRequest extends FormRequest
             'delivery_site' => 'nullable|string|max:255',
             'delivered_by' => 'nullable|string|max:255',
             'received_by' => 'nullable|string|max:255',
-            'project_name' => 'nullable|string|max:255',
+            'project_id' => 'required|exists:projects,id',
             'work_type' => 'nullable|string|max:255',
             'usage_purpose' => 'nullable|string',
             'status' => 'required|in:Received,Pending,Returned,Damaged',
