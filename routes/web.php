@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\WorkTypeController;
 use App\Http\Controllers\Admin\IncomeController;
 use App\Http\Controllers\Admin\ExpenseController;
+use App\Http\Controllers\Admin\ExpenseTypeController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\UserController;
@@ -57,6 +58,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         
         // Categories CRUD
         Route::resource('categories', CategoryController::class);
+        Route::get('categories/{category}/subcategories', [CategoryController::class, 'getSubcategories'])->name('categories.subcategories');
         
         // Subcategories CRUD
         Route::resource('subcategories', SubcategoryController::class);
@@ -86,6 +88,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         
         // Expenses CRUD
         Route::resource('expenses', ExpenseController::class);
+        Route::resource('expense-types', ExpenseTypeController::class);
         
         // Bill Modules (Construction Final Bill / Estimate)
         Route::resource('bill-modules', BillModuleController::class);

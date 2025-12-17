@@ -28,12 +28,27 @@ class ExpenseController extends Controller
     public function index(Request $request)
     {
         $companyId = CompanyContext::getActiveCompanyId();
-        $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment'])
+        $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'expenseType'])
             ->where('company_id', $companyId);
         
         // Filter by project
         if ($request->filled('project_id')) {
             $query->where('project_id', $request->project_id);
+        }
+        
+        // Filter by expense type
+        if ($request->filled('expense_type_id')) {
+            $query->where('expense_type_id', $request->expense_type_id);
+        }
+        
+        // Filter by category
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+        
+        // Filter by subcategory
+        if ($request->filled('subcategory_id')) {
+            $query->where('subcategory_id', $request->subcategory_id);
         }
         
         $expenses = $query->latest('date')->paginate(15)->withQueryString();
@@ -43,7 +58,19 @@ class ExpenseController extends Controller
             ->orderBy('name')
             ->get();
         
-        return view('admin.expenses.index', compact('expenses', 'projects'));
+        $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
+        $categories = Category::where('type', 'expense')->where('is_active', true)->orderBy('name')->get();
+        
+        // Get subcategories for the selected category if category filter is applied
+        $subcategories = collect();
+        if ($request->filled('category_id')) {
+            $subcategories = Subcategory::where('category_id', $request->category_id)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get();
+        }
+        
+        return view('admin.expenses.index', compact('expenses', 'projects', 'expenseTypes', 'categories', 'subcategories'));
     }
 
     /**
@@ -61,7 +88,8 @@ class ExpenseController extends Controller
             ->where('status', '!=', 'cancelled')
             ->orderBy('name')
             ->get();
-        return view('admin.expenses.create', compact('categories', 'subcategories', 'staff', 'projects'));
+        $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
+        return view('admin.expenses.create', compact('categories', 'subcategories', 'staff', 'projects', 'expenseTypes'));
     }
 
     /**
@@ -73,7 +101,7 @@ class ExpenseController extends Controller
             'project_id' => 'nullable|exists:projects,id',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'nullable|exists:subcategories,id',
-            'expense_type' => 'required|in:purchase,salary,advance,rent',
+            'expense_type_id' => 'required|exists:expense_types,id',
             'staff_id' => 'nullable|required_if:expense_type,salary,advance|exists:staff,id',
             'item_name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
@@ -132,7 +160,8 @@ class ExpenseController extends Controller
             ->where('status', '!=', 'cancelled')
             ->orderBy('name')
             ->get();
-        return view('admin.expenses.edit', compact('expense', 'categories', 'subcategories', 'staff', 'projects'));
+        $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
+        return view('admin.expenses.edit', compact('expense', 'categories', 'subcategories', 'staff', 'projects', 'expenseTypes'));
     }
 
     /**
@@ -147,7 +176,7 @@ class ExpenseController extends Controller
             'project_id' => 'nullable|exists:projects,id',
             'category_id' => 'required|exists:categories,id',
             'subcategory_id' => 'nullable|exists:subcategories,id',
-            'expense_type' => 'required|in:purchase,salary,advance,rent',
+            'expense_type_id' => 'required|exists:expense_types,id',
             'staff_id' => 'nullable|required_if:expense_type,salary,advance|exists:staff,id',
             'item_name' => 'nullable|string|max:255',
             'description' => 'nullable|string',

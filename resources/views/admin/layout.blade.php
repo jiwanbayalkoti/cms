@@ -578,8 +578,11 @@
                             <span class="text-sm">Categories</span>
                         </a>
                         <a href="{{ route('admin.subcategories.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.subcategories.*') ? 'bg-gray-700 text-white' : '' }}">
-                            <span class="text-sm">Subcategories</span>
-                        </a>
+    <span class="text-sm">Subcategories</span>
+</a>
+<a href="{{ route('admin.expense-types.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.expense-types.*') ? 'bg-gray-700 text-white' : '' }}">
+    <span class="text-sm">Expense Types</span>
+</a>
                     </div>
                     <!-- <button type="button" data-tooltip="Accounting System" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="accounting-menu" aria-expanded="{{ $accountingOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">

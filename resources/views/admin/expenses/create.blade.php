@@ -30,18 +30,18 @@
             </div>
 
             <div>
-                <label for="expense_type" class="block text-sm font-medium text-gray-700 mb-2">Expense Type <span class="text-red-500">*</span></label>
-                <select name="expense_type" id="expense_type" required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('expense_type') border-red-500 @enderror">
-                    <option value="purchase" {{ old('expense_type') == 'purchase' ? 'selected' : '' }}>Purchase</option>
-                    <option value="salary" {{ old('expense_type') == 'salary' ? 'selected' : '' }}>Salary</option>
-                    <option value="advance" {{ old('expense_type') == 'advance' ? 'selected' : '' }}>Advance</option>
-                    <option value="rent" {{ old('expense_type') == 'rent' ? 'selected' : '' }}>Rent</option>
-                </select>
-                @error('expense_type')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
+    <label for="expense_type_id" class="block text-sm font-medium text-gray-700 mb-2">Expense Type <span class="text-red-500">*</span></label>
+    <select name="expense_type_id" id="expense_type_id" required
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('expense_type_id') border-red-500 @enderror">
+        <option value="">Select Expense Type</option>
+        @foreach($expenseTypes as $type)
+            <option value="{{ $type->id }}" {{ old('expense_type_id') == $type->id ? 'selected' : '' }}>{{ $type->name }}</option>
+        @endforeach
+    </select>
+    @error('expense_type_id')
+        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+    @enderror
+</div>
 
             <div id="staff_field" style="display: none;">
                 <label for="staff_id" class="block text-sm font-medium text-gray-700 mb-2">Staff Member <span class="text-red-500">*</span></label>
@@ -90,12 +90,6 @@
                 <select name="subcategory_id" id="subcategory_id"
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('subcategory_id') border-red-500 @enderror">
                     <option value="">Select a subcategory (optional)</option>
-                    @foreach($subcategories as $subcategory)
-                        <option value="{{ $subcategory->id }}" {{ old('subcategory_id') == $subcategory->id ? 'selected' : '' }}
-                                data-category="{{ $subcategory->category_id }}">
-                            {{ $subcategory->name }}
-                        </option>
-                    @endforeach
                 </select>
                 @error('subcategory_id')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -179,52 +173,100 @@
 </div>
 
 <script>
-    // Show/hide fields based on expense type
-    function toggleFields() {
-        const expenseType = document.getElementById('expense_type').value;
-        const staffField = document.getElementById('staff_field');
-        const itemField = document.getElementById('item_field');
-        const staffSelect = document.getElementById('staff_id');
-        
-        if (expenseType === 'salary' || expenseType === 'advance') {
-            staffField.style.display = 'block';
-            itemField.style.display = 'none';
-            staffSelect.setAttribute('required', 'required');
-        } else {
-            staffField.style.display = 'none';
-            itemField.style.display = 'block';
-            staffSelect.removeAttribute('required');
-            staffSelect.value = '';
-        }
-        
-        if (expenseType === 'rent') {
-            itemField.style.display = 'none';
-        }
-    }
-    
-    document.getElementById('expense_type').addEventListener('change', toggleFields);
-    toggleFields(); // Run on page load
-    
-    // Filter subcategories based on selected category
-    document.getElementById('category_id').addEventListener('change', function() {
-        const categoryId = this.value;
-        const subcategorySelect = document.getElementById('subcategory_id');
-        const options = subcategorySelect.querySelectorAll('option');
-        
-        options.forEach(option => {
-            if (option.value === '') {
-                option.style.display = 'block';
+    document.addEventListener('DOMContentLoaded', function() {
+        // Show/hide fields based on expense type
+        function toggleFields() {
+            const expenseType = document.getElementById('expense_type_id').value;
+            const staffField = document.getElementById('staff_field');
+            const itemField = document.getElementById('item_field');
+            const staffSelect = document.getElementById('staff_id');
+            
+            if (expenseType === 'salary' || expenseType === 'advance') {
+                staffField.style.display = 'block';
+                itemField.style.display = 'none';
+                staffSelect.setAttribute('required', 'required');
             } else {
-                const optionCategoryId = option.getAttribute('data-category');
-                if (optionCategoryId === categoryId) {
-                    option.style.display = 'block';
-                } else {
-                    option.style.display = 'none';
-                }
+                staffField.style.display = 'none';
+                itemField.style.display = 'block';
+                staffSelect.removeAttribute('required');
+                staffSelect.value = '';
             }
-        });
+            
+            if (expenseType === 'rent') {
+                itemField.style.display = 'none';
+            }
+        }
         
-        subcategorySelect.value = '';
+        const expenseTypeSelect = document.getElementById('expense_type_id');
+        if (expenseTypeSelect) {
+            expenseTypeSelect.addEventListener('change', toggleFields);
+            toggleFields(); // Run on page load
+        }
+        
+        // Load subcategories dynamically when category changes
+        const categorySelect = document.getElementById('category_id');
+        const subcategorySelect = document.getElementById('subcategory_id');
+        
+        if (categorySelect && subcategorySelect) {
+            categorySelect.addEventListener('change', function() {
+                const categoryId = this.value;
+                
+                // Clear existing options except the first one
+                subcategorySelect.innerHTML = '<option value="">Select a subcategory (optional)</option>';
+                
+                if (!categoryId) {
+                    return;
+                }
+                
+                // Show loading state
+                subcategorySelect.disabled = true;
+                subcategorySelect.innerHTML = '<option value="">Loading subcategories...</option>';
+                
+                // Fetch subcategories via AJAX
+                fetch(`/admin/categories/${categoryId}/subcategories`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    subcategorySelect.innerHTML = '<option value="">Select a subcategory (optional)</option>';
+                    
+                    if (data && Array.isArray(data) && data.length > 0) {
+                        data.forEach(subcategory => {
+                            const option = document.createElement('option');
+                            option.value = subcategory.id;
+                            option.textContent = subcategory.name;
+                            subcategorySelect.appendChild(option);
+                        });
+                    } else {
+                        // No subcategories found
+                        subcategorySelect.innerHTML = '<option value="">No subcategories available</option>';
+                    }
+                    
+                    subcategorySelect.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Error loading subcategories:', error);
+                    subcategorySelect.innerHTML = '<option value="">Error loading subcategories</option>';
+                    subcategorySelect.disabled = false;
+                });
+            });
+            
+            // Load subcategories on page load if category is pre-selected
+            const categoryId = categorySelect.value;
+            if (categoryId) {
+                categorySelect.dispatchEvent(new Event('change'));
+            }
+        }
     });
 
     // Image preview functionality

@@ -15,11 +15,11 @@ class Expense extends Model
         'company_id',
         'project_id',
         'construction_material_id',
-'vehicle_rent_id',
+        'vehicle_rent_id',
         'advance_payment_id',
         'category_id',
         'subcategory_id',
-        'expense_type',
+        'expense_type_id',
         'staff_id',
         'item_name',
         'description',
@@ -38,25 +38,16 @@ class Expense extends Model
         'images' => 'array',
     ];
 
-    /**
-     * Get the category that owns the expense.
-     */
     public function category()
     {
         return $this->belongsTo(Category::class);
     }
 
-    /**
-     * Get the subcategory that owns the expense.
-     */
     public function subcategory()
     {
         return $this->belongsTo(Subcategory::class);
     }
 
-    /**
-     * Get the staff member associated with the expense (for salary/advance).
-     */
     public function staff()
     {
         return $this->belongsTo(Staff::class);
@@ -77,25 +68,16 @@ class Expense extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    /**
-     * Get the project.
-     */
     public function project()
     {
         return $this->belongsTo(Project::class);
     }
 
-    /**
-     * Get the construction material associated with this expense.
-     */
     public function constructionMaterial()
     {
         return $this->belongsTo(ConstructionMaterial::class);
     }
 
-    /**
-     * Get the advance payment associated with this expense.
-     */
     public function advancePayment()
     {
         return $this->belongsTo(AdvancePayment::class);
@@ -104,5 +86,10 @@ class Expense extends Model
     public function vehicleRent()
     {
         return $this->belongsTo(\App\Models\VehicleRent::class);
+    }
+
+    public function expenseType()
+    {
+        return $this->belongsTo(\App\Models\ExpenseType::class);
     }
 }
