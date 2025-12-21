@@ -203,6 +203,10 @@ class SalaryPaymentController extends Controller
             'deduction_amount' => 'nullable|numeric|min:0',
             'advance_deduction' => 'nullable|numeric|min:0',
             'status' => 'required|in:pending,partial,paid,cancelled',
+            'payment_percentage' => 'nullable|numeric|min:0|max:100',
+            'payment_amount' => 'nullable|numeric|min:0',
+            'paid_amount' => 'nullable|numeric|min:0',
+            'balance_amount' => 'nullable|numeric|min:0',
             'payment_method' => 'nullable|string|max:255',
             'bank_account_id' => 'nullable|exists:bank_accounts,id',
             'transaction_reference' => 'nullable|string|max:255',
@@ -251,6 +255,15 @@ class SalaryPaymentController extends Controller
             $paidAmount = (float) $validated['paid_amount'];
             $balanceAmount = (float) $validated['balance_amount'];
             
+            // If paid_amount is 0 but payment_amount or payment_percentage is provided, use those instead
+            if ($paidAmount <= 0 && isset($validated['payment_amount']) && $validated['payment_amount'] > 0) {
+                $paidAmount = (float) $validated['payment_amount'];
+                $balanceAmount = $netAmount - $paidAmount;
+            } elseif ($paidAmount <= 0 && isset($validated['payment_percentage']) && $validated['payment_percentage'] > 0) {
+                $paidAmount = ($netAmount * (float) $validated['payment_percentage']) / 100;
+                $balanceAmount = $netAmount - $paidAmount;
+            }
+            
             // Ensure paid_amount + balance_amount = net_amount (handle rounding)
             $total = $paidAmount + $balanceAmount;
             if (abs($total - $netAmount) > 0.01) {
@@ -273,6 +286,20 @@ class SalaryPaymentController extends Controller
             if ($status === 'paid') {
                 $paidAmount = $netAmount;
                 $balanceAmount = 0;
+            } elseif ($status === 'partial') {
+                // If status is partial but no paid_amount provided, set based on payment_amount or payment_percentage
+                if (isset($validated['payment_amount']) && $validated['payment_amount'] > 0) {
+                    $paidAmount = (float) $validated['payment_amount'];
+                    $balanceAmount = $netAmount - $paidAmount;
+                } elseif (isset($validated['payment_percentage']) && $validated['payment_percentage'] > 0) {
+                    $paidAmount = ($netAmount * (float) $validated['payment_percentage']) / 100;
+                    $balanceAmount = $netAmount - $paidAmount;
+                } else {
+                    // Status is partial but no payment amount provided - keep as pending
+                    $paidAmount = 0;
+                    $balanceAmount = $netAmount;
+                    $status = 'pending';
+                }
             }
         }
 
@@ -302,9 +329,25 @@ class SalaryPaymentController extends Controller
             'created_by' => auth()->id(),
         ]);
 
+        // Refresh to get latest data after creation
+        $salaryPayment->refresh();
+        
         // Create expense if any amount is paid (partial or full)
+        // This handles both partial and full payments
         if ($salaryPayment->paid_amount > 0) {
-            $this->createExpenseFromSalaryPayment($salaryPayment);
+            try {
+                $this->createExpenseFromSalaryPayment($salaryPayment);
+                // Refresh again to get expense_id
+                $salaryPayment->refresh();
+            } catch (\Exception $e) {
+                \Log::error('Error creating expense from salary payment: ' . $e->getMessage(), [
+                    'salary_payment_id' => $salaryPayment->id,
+                    'paid_amount' => $salaryPayment->paid_amount,
+                    'status' => $salaryPayment->status,
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                // Don't fail the whole request if expense creation fails
+            }
         }
 
         return redirect()->route('admin.salary-payments.index')
@@ -478,29 +521,45 @@ class SalaryPaymentController extends Controller
             'updated_by' => auth()->id(),
         ]);
 
+        // Refresh the model to get latest data
+        $salaryPayment->refresh();
+
         // Update status based on payment amounts
         $salaryPayment->updatePaymentStatus();
 
-        // Create or update expense based on paid amount
+        // Refresh again after status update
+        $salaryPayment->refresh();
+
+        // Create or update expense based on paid amount (for both partial and full payments)
         if ($salaryPayment->paid_amount > 0) {
             // If expense exists, update it; otherwise create new one
             if ($salaryPayment->expense_id) {
                 $expense = Expense::find($salaryPayment->expense_id);
                 if ($expense) {
-                    // Update expense amount to match paid amount
+                    // Update expense amount to match paid amount (for partial payments)
                     $expense->amount = $salaryPayment->paid_amount;
                     $expense->date = $salaryPayment->payment_date;
                     $expense->payment_method = $salaryPayment->payment_method;
                     $expense->notes = "Transaction Reference: {$salaryPayment->transaction_reference}" . 
                         ($salaryPayment->notes ? " | {$salaryPayment->notes}" : '');
-                    $expense->description = "Salary payment for {$salaryPayment->payment_month_name} - {$salaryPayment->staff->name}" . 
-                        ($salaryPayment->status === 'partial' ? " (Partial: " . number_format(($salaryPayment->paid_amount / $salaryPayment->net_amount) * 100, 1) . "%)" : '') .
+                    
+                    // Update description with partial payment info if status is partial
+                    $partialInfo = '';
+                    if ($salaryPayment->status === 'partial' && $salaryPayment->net_amount > 0) {
+                        $percentage = ($salaryPayment->paid_amount / $salaryPayment->net_amount) * 100;
+                        $partialInfo = " (Partial: " . number_format($percentage, 1) . "% - Rs. " . number_format($salaryPayment->paid_amount, 2) . " of Rs. " . number_format($salaryPayment->net_amount, 2) . ")";
+                    }
+                    
+                    $expense->description = "Salary payment for {$salaryPayment->payment_month_name} - {$salaryPayment->staff->name}{$partialInfo}" . 
                         ($salaryPayment->notes ? " | Notes: {$salaryPayment->notes}" : '');
                     $expense->updated_by = auth()->id();
                     $expense->save();
+                } else {
+                    // Expense ID exists but expense was deleted, create new one
+                    $this->createExpenseFromSalaryPayment($salaryPayment);
                 }
             } else {
-                // Create new expense
+                // Create new expense for partial or full payment
                 $this->createExpenseFromSalaryPayment($salaryPayment);
             }
         } else {
@@ -574,6 +633,9 @@ class SalaryPaymentController extends Controller
      */
     private function createExpenseFromSalaryPayment(SalaryPayment $salaryPayment)
     {
+        // Refresh to get latest data
+        $salaryPayment->refresh();
+        
         // Only create expense if no expense exists
         if (!$salaryPayment->expense_id) {
             $companyId = $salaryPayment->company_id;
@@ -585,12 +647,26 @@ class SalaryPaymentController extends Controller
                 ['name' => 'Salary']
             );
 
-            $staffName = $salaryPayment->staff->name;
+            // Load staff relationship
+            $salaryPayment->load('staff');
+            
+            $staffName = $salaryPayment->staff->name ?? 'Unknown';
             $monthName = $salaryPayment->payment_month_name;
             
             // Use paid_amount for expense (for partial payments)
             // If fully paid, paid_amount should equal net_amount
             $expenseAmount = $salaryPayment->paid_amount > 0 ? $salaryPayment->paid_amount : $salaryPayment->net_amount;
+            
+            // Ensure expense amount is valid
+            if ($expenseAmount <= 0) {
+                \Log::warning('Cannot create expense: paid_amount is 0 or negative', [
+                    'salary_payment_id' => $salaryPayment->id,
+                    'paid_amount' => $salaryPayment->paid_amount,
+                    'net_amount' => $salaryPayment->net_amount,
+                    'status' => $salaryPayment->status,
+                ]);
+                return false;
+            }
             
             // Add partial payment indicator in description
             $partialInfo = '';
@@ -599,26 +675,48 @@ class SalaryPaymentController extends Controller
                 $partialInfo = " (Partial: " . number_format($percentage, 1) . "% - Rs. " . number_format($salaryPayment->paid_amount, 2) . " of Rs. " . number_format($salaryPayment->net_amount, 2) . ")";
             }
 
-            $expense = Expense::create([
-                'company_id' => $companyId,
-                'project_id' => $salaryPayment->project_id,
-                'staff_id' => $salaryPayment->staff_id,
-                'category_id' => $category->id,
-                'expense_type_id' => $expenseType->id,
-                'item_name' => "Salary Payment - {$staffName}",
-                'description' => "Salary payment for {$monthName} - {$staffName}{$partialInfo}" . 
-                    ($salaryPayment->notes ? " | Notes: {$salaryPayment->notes}" : ''),
-                'amount' => $expenseAmount,
-                'date' => $salaryPayment->payment_date,
-                'payment_method' => $salaryPayment->payment_method,
-                'notes' => "Transaction Reference: {$salaryPayment->transaction_reference}" . 
-                    ($salaryPayment->notes ? " | {$salaryPayment->notes}" : ''),
-                'created_by' => auth()->id(),
-            ]);
+            try {
+                $expense = Expense::create([
+                    'company_id' => $companyId,
+                    'project_id' => $salaryPayment->project_id,
+                    'staff_id' => $salaryPayment->staff_id,
+                    'category_id' => $category->id,
+                    'expense_type_id' => $expenseType->id,
+                    'item_name' => "Salary Payment - {$staffName}",
+                    'description' => "Salary payment for {$monthName} - {$staffName}{$partialInfo}" . 
+                        ($salaryPayment->notes ? " | Notes: {$salaryPayment->notes}" : ''),
+                    'amount' => $expenseAmount,
+                    'date' => $salaryPayment->payment_date,
+                    'payment_method' => $salaryPayment->payment_method,
+                    'notes' => ($salaryPayment->transaction_reference ? "Transaction Reference: {$salaryPayment->transaction_reference}" : '') . 
+                        ($salaryPayment->notes ? ($salaryPayment->transaction_reference ? " | {$salaryPayment->notes}" : $salaryPayment->notes) : ''),
+                    'created_by' => auth()->id(),
+                ]);
 
-            $salaryPayment->expense_id = $expense->id;
-            $salaryPayment->save();
+                $salaryPayment->expense_id = $expense->id;
+                $salaryPayment->save();
+                
+                \Log::info('Expense created from salary payment', [
+                    'expense_id' => $expense->id,
+                    'salary_payment_id' => $salaryPayment->id,
+                    'amount' => $expenseAmount,
+                    'status' => $salaryPayment->status,
+                    'paid_amount' => $salaryPayment->paid_amount,
+                ]);
+                
+                return true;
+            } catch (\Exception $e) {
+                \Log::error('Error creating expense: ' . $e->getMessage(), [
+                    'salary_payment_id' => $salaryPayment->id,
+                    'paid_amount' => $salaryPayment->paid_amount,
+                    'status' => $salaryPayment->status,
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                throw $e;
+            }
         }
+        
+        return false;
     }
 
     /**

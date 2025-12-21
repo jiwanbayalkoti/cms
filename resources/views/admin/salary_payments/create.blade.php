@@ -572,6 +572,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial calculation
     calculateAmounts();
+    
+    // Ensure hidden fields are updated before form submission
+    const form = document.getElementById('salaryPaymentForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // Recalculate payment before submitting to ensure hidden fields are up to date
+            calculatePayment();
+            
+            // Log for debugging
+            console.log('Form submitting with:', {
+                paid_amount: document.getElementById('paid_amount').value,
+                balance_amount: document.getElementById('balance_amount').value,
+                status: document.getElementById('status').value,
+                payment_amount: document.getElementById('payment_amount').value,
+                payment_percentage: document.getElementById('payment_percentage').value,
+            });
+        });
+    }
 });
 </script>
 @endsection
