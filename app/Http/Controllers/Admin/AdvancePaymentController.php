@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\AdvancePayment;
 use App\Models\Supplier;
 use App\Models\Project;
@@ -14,9 +15,31 @@ use Illuminate\Http\Request;
 
 class AdvancePaymentController extends Controller
 {
+    use ValidatesForms;
+    
     public function __construct()
     {
         $this->middleware('admin');
+    }
+    
+    /**
+     * Validate advance payment form data (AJAX endpoint)
+     */
+    public function validateAdvancePayment(Request $request)
+    {
+        $rules = [
+            'project_id' => 'nullable|exists:projects,id',
+            'payment_type' => 'required|string',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'amount' => 'required|numeric|min:0.01',
+            'payment_date' => 'required|date',
+            'bank_account_id' => 'nullable|exists:bank_accounts,id',
+            'payment_method' => 'nullable|string|max:255',
+            'transaction_reference' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ];
+        
+        return $this->validateForm($request, $rules);
     }
 
     /**

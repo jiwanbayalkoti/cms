@@ -9,15 +9,19 @@
 </div>
 
 <div class="bg-white shadow-lg rounded-lg p-6">
-    <form action="{{ route('admin.projects.update', $project) }}" method="POST">
+    <form action="{{ route('admin.projects.update', $project) }}" method="POST"
+          data-validate="true"
+          data-validation-route="{{ route('admin.projects.validate') }}"
+          id="projectForm">
         @csrf
         @method('PUT')
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Project Name <span class="text-red-500">*</span></label>
-                <input type="text" name="name" id="name" value="{{ old('name', $project->name) }}" required
+                <input type="text" name="name" id="name" value="{{ old('name', $project->name) }}"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('name') border-red-500 @enderror">
+                <div class="field-error text-red-600 text-sm mt-1" data-field="name" style="display: none;"></div>
                 @error('name')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -42,6 +46,7 @@
                         </option>
                     @endforeach
                 </select>
+                <div class="field-error text-red-600 text-sm mt-1" data-field="status" style="display: none;"></div>
                 @error('status')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror

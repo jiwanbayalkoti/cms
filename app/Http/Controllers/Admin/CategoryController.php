@@ -3,17 +3,35 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\Category;
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
+    use ValidatesForms;
+    
     /**
      * Create a new controller instance.
      */
     public function __construct()
     {
         $this->middleware('admin');
+    }
+    
+    /**
+     * Validate category form data (AJAX endpoint)
+     */
+    public function validateCategory(Request $request)
+    {
+        $rules = [
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'type' => 'required|in:income,expense',
+            'is_active' => 'boolean',
+        ];
+        
+        return $this->validateForm($request, $rules);
     }
 
     /**

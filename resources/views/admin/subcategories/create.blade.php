@@ -9,12 +9,15 @@
 </div>
 
 <div class="bg-white shadow-lg rounded-lg p-6">
-    <form action="{{ route('admin.subcategories.store') }}" method="POST">
+    <form action="{{ route('admin.subcategories.store') }}" method="POST"
+          data-validate="true"
+          data-validation-route="{{ route('admin.subcategories.validate') }}"
+          id="subcategoryForm">
         @csrf
 
         <div class="mb-4">
             <label for="category_id" class="block text-sm font-medium text-gray-700 mb-2">Category <span class="text-red-500">*</span></label>
-            <select name="category_id" id="category_id" required
+            <select name="category_id" id="category_id"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('category_id') border-red-500 @enderror">
                 <option value="">Select a category</option>
                 @foreach($categories as $category)
@@ -23,6 +26,7 @@
                     </option>
                 @endforeach
             </select>
+            <div class="field-error text-red-600 text-sm mt-1" data-field="category_id" style="display: none;"></div>
             @error('category_id')
                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
             @enderror
@@ -30,8 +34,9 @@
 
         <div class="mb-4">
             <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Subcategory Name <span class="text-red-500">*</span></label>
-            <input type="text" name="name" id="name" value="{{ old('name') }}" required
+            <input type="text" name="name" id="name" value="{{ old('name') }}"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('name') border-red-500 @enderror">
+            <div class="field-error text-red-600 text-sm mt-1" data-field="name" style="display: none;"></div>
             @error('name')
                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
             @enderror

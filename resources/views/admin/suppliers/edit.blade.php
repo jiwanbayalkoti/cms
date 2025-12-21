@@ -13,13 +13,16 @@
                 <strong>Supplier Details</strong>
             </div>
             <div class="card-body">
-                <form action="{{ route('admin.suppliers.update', $supplier) }}" method="POST" id="supplierForm" enctype="multipart/form-data">
+                <form action="{{ route('admin.suppliers.update', $supplier) }}" method="POST" id="supplierForm" enctype="multipart/form-data"
+                      data-validate="true"
+                      data-validation-route="{{ route('admin.suppliers.validate.edit', $supplier) }}">
                     @csrf
                     @method('PUT')
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Name *</label>
-                            <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $supplier->name) }}" required>
+                            <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $supplier->name) }}">
+                            <div class="field-error text-danger small mt-1" data-field="name" style="display: none;"></div>
                             @error('name')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror

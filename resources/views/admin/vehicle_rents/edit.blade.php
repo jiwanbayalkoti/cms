@@ -13,7 +13,9 @@
 
 <div class="card">
     <div class="card-body">
-        <form action="{{ route('admin.vehicle-rents.update', $vehicleRent) }}" method="POST" id="vehicleRentForm">
+        <form action="{{ route('admin.vehicle-rents.update', $vehicleRent) }}" method="POST" id="vehicleRentForm"
+              data-validate="true"
+              data-validation-route="{{ route('admin.vehicle-rents.validate') }}">
             @csrf
             @method('PUT')
             

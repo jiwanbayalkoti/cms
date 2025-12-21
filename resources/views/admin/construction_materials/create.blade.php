@@ -13,13 +13,16 @@
         <strong>Material Details</strong>
     </div>
     <div class="card-body">
-        <form action="{{ route('admin.construction-materials.store') }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ route('admin.construction-materials.store') }}" method="POST" enctype="multipart/form-data"
+              data-validate="true"
+              data-validation-route="{{ route('admin.construction-materials.validate') }}"
+              id="constructionMaterialForm">
             @csrf
 
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Material Name *</label>
-                    <select name="material_name" class="form-select" required>
+                    <select name="material_name" class="form-select">
                         <option value="">Select material name</option>
                         @foreach($materialNames as $materialName)
                             <option value="{{ $materialName->name }}" {{ old('material_name') === $materialName->name ? 'selected' : '' }}>
@@ -41,7 +44,7 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Unit *</label>
-                    <select name="unit" class="form-select" required>
+                    <select name="unit" class="form-select">
                         <option value="">Select unit</option>
                         @foreach($units as $unit)
                             <option value="{{ $unit->name }}" {{ old('unit') === $unit->name ? 'selected' : '' }}>
@@ -49,15 +52,18 @@
                             </option>
                         @endforeach
                     </select>
+                    <div class="field-error text-danger small mt-1" data-field="unit" style="display: none;"></div>
                 </div>
 
                 <div class="col-md-3">
                     <label class="form-label">Quantity Received *</label>
-                    <input type="number" step="0.01" name="quantity_received" class="form-control" value="{{ old('quantity_received', 0) }}" required>
+                    <input type="number" step="0.01" name="quantity_received" class="form-control" value="{{ old('quantity_received', 0) }}">
+                    <div class="field-error text-danger small mt-1" data-field="quantity_received" style="display: none;"></div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Rate per Unit *</label>
-                    <input type="number" step="0.01" name="rate_per_unit" class="form-control" value="{{ old('rate_per_unit', 0) }}" required>
+                    <input type="number" step="0.01" name="rate_per_unit" class="form-control" value="{{ old('rate_per_unit', 0) }}">
+                    <div class="field-error text-danger small mt-1" data-field="rate_per_unit" style="display: none;"></div>
                 </div>
 
                 <div class="col-md-4">
@@ -86,11 +92,12 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Payment Status *</label>
-                    <select name="payment_status" class="form-select" required>
+                    <select name="payment_status" class="form-select">
                         <option value="Paid" {{ old('payment_status') === 'Paid' ? 'selected' : '' }}>Paid</option>
                         <option value="Unpaid" {{ old('payment_status', 'Unpaid') === 'Unpaid' ? 'selected' : '' }}>Unpaid</option>
                         <option value="Partial" {{ old('payment_status') === 'Partial' ? 'selected' : '' }}>Partial</option>
                     </select>
+                    <div class="field-error text-danger small mt-1" data-field="payment_status" style="display: none;"></div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Payment Mode</label>
@@ -111,9 +118,10 @@
                             <option value="{{ $purchasedBy->id }}" {{ old('purchased_by_id') == $purchasedBy->id ? 'selected' : '' }}>
                                 {{ $purchasedBy->name }}
                             </option>
-                        @endforeach
-                    </select>
-                </div>
+        @endforeach
+    </select>
+    <div class="field-error text-danger small mt-1" data-field="project_id" style="display: none;"></div>
+</div>
 
                 <div class="col-md-4">
                     <label class="form-label">Delivery Date</label>
@@ -134,7 +142,7 @@
                 </div>
 <div class="col-md-4">
     <label class="form-label">Project *</label>
-    <select name="project_id" class="form-select" required>
+    <select name="project_id" class="form-select">
         <option value="">Select project</option>
         @foreach($projects as $project)
             <option value="{{ $project->id }}" {{ old('project_id') == $project->id ? 'selected' : '' }}>
@@ -162,12 +170,13 @@
 
                 <div class="col-md-4">
                     <label class="form-label">Status *</label>
-                    <select name="status" class="form-select" required>
+                    <select name="status" class="form-select">
                         <option value="Received" {{ old('status', 'Received') === 'Received' ? 'selected' : '' }}>Received</option>
                         <option value="Pending" {{ old('status') === 'Pending' ? 'selected' : '' }}>Pending</option>
                         <option value="Returned" {{ old('status') === 'Returned' ? 'selected' : '' }}>Returned</option>
                         <option value="Damaged" {{ old('status') === 'Damaged' ? 'selected' : '' }}>Damaged</option>
                     </select>
+                    <div class="field-error text-danger small mt-1" data-field="status" style="display: none;"></div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Approved By</label>

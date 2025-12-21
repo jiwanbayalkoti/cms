@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\Expense;
 use App\Models\Category;
 use App\Models\Subcategory;
@@ -14,6 +15,7 @@ use App\Support\CompanyContext;
 
 class ExpenseController extends Controller
 {
+    use ValidatesForms;
     /**
      * Create a new controller instance.
      */
@@ -90,6 +92,29 @@ class ExpenseController extends Controller
             ->get();
         $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
         return view('admin.expenses.create', compact('categories', 'subcategories', 'staff', 'projects', 'expenseTypes'));
+    }
+
+    /**
+     * Validate expense form data (AJAX endpoint)
+     */
+    public function validateExpense(Request $request)
+    {
+        $rules = [
+            'project_id' => 'nullable|exists:projects,id',
+            'category_id' => 'required|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:subcategories,id',
+            'expense_type_id' => 'required|exists:expense_types,id',
+            'staff_id' => 'nullable|exists:staff,id',
+            'item_name' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'amount' => 'required|numeric|min:0',
+            'date' => 'required|date',
+            'payment_method' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+        ];
+        
+        return $this->validateForm($request, $rules);
     }
 
     /**

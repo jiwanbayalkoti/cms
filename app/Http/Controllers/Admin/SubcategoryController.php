@@ -3,18 +3,36 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\Subcategory;
 use App\Models\Category;
 use Illuminate\Http\Request;
 
 class SubcategoryController extends Controller
 {
+    use ValidatesForms;
+    
     /**
      * Create a new controller instance.
      */
     public function __construct()
     {
         $this->middleware('admin');
+    }
+    
+    /**
+     * Validate subcategory form data (AJAX endpoint)
+     */
+    public function validateSubcategory(Request $request)
+    {
+        $rules = [
+            'category_id' => 'required|exists:categories,id',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'is_active' => 'boolean',
+        ];
+        
+        return $this->validateForm($request, $rules);
     }
 
     /**

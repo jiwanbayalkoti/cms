@@ -9,13 +9,17 @@
 </div>
 
 <div class="bg-white shadow-lg rounded-lg p-6">
-    <form action="{{ route('admin.categories.store') }}" method="POST">
+    <form action="{{ route('admin.categories.store') }}" method="POST"
+          data-validate="true"
+          data-validation-route="{{ route('admin.categories.validate') }}"
+          id="categoryForm">
         @csrf
 
         <div class="mb-4">
             <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Category Name <span class="text-red-500">*</span></label>
-            <input type="text" name="name" id="name" value="{{ old('name') }}" required
+            <input type="text" name="name" id="name" value="{{ old('name') }}"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('name') border-red-500 @enderror">
+            <div class="field-error text-red-600 text-sm mt-1" data-field="name" style="display: none;"></div>
             @error('name')
                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
             @enderror
@@ -23,11 +27,12 @@
 
         <div class="mb-4">
             <label for="type" class="block text-sm font-medium text-gray-700 mb-2">Type <span class="text-red-500">*</span></label>
-            <select name="type" id="type" required
+            <select name="type" id="type"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('type') border-red-500 @enderror">
                 <option value="expense" {{ old('type') === 'expense' ? 'selected' : '' }}>Expense</option>
                 <option value="income" {{ old('type') === 'income' ? 'selected' : '' }}>Income</option>
             </select>
+            <div class="field-error text-red-600 text-sm mt-1" data-field="type" style="display: none;"></div>
             @error('type')
                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
             @enderror

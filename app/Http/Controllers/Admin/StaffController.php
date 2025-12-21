@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\Staff;
 use App\Models\Position;
 use App\Models\Project;
@@ -11,12 +12,38 @@ use App\Support\CompanyContext;
 
 class StaffController extends Controller
 {
+    use ValidatesForms;
+    
     /**
      * Create a new controller instance.
      */
     public function __construct()
     {
         $this->middleware('admin');
+    }
+    
+    /**
+     * Validate staff form data (AJAX endpoint)
+     */
+    public function validateStaff(Request $request, Staff $staff = null)
+    {
+        $emailRule = $staff 
+            ? 'required|email|unique:staff,email,' . $staff->id
+            : 'required|email|unique:staff,email';
+        
+        $rules = [
+            'project_id' => 'nullable|exists:projects,id',
+            'name' => 'required|string|max:255',
+            'email' => $emailRule,
+            'phone' => 'nullable|string|max:20',
+            'position_id' => 'required|exists:positions,id',
+            'address' => 'nullable|string',
+            'salary' => 'nullable|numeric|min:0',
+            'join_date' => 'nullable|date',
+            'is_active' => 'boolean',
+        ];
+        
+        return $this->validateForm($request, $rules);
     }
 
     /**

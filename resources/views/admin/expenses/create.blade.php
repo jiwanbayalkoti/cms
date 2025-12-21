@@ -9,7 +9,10 @@
 </div>
 
 <div class="bg-white shadow-lg rounded-lg p-6">
-    <form action="{{ route('admin.expenses.store') }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('admin.expenses.store') }}" method="POST" enctype="multipart/form-data"
+          data-validate="true"
+          data-validation-route="{{ route('admin.expenses.validate') }}"
+          id="expenseForm">
         @csrf
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -24,6 +27,7 @@
                         </option>
                     @endforeach
                 </select>
+                <div class="field-error text-red-600 text-sm mt-1" data-field="project_id" style="display: none;"></div>
                 @error('project_id')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -31,13 +35,14 @@
 
             <div>
     <label for="expense_type_id" class="block text-sm font-medium text-gray-700 mb-2">Expense Type <span class="text-red-500">*</span></label>
-    <select name="expense_type_id" id="expense_type_id" required
+    <select name="expense_type_id" id="expense_type_id"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('expense_type_id') border-red-500 @enderror">
         <option value="">Select Expense Type</option>
         @foreach($expenseTypes as $type)
             <option value="{{ $type->id }}" {{ old('expense_type_id') == $type->id ? 'selected' : '' }}>{{ $type->name }}</option>
         @endforeach
     </select>
+    <div class="field-error text-red-600 text-sm mt-1" data-field="expense_type_id" style="display: none;"></div>
     @error('expense_type_id')
         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
     @enderror
@@ -71,7 +76,7 @@
 
             <div>
                 <label for="category_id" class="block text-sm font-medium text-gray-700 mb-2">Category <span class="text-red-500">*</span></label>
-                <select name="category_id" id="category_id" required
+                <select name="category_id" id="category_id"
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('category_id') border-red-500 @enderror">
                     <option value="">Select a category</option>
                     @foreach($categories as $category)
@@ -80,6 +85,7 @@
                         </option>
                     @endforeach
                 </select>
+                <div class="field-error text-red-600 text-sm mt-1" data-field="category_id" style="display: none;"></div>
                 @error('category_id')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -98,8 +104,9 @@
 
             <div>
                 <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">Amount <span class="text-red-500">*</span></label>
-                <input type="number" name="amount" id="amount" value="{{ old('amount') }}" step="0.01" min="0" required
+                <input type="number" name="amount" id="amount" value="{{ old('amount') }}" step="0.01" min="0"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('amount') border-red-500 @enderror">
+                <div class="field-error text-red-600 text-sm mt-1" data-field="amount" style="display: none;"></div>
                 @error('amount')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -107,8 +114,9 @@
 
             <div>
                 <label for="date" class="block text-sm font-medium text-gray-700 mb-2">Date <span class="text-red-500">*</span></label>
-                <input type="date" name="date" id="date" value="{{ old('date', date('Y-m-d')) }}" required
+                <input type="date" name="date" id="date" value="{{ old('date', date('Y-m-d')) }}"
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('date') border-red-500 @enderror">
+                <div class="field-error text-red-600 text-sm mt-1" data-field="date" style="display: none;"></div>
                 @error('date')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -184,11 +192,11 @@
             if (expenseType === 'salary' || expenseType === 'advance') {
                 staffField.style.display = 'block';
                 itemField.style.display = 'none';
-                staffSelect.setAttribute('required', 'required');
+                    // Staff field required handled by validation
             } else {
                 staffField.style.display = 'none';
                 itemField.style.display = 'block';
-                staffSelect.removeAttribute('required');
+                    // Staff field requirement removed
                 staffSelect.value = '';
             }
             

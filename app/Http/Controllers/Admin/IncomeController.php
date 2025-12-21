@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\Income;
 use App\Models\Category;
 use App\Models\Subcategory;
@@ -12,12 +13,34 @@ use App\Support\CompanyContext;
 
 class IncomeController extends Controller
 {
+    use ValidatesForms;
+    
     /**
      * Create a new controller instance.
      */
     public function __construct()
     {
         $this->middleware('admin');
+    }
+    
+    /**
+     * Validate income form data (AJAX endpoint)
+     */
+    public function validateIncome(Request $request)
+    {
+        $rules = [
+            'category_id' => 'required|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:subcategories,id',
+            'source' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'amount' => 'required|numeric|min:0',
+            'date' => 'required|date',
+            'payment_method' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+            'project_id' => 'nullable|exists:projects,id',
+        ];
+        
+        return $this->validateForm($request, $rules);
     }
 
     /**

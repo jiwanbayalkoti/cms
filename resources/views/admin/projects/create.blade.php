@@ -9,14 +9,18 @@
 </div>
 
 <div class="bg-white shadow-lg rounded-lg p-6">
-    <form action="{{ route('admin.projects.store') }}" method="POST">
+    <form action="{{ route('admin.projects.store') }}" method="POST"
+          data-validate="true"
+          data-validation-route="{{ route('admin.projects.validate') }}"
+          id="projectForm">
         @csrf
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Project Name <span class="text-red-500">*</span></label>
-                <input type="text" name="name" id="name" value="{{ old('name') }}" required
+                <input type="text" name="name" id="name" value="{{ old('name') }}"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('name') border-red-500 @enderror">
+                <div class="field-error text-red-600 text-sm mt-1" data-field="name" style="display: none;"></div>
                 @error('name')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -33,7 +37,7 @@
 
             <div>
                 <label for="status" class="block text-sm font-medium text-gray-700 mb-2">Status <span class="text-red-500">*</span></label>
-                <select name="status" id="status" required
+                <select name="status" id="status"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 @error('status') border-red-500 @enderror">
                     @foreach($statuses as $status)
                         <option value="{{ $status }}" {{ old('status', 'planned') === $status ? 'selected' : '' }}>
@@ -41,6 +45,7 @@
                         </option>
                     @endforeach
                 </select>
+                <div class="field-error text-red-600 text-sm mt-1" data-field="status" style="display: none;"></div>
                 @error('status')
                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                 @enderror

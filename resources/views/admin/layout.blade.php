@@ -586,6 +586,9 @@
 <a href="{{ route('admin.payment-types.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.payment-types.*') ? 'bg-gray-700 text-white' : '' }}">
     <span class="text-sm">Payment Types</span>
 </a>
+<a href="{{ route('admin.salary-payments.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.salary-payments.*') ? 'bg-gray-700 text-white' : '' }}">
+    <span class="text-sm">Salary Payments</span>
+</a>
                     </div>
                     <!-- <button type="button" data-tooltip="Accounting System" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="accounting-menu" aria-expanded="{{ $accountingOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
@@ -969,6 +972,7 @@
     </script>
     @stack('scripts')
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('js/form-validation.js') }}"></script>
 </body>
 </html>
 

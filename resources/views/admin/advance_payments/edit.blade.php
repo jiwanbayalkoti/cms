@@ -13,14 +13,16 @@
 
 <div class="card">
     <div class="card-body">
-        <form action="{{ route('admin.advance-payments.update', $advancePayment) }}" method="POST" id="advancePaymentForm">
+        <form action="{{ route('admin.advance-payments.update', $advancePayment) }}" method="POST" id="advancePaymentForm"
+              data-validate="true"
+              data-validation-route="{{ route('admin.advance-payments.validate') }}">
             @csrf
             @method('PUT')
             
             <div class="row mb-4">
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Payment Type <span class="text-danger">*</span></label>
-                    <select name="payment_type" id="payment_type" class="form-select @error('payment_type') is-invalid @enderror" required>
+                    <select name="payment_type" id="payment_type" class="form-select @error('payment_type') is-invalid @enderror">
                         <option value="">Select Payment Type</option>
                         @foreach($paymentTypes as $type)
                             @php
@@ -32,6 +34,7 @@
                             </option>
                         @endforeach
                     </select>
+                    <div class="field-error text-danger small mt-1" data-field="payment_type" style="display: none;"></div>
                     @error('payment_type')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -51,7 +54,7 @@
                 
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Supplier <span class="text-danger">*</span></label>
-                    <select name="supplier_id" id="supplier_id" class="form-select @error('supplier_id') is-invalid @enderror" required>
+                    <select name="supplier_id" id="supplier_id" class="form-select @error('supplier_id') is-invalid @enderror">
                         <option value="">Select Supplier</option>
                         @foreach($suppliers as $supplier)
                             <option value="{{ $supplier->id }}" {{ old('supplier_id', $advancePayment->supplier_id) == $supplier->id ? 'selected' : '' }}>
@@ -59,6 +62,7 @@
                             </option>
                         @endforeach
                     </select>
+                    <div class="field-error text-danger small mt-1" data-field="supplier_id" style="display: none;"></div>
                     @error('supplier_id')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -76,7 +80,8 @@
                             <label class="form-label">Payment Amount <span class="text-danger">*</span></label>
                             <input type="number" name="amount" id="amount" step="0.01" min="0.01" 
                                    class="form-control @error('amount') is-invalid @enderror" 
-                                   value="{{ old('amount', $advancePayment->amount) }}" placeholder="0.00" required>
+                                   value="{{ old('amount', $advancePayment->amount) }}" placeholder="0.00">
+                            <div class="field-error text-danger small mt-1" data-field="amount" style="display: none;"></div>
                             @error('amount')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -86,7 +91,8 @@
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Payment Date <span class="text-danger">*</span></label>
                             <input type="date" name="payment_date" class="form-control @error('payment_date') is-invalid @enderror" 
-                                   value="{{ old('payment_date', $advancePayment->payment_date->format('Y-m-d')) }}" required>
+                                   value="{{ old('payment_date', $advancePayment->payment_date->format('Y-m-d')) }}">
+                            <div class="field-error text-danger small mt-1" data-field="payment_date" style="display: none;"></div>
                             @error('payment_date')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror

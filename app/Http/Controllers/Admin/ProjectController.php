@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\Company;
 use App\Models\Project;
 use App\Support\CompanyContext;
@@ -11,9 +12,31 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
+    use ValidatesForms;
+    
     public function __construct()
     {
         $this->middleware('admin');
+    }
+    
+    /**
+     * Validate project form data (AJAX endpoint)
+     */
+    public function validateProjectForm(Request $request)
+    {
+        $statusRule = implode(',', Project::statusOptions());
+        
+        $rules = [
+            'name' => 'required|string|max:255',
+            'client_name' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'status' => 'required|in:' . $statusRule,
+            'budget' => 'nullable|numeric|min:0',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ];
+        
+        return $this->validateForm($request, $rules);
     }
 
     public function index()

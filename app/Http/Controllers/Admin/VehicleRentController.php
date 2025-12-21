@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\VehicleRent;
 use App\Models\Project;
 use App\Models\Supplier;
@@ -15,9 +16,54 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class VehicleRentController extends Controller
 {
+    use ValidatesForms;
+    
     public function __construct()
     {
         $this->middleware('admin');
+    }
+    
+    /**
+     * Validate vehicle rent form data (AJAX endpoint)
+     */
+    public function validateVehicleRent(Request $request)
+    {
+        // Validate rate_type first to determine if total_amount is required
+        $rateType = $request->input('rate_type');
+        $totalAmountRule = $rateType === 'not_fixed' ? 'nullable|numeric|min:0' : 'required|numeric|min:0';
+        
+        $rules = [
+            'project_id' => 'nullable|exists:projects,id',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'vehicle_type' => 'required|string|max:100',
+            'vehicle_number' => 'nullable|string|max:100',
+            'driver_name' => 'nullable|string|max:255',
+            'driver_contact' => 'nullable|string|max:50',
+            'rent_date' => 'required|date',
+            'start_location' => 'required|string|max:255',
+            'destination_location' => 'required|string|max:255',
+            'distance_km' => 'nullable|numeric|min:0',
+            'hours' => 'nullable|integer|min:0|max:23',
+            'minutes' => 'nullable|integer|min:0|max:59',
+            'rate_per_km' => 'nullable|numeric|min:0',
+            'rate_per_hour' => 'nullable|numeric|min:0',
+            'fixed_rate' => 'nullable|numeric|min:0',
+            'number_of_days' => 'nullable|integer|min:1',
+            'rate_per_day' => 'nullable|numeric|min:0',
+            'rent_start_date' => 'nullable|date',
+            'rent_end_date' => 'nullable|date|after_or_equal:rent_start_date',
+            'quantity_quintal' => 'nullable|numeric|min:0',
+            'rate_per_quintal' => 'nullable|numeric|min:0',
+            'rate_type' => 'required|in:per_km,fixed,per_hour,daywise,per_quintal,not_fixed',
+            'total_amount' => $totalAmountRule,
+            'paid_amount' => 'nullable|numeric|min:0',
+            'bank_account_id' => 'nullable|exists:bank_accounts,id',
+            'payment_date' => 'nullable|date',
+            'notes' => 'nullable|string',
+            'purpose' => 'nullable|string',
+        ];
+        
+        return $this->validateForm($request, $rules);
     }
 
     /**

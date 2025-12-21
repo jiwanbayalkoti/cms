@@ -44,4 +44,23 @@ class Staff extends Model
     {
         return $this->belongsTo(Project::class);
     }
+
+    /**
+     * Get the salary payments for the staff member.
+     */
+    public function salaryPayments()
+    {
+        return $this->hasMany(SalaryPayment::class);
+    }
+
+    /**
+     * Get pending salary payments.
+     */
+    public function getPendingSalaries()
+    {
+        return $this->salaryPayments()
+            ->where('status', 'pending')
+            ->orderBy('payment_month', 'desc')
+            ->get();
+    }
 }

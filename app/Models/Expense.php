@@ -92,4 +92,9 @@ class Expense extends Model
     {
         return $this->belongsTo(\App\Models\ExpenseType::class);
     }
+
+    public function salaryPayment()
+    {
+        return $this->hasOne(\App\Models\SalaryPayment::class, 'expense_id');
+    }
 }

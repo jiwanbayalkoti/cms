@@ -13,14 +13,17 @@
         <strong>Material Details</strong>
     </div>
     <div class="card-body">
-        <form action="{{ route('admin.construction-materials.update', $material) }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ route('admin.construction-materials.update', $material) }}" method="POST" enctype="multipart/form-data"
+              data-validate="true"
+              data-validation-route="{{ route('admin.construction-materials.validate') }}"
+              id="constructionMaterialForm">
             @csrf
             @method('PUT')
 
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Material Name *</label>
-                    <select name="material_name" class="form-select" required>
+                    <select name="material_name" class="form-select">
                         <option value="">Select material name</option>
                         @foreach($materialNames as $materialName)
                             <option value="{{ $materialName->name }}" {{ old('material_name', $material->material_name) === $materialName->name ? 'selected' : '' }}>
@@ -42,7 +45,7 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Unit *</label>
-                    <select name="unit" class="form-select" required>
+                    <select name="unit" class="form-select">
                         <option value="">Select unit</option>
                         @foreach($units as $unit)
                             <option value="{{ $unit->name }}" {{ old('unit', $material->unit) === $unit->name ? 'selected' : '' }}>
@@ -54,11 +57,13 @@
 
                 <div class="col-md-3">
                     <label class="form-label">Quantity Received *</label>
-                    <input type="number" step="0.01" name="quantity_received" class="form-control" value="{{ old('quantity_received', $material->quantity_received) }}" required>
+                    <input type="number" step="0.01" name="quantity_received" class="form-control" value="{{ old('quantity_received', $material->quantity_received) }}">
+                    <div class="field-error text-danger small mt-1" data-field="quantity_received" style="display: none;"></div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Rate per Unit *</label>
-                    <input type="number" step="0.01" name="rate_per_unit" class="form-control" value="{{ old('rate_per_unit', $material->rate_per_unit) }}" required>
+                    <input type="number" step="0.01" name="rate_per_unit" class="form-control" value="{{ old('rate_per_unit', $material->rate_per_unit) }}">
+                    <div class="field-error text-danger small mt-1" data-field="rate_per_unit" style="display: none;"></div>
                 </div>
 
                 <div class="col-md-4">
@@ -87,7 +92,7 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Payment Status *</label>
-                    <select name="payment_status" class="form-select" required>
+                    <select name="payment_status" class="form-select">
                         <option value="Paid" {{ old('payment_status', $material->payment_status) === 'Paid' ? 'selected' : '' }}>Paid</option>
                         <option value="Unpaid" {{ old('payment_status', $material->payment_status) === 'Unpaid' ? 'selected' : '' }}>Unpaid</option>
                         <option value="Partial" {{ old('payment_status', $material->payment_status) === 'Partial' ? 'selected' : '' }}>Partial</option>
@@ -135,7 +140,7 @@
                 </div>
 <div class="col-md-4">
     <label class="form-label">Project *</label>
-    <select name="project_id" class="form-select" required>
+    <select name="project_id" class="form-select">
         <option value="">Select project</option>
         @foreach($projects as $project)
             <option value="{{ $project->id }}" {{ old('project_id', $material->project_id) == $project->id ? 'selected' : '' }}>
@@ -163,7 +168,7 @@
 
                 <div class="col-md-4">
                     <label class="form-label">Status *</label>
-                    <select name="status" class="form-select" required>
+                    <select name="status" class="form-select">
                         <option value="Received" {{ old('status', $material->status) === 'Received' ? 'selected' : '' }}>Received</option>
                         <option value="Pending" {{ old('status', $material->status) === 'Pending' ? 'selected' : '' }}>Pending</option>
                         <option value="Returned" {{ old('status', $material->status) === 'Returned' ? 'selected' : '' }}>Returned</option>

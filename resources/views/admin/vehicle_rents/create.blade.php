@@ -13,14 +13,17 @@
 
 <div class="card">
     <div class="card-body">
-        <form action="{{ route('admin.vehicle-rents.store') }}" method="POST" id="vehicleRentForm">
+        <form action="{{ route('admin.vehicle-rents.store') }}" method="POST" id="vehicleRentForm"
+              data-validate="true"
+              data-validation-route="{{ route('admin.vehicle-rents.validate') }}">
             @csrf
             
             <div class="row mb-4">
                 <div class="col-md-3 mb-3">
                     <label class="form-label">Rent Date <span class="text-danger">*</span></label>
                     <input type="date" name="rent_date" class="form-control @error('rent_date') is-invalid @enderror" 
-                           value="{{ old('rent_date', date('Y-m-d')) }}" required>
+                           value="{{ old('rent_date', date('Y-m-d')) }}">
+                    <div class="field-error text-danger small mt-1" data-field="rent_date" style="display: none;"></div>
                     @error('rent_date')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -52,7 +55,7 @@
                 
                 <div class="col-md-3 mb-3">
                     <label class="form-label">Vehicle Type <span class="text-danger">*</span></label>
-                    <select name="vehicle_type" id="vehicle_type" class="form-select @error('vehicle_type') is-invalid @enderror" required onchange="handleVehicleTypeChange()">
+                    <select name="vehicle_type" id="vehicle_type" class="form-select @error('vehicle_type') is-invalid @enderror" onchange="handleVehicleTypeChange()">
                         <option value="">Select Vehicle Type</option>
                         @foreach($vehicleTypes as $key => $label)
                             <option value="{{ $key }}" {{ old('vehicle_type') == $key ? 'selected' : '' }}>
@@ -60,6 +63,7 @@
                             </option>
                         @endforeach
                     </select>
+                    <div class="field-error text-danger small mt-1" data-field="vehicle_type" style="display: none;"></div>
                     @error('vehicle_type')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -76,7 +80,8 @@
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Start Location <span class="text-danger">*</span></label>
                     <input type="text" name="start_location" class="form-control @error('start_location') is-invalid @enderror" 
-                           value="{{ old('start_location') }}" required placeholder="e.g., Kathmandu">
+                           value="{{ old('start_location') }}" placeholder="e.g., Kathmandu">
+                    <div class="field-error text-danger small mt-1" data-field="start_location" style="display: none;"></div>
                     @error('start_location')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -85,7 +90,8 @@
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Destination Location <span class="text-danger">*</span></label>
                     <input type="text" name="destination_location" class="form-control @error('destination_location') is-invalid @enderror" 
-                           value="{{ old('destination_location') }}" required placeholder="e.g., Pokhara">
+                           value="{{ old('destination_location') }}" placeholder="e.g., Pokhara">
+                    <div class="field-error text-danger small mt-1" data-field="destination_location" style="display: none;"></div>
                     @error('destination_location')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -120,7 +126,7 @@
                     <div class="row mb-3">
                         <div class="col-md-3 mb-3">
                             <label class="form-label">Rate Type <span class="text-danger">*</span></label>
-                            <select name="rate_type" id="rate_type" class="form-select" required onchange="toggleRateFields()">
+                            <select name="rate_type" id="rate_type" class="form-select" onchange="toggleRateFields()">
                                 <option value="fixed" {{ old('rate_type', 'fixed') === 'fixed' ? 'selected' : '' }}>Fixed Rate</option>
                                 <option value="per_km" {{ old('rate_type') === 'per_km' ? 'selected' : '' }}>Per Kilometer</option>
                                 <option value="per_hour" {{ old('rate_type') === 'per_hour' ? 'selected' : '' }}>Per Hour</option>
