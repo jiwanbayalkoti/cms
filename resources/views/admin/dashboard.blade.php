@@ -4,8 +4,26 @@
 
 @section('content')
 <div class="mb-6">
-    <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-    <p class="mt-2 text-gray-600">Welcome to the admin panel, {{ Auth::user()->name }}!</p>
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p class="mt-2 text-gray-600">Welcome to the admin panel, {{ Auth::user()->name }}!</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <label for="period_filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">Filter Period:</label>
+            <form method="GET" action="{{ route('admin.dashboard') }}" id="periodFilterForm" class="inline-block">
+                <select name="period" id="period_filter" 
+                        class="block w-full sm:w-48 px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 hover:border-gray-400"
+                        onchange="document.getElementById('periodFilterForm').submit();">
+                    <option value="1_month" {{ $period === '1_month' ? 'selected' : '' }}>Last 1 Month</option>
+                    <option value="3_months" {{ $period === '3_months' ? 'selected' : '' }}>Last 3 Months</option>
+                    <option value="6_months" {{ $period === '6_months' ? 'selected' : '' }}>Last 6 Months</option>
+                    <option value="1_year" {{ $period === '1_year' ? 'selected' : '' }}>Last 1 Year</option>
+                    <option value="all_time" {{ $period === 'all_time' ? 'selected' : '' }}>All Time</option>
+                </select>
+            </form>
+        </div>
+    </div>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -39,7 +57,14 @@
                 </div>
                 <div class="ml-5 w-0 flex-1">
                     <dl>
-                        <dt class="text-sm font-medium text-gray-500 truncate">Total Income (This Month)</dt>
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            Total Income
+                            @if($period === '1_month')
+                                (This Month)
+                            @else
+                                ({{ $startDateFormatted }} - {{ $endDateFormatted }})
+                            @endif
+                        </dt>
                         <dd class="text-lg font-semibold text-green-600">${{ number_format($totalIncome, 2) }}</dd>
                     </dl>
                 </div>
@@ -58,7 +83,14 @@
                 </div>
                 <div class="ml-5 w-0 flex-1">
                     <dl>
-                        <dt class="text-sm font-medium text-gray-500 truncate">Total Expenses (This Month)</dt>
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            Total Expenses
+                            @if($period === '1_month')
+                                (This Month)
+                            @else
+                                ({{ $startDateFormatted }} - {{ $endDateFormatted }})
+                            @endif
+                        </dt>
                         <dd class="text-lg font-semibold text-red-600">${{ number_format($totalExpenses, 2) }}</dd>
                     </dl>
                 </div>
@@ -77,7 +109,14 @@
                 </div>
                 <div class="ml-5 w-0 flex-1">
                     <dl>
-                        <dt class="text-sm font-medium text-gray-500 truncate">Net Balance (This Month)</dt>
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            Net Balance
+                            @if($period === '1_month')
+                                (This Month)
+                            @else
+                                ({{ $startDateFormatted }} - {{ $endDateFormatted }})
+                            @endif
+                        </dt>
                         <dd class="text-lg font-semibold {{ $balance >= 0 ? 'text-green-600' : 'text-red-600' }}">${{ number_format($balance, 2) }}</dd>
                     </dl>
                 </div>
@@ -143,7 +182,20 @@
 <!-- Income vs Expenses Over Time Chart - Full Width -->
 <div class="mt-8 bg-white shadow-lg rounded-lg">
     <div class="px-6 py-4 border-b border-gray-200">
-        <h2 class="text-xl font-semibold text-gray-900">Income vs Expenses (Last 12 Months)</h2>
+        <h2 class="text-xl font-semibold text-gray-900">
+            Income vs Expenses
+            @if($period === '1_month')
+                (This Month)
+            @elseif($period === '3_months')
+                (Last 3 Months)
+            @elseif($period === '6_months')
+                (Last 6 Months)
+            @elseif($period === '1_year')
+                (Last 12 Months)
+            @else
+                (Last 24 Months)
+            @endif
+        </h2>
     </div>
     <div class="p-6">
         <canvas id="incomeExpenseChart" height="300"></canvas>
@@ -155,7 +207,14 @@
     <!-- Income by Category Chart -->
     <div class="bg-white shadow-lg rounded-lg">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-900">Income by Category (This Month)</h2>
+            <h2 class="text-xl font-semibold text-gray-900">
+                Income by Category
+                @if($period === '1_month')
+                    (This Month)
+                @else
+                    (Selected Period)
+                @endif
+            </h2>
         </div>
         <div class="p-6">
             @if(count($incomeByCategory) > 0)
@@ -169,7 +228,14 @@
     <!-- Expense by Category Chart -->
     <div class="bg-white shadow-lg rounded-lg">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-900">Expenses by Category (This Month)</h2>
+            <h2 class="text-xl font-semibold text-gray-900">
+                Expenses by Category
+                @if($period === '1_month')
+                    (This Month)
+                @else
+                    (Selected Period)
+                @endif
+            </h2>
         </div>
         <div class="p-6">
             @if(count($expenseByCategory) > 0)

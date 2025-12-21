@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\Staff;
 use Illuminate\Http\Request;
 use App\Support\CompanyContext;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -23,24 +24,28 @@ class DashboardController extends Controller
     /**
      * Show the admin dashboard.
      */
-    public function index()
+    public function index(Request $request)
     {
-        // Current month statistics
-        $currentMonthStart = date('Y-m-01');
-        $currentMonthEnd = date('Y-m-d');
         $companyId = CompanyContext::getActiveCompanyId();
         
+        // Get period filter (default: 1 month)
+        $period = $request->get('period', '1_month');
+        $dateRange = $this->getDateRange($period);
+        $startDate = $dateRange['start'];
+        $endDate = $dateRange['end'];
+        
+        // Statistics for selected period
         $totalIncome = Income::where('company_id', $companyId)
-            ->whereBetween('date', [$currentMonthStart, $currentMonthEnd])->sum('amount');
+            ->whereBetween('date', [$startDate, $endDate])->sum('amount');
         $totalExpenses = Expense::where('company_id', $companyId)
-            ->whereBetween('date', [$currentMonthStart, $currentMonthEnd])->sum('amount');
+            ->whereBetween('date', [$startDate, $endDate])->sum('amount');
         $balance = $totalIncome - $totalExpenses;
         
-        // Total counts
+        // Total counts (not affected by period)
         $totalStaff = Staff::where('company_id', $companyId)
             ->where('is_active', true)->count();
         
-        // Recent transactions
+        // Recent transactions (last 5 regardless of period)
         $recentIncomes = Income::with(['category'])
             ->where('company_id', $companyId)
             ->latest('date')->limit(5)->get();
@@ -48,12 +53,17 @@ class DashboardController extends Controller
             ->where('company_id', $companyId)
             ->latest('date')->limit(5)->get();
         
-        // Chart data - Last 12 months
-        $monthlyData = $this->getMonthlyData($companyId, 12);
+        // Chart data - adjust based on period
+        $chartMonths = $this->getChartMonthsForPeriod($period);
+        $monthlyData = $this->getMonthlyData($companyId, $chartMonths);
         
-        // Category breakdown for current month
-        $incomeByCategory = $this->getIncomeByCategory($companyId, $currentMonthStart, $currentMonthEnd);
-        $expenseByCategory = $this->getExpenseByCategory($companyId, $currentMonthStart, $currentMonthEnd);
+        // Category breakdown for selected period
+        $incomeByCategory = $this->getIncomeByCategory($companyId, $startDate, $endDate);
+        $expenseByCategory = $this->getExpenseByCategory($companyId, $startDate, $endDate);
+        
+        // Format dates for display
+        $startDateFormatted = Carbon::parse($startDate)->format('M d');
+        $endDateFormatted = Carbon::parse($endDate)->format('M d, Y');
         
         return view('admin.dashboard', compact(
             'totalIncome',
@@ -64,8 +74,68 @@ class DashboardController extends Controller
             'recentExpenses',
             'monthlyData',
             'incomeByCategory',
-            'expenseByCategory'
+            'expenseByCategory',
+            'period',
+            'startDate',
+            'endDate',
+            'startDateFormatted',
+            'endDateFormatted'
         ));
+    }
+    
+    /**
+     * Get date range based on period filter.
+     */
+    private function getDateRange($period)
+    {
+        $endDate = now()->format('Y-m-d');
+        
+        switch ($period) {
+            case '1_month':
+                $startDate = now()->startOfMonth()->format('Y-m-d');
+                break;
+            case '3_months':
+                $startDate = now()->subMonths(2)->startOfMonth()->format('Y-m-d');
+                break;
+            case '6_months':
+                $startDate = now()->subMonths(5)->startOfMonth()->format('Y-m-d');
+                break;
+            case '1_year':
+                $startDate = now()->subYear()->startOfMonth()->format('Y-m-d');
+                break;
+            case 'all_time':
+                // Get earliest record date or default to 1 year ago
+                $startDate = now()->subYears(2)->startOfMonth()->format('Y-m-d');
+                break;
+            default:
+                $startDate = now()->startOfMonth()->format('Y-m-d');
+        }
+        
+        return [
+            'start' => $startDate,
+            'end' => $endDate,
+        ];
+    }
+    
+    /**
+     * Get number of months for chart based on period.
+     */
+    private function getChartMonthsForPeriod($period)
+    {
+        switch ($period) {
+            case '1_month':
+                return 1;
+            case '3_months':
+                return 3;
+            case '6_months':
+                return 6;
+            case '1_year':
+                return 12;
+            case 'all_time':
+                return 24; // Show last 2 years
+            default:
+                return 12;
+        }
     }
     
     /**
