@@ -9,7 +9,11 @@
 
     $activeCompanyId = CompanyContext::getActiveCompanyId();
 @endphp
-
+<?php 
+echo "<pre>";
+print_r($project->photos);
+echo "</pre>";
+?>
 <div class="mb-6 flex items-center justify-between">
     <div>
         <h1 class="text-3xl font-bold text-gray-900">{{ $project->name }} - Photo Gallery</h1>
