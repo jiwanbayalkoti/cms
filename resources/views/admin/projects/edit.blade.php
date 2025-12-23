@@ -178,7 +178,11 @@
                                     @if(isset($album['photos']) && count($album['photos']) > 0)
                                         @foreach($album['photos'] as $photoIndex => $photo)
                                             <div class="relative group">
-                                                <img src="{{ asset('storage/' . ($photo['path'] ?? '')) }}" alt="{{ $photo['original_name'] ?? '' }}" class="w-full h-32 object-cover rounded-lg">
+                                                @php
+                                                    $photoPath = $photo['path'] ?? '';
+                                                    $photoUrl = $photoPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($photoPath) : '';
+                                                @endphp
+                                                <img src="{{ $photoUrl }}" alt="{{ $photo['original_name'] ?? '' }}" class="w-full h-32 object-cover rounded-lg">
                                                 <input type="hidden" name="existing_photos[{{ $index }}][{{ $photoIndex }}]" value="{{ $photo['path'] ?? '' }}">
                                                 <button type="button" onclick="removeExistingPhoto(this, '{{ $index }}', '{{ $photoIndex }}')" class="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

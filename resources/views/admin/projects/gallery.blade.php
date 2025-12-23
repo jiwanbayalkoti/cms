@@ -56,13 +56,11 @@
                                     $photoPath = $photo['path'] ?? '';
                                     $photoName = $photo['original_name'] ?? 'Photo';
                                     
-                                    // Generate URL - paths are like "projects/photos/filename.jpg"
+                                    // Generate URL using Storage facade for proper URL generation
                                     $photoUrl = '';
                                     if ($photoPath) {
-                                        // Clean the path and build full absolute URL using current host
-                                        $photoPath = trim($photoPath, '/');
-                                        $base = request()->getSchemeAndHttpHost();
-                                        $photoUrl = $base . '/storage/' . $photoPath;
+                                        // Use Storage::url() which handles the storage link properly
+                                        $photoUrl = Storage::disk('public')->url($photoPath);
                                     }
                                 @endphp
                                 @if($photoUrl)
