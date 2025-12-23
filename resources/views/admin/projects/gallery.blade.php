@@ -56,11 +56,12 @@
                                     $photoPath = $photo['path'] ?? '';
                                     $photoName = $photo['original_name'] ?? 'Photo';
                                     
-                                    // Generate URL using Storage facade for proper URL generation
+                                    // Generate URL using asset() for reliable URL generation
+                                    // This works with the storage symlink: public/storage -> storage/app/public
                                     $photoUrl = '';
                                     if ($photoPath) {
-                                        // Use Storage::url() which handles the storage link properly
-                                        $photoUrl = Storage::disk('public')->url($photoPath);
+                                        // Use asset() which generates relative URLs that work regardless of APP_URL config
+                                        $photoUrl = asset('storage/' . $photoPath);
                                     }
                                 @endphp
                                 @if($photoUrl)
