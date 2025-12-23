@@ -180,8 +180,8 @@
                                             <div class="relative group">
                                                 @php
                                                     $photoPath = $photo['path'] ?? '';
-                                                    // Use asset() for reliable URL generation that works with storage symlink
-                                                    $photoUrl = $photoPath ? asset('storage/' . $photoPath) : '';
+                                                    // Use StorageHelper for consistent URL generation
+                                                    $photoUrl = \App\Helpers\StorageHelper::url($photoPath);
                                                 @endphp
                                                 <img src="{{ $photoUrl }}" alt="{{ $photo['original_name'] ?? '' }}" class="w-full h-32 object-cover rounded-lg">
                                                 <input type="hidden" name="existing_photos[{{ $index }}][{{ $photoIndex }}]" value="{{ $photo['path'] ?? '' }}">

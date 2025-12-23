@@ -21,12 +21,18 @@ class StorageHelper
         
         $storage = Storage::disk('public');
         
-        if ($storage->exists($path)) {
-            // Use asset() for better compatibility with different server configurations
-            return asset('storage/' . $path);
-        }
+        // Clean the path
+        $path = ltrim($path, '/');
         
-        return null;
+        // Check if file exists (optional - can be removed for performance)
+        // if (!$storage->exists($path)) {
+        //     return null;
+        // }
+        
+        // Production server has Laravel in repositories/cms subdirectory
+        // Generate URL with correct base path: /repositories/cms/storage/app/public/
+        $basePath = '/repositories/cms/storage/app/public/';
+        return url($basePath . $path);
     }
     
     /**

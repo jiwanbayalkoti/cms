@@ -6,6 +6,7 @@
 @php
     use App\Support\CompanyContext;
     use Illuminate\Support\Facades\Storage;
+    use App\Helpers\StorageHelper;
 
     $activeCompanyId = CompanyContext::getActiveCompanyId();
 @endphp
@@ -55,21 +56,9 @@
                                     $photoPath = $photo['path'] ?? '';
                                     $photoName = $photo['original_name'] ?? 'Photo';
                                     
-                                    // Generate URL using asset() for reliable URL generation
-                                    // This works with the storage symlink: public/storage -> storage/app/public
-                                    $photoUrl = '';
-                                    $fileExists = false;
-                                    
-                                    if ($photoPath) {
-                                        // Clean the path (remove any leading/trailing slashes)
-                                        $photoPath = ltrim($photoPath, '/');
-                                        
-                                        // Check if file exists in storage
-                                        $fileExists = Storage::disk('public')->exists($photoPath);
-                                        
-                                        // Generate URL - ensure no double slashes
-                                        $photoUrl = asset('storage/' . ltrim($photoPath, '/'));
-                                    }
+                                    // Generate URL using StorageHelper for consistent URL generation
+                                    $photoUrl = StorageHelper::url($photoPath);
+                                    $fileExists = $photoPath ? Storage::disk('public')->exists($photoPath) : false;
                                 @endphp
                                 @if($photoUrl)
                                     <div class="bg-white rounded-lg overflow-hidden shadow-md border border-gray-200 hover:shadow-lg transition-shadow" style="height: 160px;">
