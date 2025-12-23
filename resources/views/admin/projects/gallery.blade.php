@@ -58,10 +58,7 @@
                                     
                                     // Generate URL using StorageHelper for consistent URL generation
                                     $photoUrl = StorageHelper::url($photoPath);
-                                     echo "<pre>";
-                                     print_r($photoUrl);
-                                     echo "</pre>";
-                                    $fileExists = $photoPath ? Storage::disk('public')->exists($photoPath) : false;
+                                    $fileExists = $photoPath ? StorageHelper::exists($photoPath) : false;
                                 @endphp
                                 @if($photoUrl)
                                     <div class="bg-white rounded-lg overflow-hidden shadow-md border border-gray-200 hover:shadow-lg transition-shadow" style="height: 160px;">

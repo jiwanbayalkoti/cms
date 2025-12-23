@@ -334,12 +334,12 @@ class ProjectController extends Controller
                     if ($newFile) {
                         // Delete old file
                         $oldPath = $existingFile['path'] ?? null;
-                        if ($oldPath && \Storage::disk('public')->exists($oldPath)) {
-                            \Storage::disk('public')->delete($oldPath);
+                        if ($oldPath && \Storage::disk('public_html')->exists($oldPath)) {
+                            \Storage::disk('public_html')->delete($oldPath);
                         }
                         
-                        // Store new file
-                        $path = $newFile->store('projects/files', 'public');
+                        // Store new file in public_html
+                        $path = $newFile->store('projects/files', 'public_html');
                         $updatedFiles[] = [
                             'name' => $fileName ?: ($existingFile['name'] ?? 'Document'),
                             'path' => $path,
@@ -361,7 +361,7 @@ class ProjectController extends Controller
                     $file = $fileInputs[$fileInputIndex];
                     $fileInputIndex++;
                     
-                    $path = $file->store('projects/files', 'public');
+                    $path = $file->store('projects/files', 'public_html');
                     $updatedFiles[] = [
                         'name' => $fileName ?: 'Document ' . (count($updatedFiles) + 1),
                         'path' => $path,
@@ -400,8 +400,8 @@ class ProjectController extends Controller
                     if (isset($album['photos']) && is_array($album['photos'])) {
                         foreach ($album['photos'] as $photo) {
                             $photoPath = $photo['path'] ?? null;
-                            if ($photoPath && \Storage::disk('public')->exists($photoPath)) {
-                                \Storage::disk('public')->delete($photoPath);
+                            if ($photoPath && \Storage::disk('public_html')->exists($photoPath)) {
+                                \Storage::disk('public_html')->delete($photoPath);
                             }
                         }
                     }
@@ -423,8 +423,8 @@ class ProjectController extends Controller
                     $existingAlbumIndex = $existingAlbumIndices[$formAlbumIndex] ?? null;
                     if ($existingAlbumIndex !== null && isset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex])) {
                         $photoPath = $existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]['path'] ?? null;
-                        if ($photoPath && \Storage::disk('public')->exists($photoPath)) {
-                            \Storage::disk('public')->delete($photoPath);
+                        if ($photoPath && \Storage::disk('public_html')->exists($photoPath)) {
+                            \Storage::disk('public_html')->delete($photoPath);
                         }
                         unset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]);
                         $existingAlbums[$existingAlbumIndex]['photos'] = array_values($existingAlbums[$existingAlbumIndex]['photos']);
@@ -457,7 +457,8 @@ class ProjectController extends Controller
             if (isset($albumPhotos[$formAlbumIndex]) && is_array($albumPhotos[$formAlbumIndex])) {
                 foreach ($albumPhotos[$formAlbumIndex] as $photo) {
                     if ($photo && $photo->isValid()) {
-                        $path = $photo->store('projects/photos', 'public');
+                        // Store in public_html/projects/photos directory
+                        $path = $photo->store('projects/photos', 'public_html');
                         $album['photos'][] = [
                             'path' => $path,
                             'original_name' => $photo->getClientOriginalName(),

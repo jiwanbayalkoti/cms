@@ -8,9 +8,9 @@ class StorageHelper
 {
     /**
      * Get public storage URL for a file path
-     * This is a centralized helper to ensure consistent URL generation
+     * Files are stored in public_html directory
      * 
-     * @param string|null $path The storage path (relative to storage/app/public)
+     * @param string|null $path The storage path (relative to public_html)
      * @return string|null The full URL or null if file doesn't exist
      */
     public static function url(?string $path): ?string
@@ -19,24 +19,17 @@ class StorageHelper
             return null;
         }
         
-        $storage = Storage::disk('public');
-        
         // Clean the path
         $path = ltrim($path, '/');
         
-        // Check if file exists (optional - can be removed for performance)
-        // if (!$storage->exists($path)) {
-        //     return null;
-        // }
-        
-        // Production server has Laravel in repositories/cms subdirectory
-        // Generate URL with correct base path: /repositories/cms/storage/app/public/
-        $basePath = '/repositories/cms/storage/app/public/';
-        return url($basePath . $path);
+        // Files are stored in public_html, so generate URL directly
+        // Path format: projects/photos/filename.jpg
+        // URL format: /projects/photos/filename.jpg
+        return url('/' . $path);
     }
     
     /**
-     * Check if a file exists in public storage
+     * Check if a file exists in public_html storage
      * 
      * @param string|null $path The storage path
      * @return bool
@@ -47,7 +40,7 @@ class StorageHelper
             return false;
         }
         
-        return Storage::disk('public')->exists($path);
+        return Storage::disk('public_html')->exists($path);
     }
 }
 

@@ -44,6 +44,14 @@ return [
             'throw' => false,
         ],
 
+        'public_html' => [
+            'driver' => 'local',
+            'root' => env('PUBLIC_HTML_PATH', base_path('../public_html')),
+            'url' => env('APP_URL', ''),
+            'visibility' => 'public',
+            'throw' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
