@@ -58,7 +58,9 @@
                                     
                                     // Generate URL using StorageHelper for consistent URL generation
                                     $photoUrl = StorageHelper::url($photoPath);
-                                    <?php echo $photoUrl; ?>
+                                     echo "<pre>";
+                                     print_r($photoUrl);
+                                     echo "</pre>";
                                     $fileExists = $photoPath ? Storage::disk('public')->exists($photoPath) : false;
                                 @endphp
                                 @if($photoUrl)
