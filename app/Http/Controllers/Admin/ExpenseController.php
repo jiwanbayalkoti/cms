@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\ValidatesForms;
+use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Models\Expense;
 use App\Models\Category;
 use App\Models\Subcategory;
@@ -15,7 +16,7 @@ use App\Support\CompanyContext;
 
 class ExpenseController extends Controller
 {
-    use ValidatesForms;
+    use ValidatesForms, HasProjectAccess;
     /**
      * Create a new controller instance.
      */
@@ -33,9 +34,17 @@ class ExpenseController extends Controller
         $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType'])
             ->where('company_id', $companyId);
         
+        // Filter by accessible projects
+        $this->filterByAccessibleProjects($query, 'project_id');
+        
         // Filter by project
         if ($request->filled('project_id')) {
-            $query->where('project_id', $request->project_id);
+            $projectId = (int) $request->project_id;
+            // Verify user has access to this project
+            if (!$this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $query->where('project_id', $projectId);
         }
         
         // Filter by expense type
@@ -55,10 +64,8 @@ class ExpenseController extends Controller
         
         $expenses = $query->latest('date')->paginate(15)->withQueryString();
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects for dropdown
+        $projects = $this->getAccessibleProjects();
         
         $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
         $categories = Category::where('type', 'expense')->where('is_active', true)->orderBy('name')->get();
@@ -147,6 +154,11 @@ class ExpenseController extends Controller
             $validated['images'] = $imagePaths;
         }
 
+        // Validate project access if project_id is provided
+        if (!empty($validated['project_id'])) {
+            $this->authorizeProjectAccess((int) $validated['project_id']);
+        }
+
         $validated['company_id'] = CompanyContext::getActiveCompanyId();
         $validated['created_by'] = auth()->id();
         Expense::create($validated);
@@ -163,6 +175,12 @@ class ExpenseController extends Controller
         if ($expense->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
         }
+        
+        // Check project access if expense has a project
+        if ($expense->project_id) {
+            $this->authorizeProjectAccess($expense->project_id);
+        }
+        
         $expense->load(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment']);
         return view('admin.expenses.show', compact('expense'));
     }
@@ -180,11 +198,14 @@ class ExpenseController extends Controller
         $subcategories = Subcategory::whereHas('category', function($q) {
             $q->where('type', 'expense')->where('is_active', true);
         })->where('is_active', true)->orderBy('name')->get();
+        // Check project access if expense has a project
+        if ($expense->project_id) {
+            $this->authorizeProjectAccess($expense->project_id);
+        }
+        
         $staff = Staff::where('is_active', true)->orderBy('name')->get();
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
         return view('admin.expenses.edit', compact('expense', 'categories', 'subcategories', 'staff', 'projects', 'expenseTypes'));
     }

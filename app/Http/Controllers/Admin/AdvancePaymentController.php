@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\ValidatesForms;
+use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Models\AdvancePayment;
 use App\Models\Supplier;
 use App\Models\Project;
@@ -15,7 +16,7 @@ use Illuminate\Http\Request;
 
 class AdvancePaymentController extends Controller
 {
-    use ValidatesForms;
+    use ValidatesForms, HasProjectAccess;
     
     public function __construct()
     {
@@ -108,9 +109,17 @@ class AdvancePaymentController extends Controller
         $query = AdvancePayment::where('company_id', $companyId)
             ->with(['project', 'supplier', 'bankAccount', 'creator']);
         
+        // Filter by accessible projects
+        $this->filterByAccessibleProjects($query, 'project_id');
+        
         // Filter by project
         if ($request->filled('project_id')) {
-            $query->where('project_id', $request->project_id);
+            $projectId = (int) $request->project_id;
+            // Verify user has access to this project
+            if (!$this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $query->where('project_id', $projectId);
         }
         
         // Filter by payment type
@@ -135,10 +144,8 @@ class AdvancePaymentController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(15);
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         
         $suppliers = Supplier::where('company_id', $companyId)
             ->where('is_active', true)
@@ -158,10 +165,8 @@ class AdvancePaymentController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         
         $suppliers = Supplier::where('company_id', $companyId)
             ->where('is_active', true)
@@ -232,10 +237,8 @@ class AdvancePaymentController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         
         $suppliers = Supplier::where('company_id', $companyId)
             ->where('is_active', true)

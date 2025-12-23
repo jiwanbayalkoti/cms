@@ -684,10 +684,18 @@
                                 
                                 if (!empty($activeCompanyId)) {
                                     try {
-                                        $headerProjects = \App\Models\Project::where('company_id', $activeCompanyId)
+                                        $user = Auth::user();
+                                        $query = \App\Models\Project::where('company_id', $activeCompanyId)
                                             ->where('status', '!=', 'cancelled')
-                                            ->orderBy('name')
-                                            ->get();
+                                            ->orderBy('name');
+                                        
+                                        // Apply project access restrictions if user has specific project assignments
+                                        $accessibleProjectIds = $user->getAccessibleProjectIds();
+                                        if ($accessibleProjectIds !== null) {
+                                            $query->whereIn('id', $accessibleProjectIds);
+                                        }
+                                        
+                                        $headerProjects = $query->get();
                                     } catch (\Exception $e) {
                                         $headerProjects = collect([]);
                                     }

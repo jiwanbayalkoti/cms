@@ -66,6 +66,11 @@ class User extends Authenticatable
         return $this->belongsTo(Company::class);
     }
 
+    public function projects()
+    {
+        return $this->belongsToMany(Project::class)->withTimestamps();
+    }
+
     /**
      * Check if user is a super admin
      */
@@ -117,5 +122,67 @@ class User extends Authenticatable
         
         // Fallback to legacy is_admin
         return $this->is_admin ? 'admin' : 'user';
+    }
+
+    /**
+     * Get accessible project IDs for this user
+     * Returns null if user has access to all projects (super admin only)
+     * Returns array of project IDs if user has specific project assignments
+     * Returns empty array if user has no project assignments (no access to any records)
+     */
+    public function getAccessibleProjectIds(): ?array
+    {
+        // Super admins have access to all projects
+        if ($this->isSuperAdmin()) {
+            return null;
+        }
+
+        // Get assigned projects
+        $assignedProjectIds = $this->projects()->pluck('projects.id')->all();
+
+        // If user has no project assignments, return empty array (no access to any records)
+        if (empty($assignedProjectIds)) {
+            return [];
+        }
+
+        // User has specific project assignments
+        return $assignedProjectIds;
+    }
+
+    /**
+     * Check if user has access to a specific project
+     */
+    public function hasProjectAccess(int $projectId): bool
+    {
+        // Super admins have access to all projects
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        $accessibleProjectIds = $this->getAccessibleProjectIds();
+
+        // If null, user has access to all projects in their company
+        if ($accessibleProjectIds === null) {
+            return true;
+        }
+
+        // Check if project is in accessible list
+        return in_array($projectId, $accessibleProjectIds);
+    }
+
+    /**
+     * Get query scope for filtering projects by user access
+     */
+    public function scopeAccessibleProjects($query)
+    {
+        $accessibleProjectIds = $this->getAccessibleProjectIds();
+
+        // If null, no restriction (user can see all projects in their company)
+        if ($accessibleProjectIds === null) {
+            return $query;
+        }
+
+        // Filter to only accessible projects
+        return $query->whereIn('id', $accessibleProjectIds);
     }
 }

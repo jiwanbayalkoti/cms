@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\ValidatesForms;
+use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Models\Income;
 use App\Models\Category;
 use App\Models\Subcategory;
@@ -13,7 +14,7 @@ use App\Support\CompanyContext;
 
 class IncomeController extends Controller
 {
-    use ValidatesForms;
+    use ValidatesForms, HasProjectAccess;
     
     /**
      * Create a new controller instance.
@@ -52,17 +53,23 @@ class IncomeController extends Controller
         $query = Income::with(['category', 'subcategory', 'project', 'creator', 'updater'])
             ->where('company_id', $companyId);
         
+        // Filter by accessible projects
+        $this->filterByAccessibleProjects($query, 'project_id');
+        
         // Filter by project
         if ($request->filled('project_id')) {
-            $query->where('project_id', $request->project_id);
+            $projectId = (int) $request->project_id;
+            // Verify user has access to this project
+            if (!$this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $query->where('project_id', $projectId);
         }
         
         $incomes = $query->latest('date')->paginate(15)->withQueryString();
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects for dropdown
+        $projects = $this->getAccessibleProjects();
         
         return view('admin.incomes.index', compact('incomes', 'projects'));
     }
@@ -77,10 +84,8 @@ class IncomeController extends Controller
         $subcategories = Subcategory::whereHas('category', function($q) {
             $q->where('type', 'income')->where('is_active', true);
         })->where('is_active', true)->orderBy('name')->get();
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         return view('admin.incomes.create', compact('categories', 'subcategories', 'projects'));
     }
 
@@ -98,7 +103,14 @@ class IncomeController extends Controller
             'date' => 'required|date',
             'payment_method' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
+            'project_id' => 'nullable|exists:projects,id',
         ]);
+        
+        // Validate project access if project_id is provided
+        if (!empty($validated['project_id'])) {
+            $this->authorizeProjectAccess((int) $validated['project_id']);
+        }
+        
         $validated['company_id'] = CompanyContext::getActiveCompanyId();
         $validated['created_by'] = auth()->id();
         Income::create($validated);
@@ -115,6 +127,12 @@ class IncomeController extends Controller
         if ($income->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
         }
+        
+        // Check project access if income has a project
+        if ($income->project_id) {
+            $this->authorizeProjectAccess($income->project_id);
+        }
+        
         $income->load(['category', 'subcategory', 'project', 'creator', 'updater']);
         return view('admin.incomes.show', compact('income'));
     }
@@ -132,10 +150,13 @@ class IncomeController extends Controller
         $subcategories = Subcategory::whereHas('category', function($q) {
             $q->where('type', 'income')->where('is_active', true);
         })->where('is_active', true)->orderBy('name')->get();
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Check project access if income has a project
+        if ($income->project_id) {
+            $this->authorizeProjectAccess($income->project_id);
+        }
+        
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         return view('admin.incomes.edit', compact('income', 'categories', 'subcategories', 'projects'));
     }
 
@@ -158,6 +179,16 @@ class IncomeController extends Controller
             'payment_method' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
+
+        // Validate project access if project_id is being changed
+        if (!empty($validated['project_id']) && $validated['project_id'] != $income->project_id) {
+            $this->authorizeProjectAccess((int) $validated['project_id']);
+        }
+        
+        // Check project access for existing income
+        if ($income->project_id) {
+            $this->authorizeProjectAccess($income->project_id);
+        }
 
         $validated['updated_by'] = auth()->id();
         $income->update($validated);

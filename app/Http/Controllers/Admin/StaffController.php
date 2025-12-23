@@ -97,6 +97,7 @@ class StaffController extends Controller
             'position_id' => 'required|exists:positions,id',
             'address' => 'nullable|string',
             'salary' => 'nullable|numeric|min:0',
+            'marriage_status' => 'nullable|in:single,married',
             'join_date' => 'nullable|date',
             'is_active' => 'boolean',
         ]);
@@ -146,6 +147,7 @@ class StaffController extends Controller
             'position_id' => 'required|exists:positions,id',
             'address' => 'nullable|string',
             'salary' => 'nullable|numeric|min:0',
+            'marriage_status' => 'nullable|in:single,married',
             'join_date' => 'nullable|date',
             'is_active' => 'boolean',
         ]);
@@ -167,5 +169,24 @@ class StaffController extends Controller
 
         return redirect()->route('admin.staff.index')
             ->with('success', 'Staff member deleted successfully.');
+    }
+    
+    /**
+     * Get staff details for AJAX requests (marriage status, assessment type, salary)
+     */
+    public function getDetails(Staff $staff)
+    {
+        // Check company access
+        if ($staff->company_id !== CompanyContext::getActiveCompanyId()) {
+            abort(403);
+        }
+        
+        return response()->json([
+            'id' => $staff->id,
+            'name' => $staff->name,
+            'salary' => (float) $staff->salary,
+            'marriage_status' => $staff->marriage_status ?? 'single',
+            'assessment_type' => $staff->assessment_type ?? ($staff->marriage_status === 'married' ? 'couple' : 'single'),
+        ]);
     }
 }

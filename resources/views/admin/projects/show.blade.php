@@ -61,6 +61,37 @@
         <p class="text-gray-700 whitespace-pre-line">{{ $project->description ?? 'No description provided.' }}</p>
     </div>
 
+    @if($project->files && count($project->files) > 0)
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Project Files</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach($project->files as $file)
+                    <div class="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition duration-200">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900">{{ $file['name'] ?? 'Document' }}</h3>
+                                <p class="text-sm text-gray-500 mt-1">{{ $file['original_name'] ?? '' }}</p>
+                                @if(isset($file['size']))
+                                    <p class="text-xs text-gray-400 mt-1">{{ number_format($file['size'] / 1024, 2) }} KB</p>
+                                @endif
+                            </div>
+                            <svg class="h-6 w-6 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <a href="{{ asset('storage/' . ($file['path'] ?? '')) }}" target="_blank" 
+                           class="mt-3 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800">
+                            <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                            </svg>
+                            View File
+                        </a>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="border rounded-lg p-4">
             <p class="text-sm text-gray-500">Created by</p>

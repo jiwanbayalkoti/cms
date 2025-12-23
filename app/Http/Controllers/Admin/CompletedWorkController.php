@@ -30,9 +30,17 @@ class CompletedWorkController extends Controller
             ->orderBy('work_date', 'desc')
             ->orderBy('created_at', 'desc');
         
+        // Filter by accessible projects
+        $this->filterByAccessibleProjects($query, 'project_id');
+        
         // Filter by project
         if ($request->filled('project_id')) {
-            $query->where('project_id', $request->project_id);
+            $projectId = (int) $request->project_id;
+            // Verify user has access to this project
+            if (!$this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $query->where('project_id', $projectId);
         }
         
         // Filter by work type
@@ -55,10 +63,8 @@ class CompletedWorkController extends Controller
         
         $completedWorks = $query->paginate(15);
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         
         $workTypes = CompletedWork::where('company_id', $companyId)
             ->distinct()
@@ -74,10 +80,8 @@ class CompletedWorkController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         
         $selectedProjectId = $request->get('project_id');
         
@@ -143,10 +147,8 @@ class CompletedWorkController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         
         return view('admin.completed_works.edit', compact('completed_work', 'projects'));
     }
@@ -275,10 +277,8 @@ class CompletedWorkController extends Controller
             ];
         })->values();
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         
         return view('admin.completed_works.generate_bill', compact('completedWorks', 'groupedWorks', 'projects', 'completedWorksJson'));
     }

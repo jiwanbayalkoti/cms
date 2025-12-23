@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Exports\ProjectMaterialsExport;
 use App\Models\ConstructionMaterial;
 use App\Models\Income;
@@ -20,6 +21,7 @@ use App\Support\ProjectContext;
 
 class ReportController extends Controller
 {
+    use HasProjectAccess;
     /**
      * Create a new controller instance.
      */
@@ -48,12 +50,20 @@ class ReportController extends Controller
 
         $incomeQuery = Income::where('incomes.company_id', $companyId)
             ->whereBetween('incomes.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($incomeQuery, 'incomes.project_id');
+        
         $expenseQuery = Expense::where('expenses.company_id', $companyId)
             ->whereBetween('expenses.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($expenseQuery, 'expenses.project_id');
         
         if ($projectId) {
-            $incomeQuery->where('project_id', $projectId);
-            $expenseQuery->where('project_id', $projectId);
+            $projectId = (int) $projectId;
+            // Verify user has access to this project
+            if (!$this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $incomeQuery->where('incomes.project_id', $projectId);
+            $expenseQuery->where('expenses.project_id', $projectId);
         }
         
         $totalIncome = $incomeQuery->sum('amount');
@@ -62,8 +72,9 @@ class ReportController extends Controller
 
         // Income by category
         $incomeByCategoryQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($incomeByCategoryQuery, 'incomes.project_id');
         if ($projectId) {
-            $incomeByCategoryQuery->where('project_id', $projectId);
+            $incomeByCategoryQuery->where('incomes.project_id', $projectId);
         }
         $incomeByCategory = $incomeByCategoryQuery->join('categories', 'incomes.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(incomes.amount) as total'))
@@ -72,8 +83,9 @@ class ReportController extends Controller
 
         // Expenses by category
         $expensesByCategoryQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($expensesByCategoryQuery, 'expenses.project_id');
         if ($projectId) {
-            $expensesByCategoryQuery->where('project_id', $projectId);
+            $expensesByCategoryQuery->where('expenses.project_id', $projectId);
         }
         $expensesByCategory = $expensesByCategoryQuery->join('categories', 'expenses.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(expenses.amount) as total'))
@@ -82,8 +94,9 @@ class ReportController extends Controller
 
         // Expenses by type
         $expensesByTypeQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($expensesByTypeQuery, 'expenses.project_id');
         if ($projectId) {
-            $expensesByTypeQuery->where('project_id', $projectId);
+            $expensesByTypeQuery->where('expenses.project_id', $projectId);
         }
         $expensesByType = $expensesByTypeQuery->join('expense_types', 'expenses.expense_type_id', '=', 'expense_types.id')
             ->select('expense_types.name as expense_type', DB::raw('SUM(expenses.amount) as total'))
@@ -98,11 +111,14 @@ class ReportController extends Controller
             $monthEnd = date('Y-m-t', strtotime($monthStart));
             
             $monthIncomeQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$monthStart, $monthEnd]);
+            $this->filterByAccessibleProjects($monthIncomeQuery, 'incomes.project_id');
+            
             $monthExpenseQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$monthStart, $monthEnd]);
+            $this->filterByAccessibleProjects($monthExpenseQuery, 'expenses.project_id');
             
             if ($projectId) {
-                $monthIncomeQuery->where('project_id', $projectId);
-                $monthExpenseQuery->where('project_id', $projectId);
+                $monthIncomeQuery->where('incomes.project_id', $projectId);
+                $monthExpenseQuery->where('expenses.project_id', $projectId);
             }
             
             $monthlyTrend[] = [
@@ -112,10 +128,8 @@ class ReportController extends Controller
             ];
         }
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
 
         return view('admin.reports.financial-summary', compact(
             'startDate',
@@ -146,13 +160,21 @@ class ReportController extends Controller
         $query = Income::with(['category', 'subcategory', 'project'])
             ->where('incomes.company_id', $companyId)
             ->whereBetween('incomes.date', [$startDate, $endDate]);
+        
+        // Filter by accessible projects
+        $this->filterByAccessibleProjects($query, 'incomes.project_id');
 
         if ($categoryId) {
             $query->where('category_id', $categoryId);
         }
         
         if ($projectId) {
-            $query->where('project_id', $projectId);
+            $projectId = (int) $projectId;
+            // Verify user has access to this project
+            if (!$this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $query->where('incomes.project_id', $projectId);
         }
 
         $incomes = $query->orderBy('date', 'desc')->get();
@@ -160,8 +182,9 @@ class ReportController extends Controller
 
         // Income by category
         $incomeByCategoryQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($incomeByCategoryQuery, 'incomes.project_id');
         if ($projectId) {
-            $incomeByCategoryQuery->where('project_id', $projectId);
+            $incomeByCategoryQuery->where('incomes.project_id', $projectId);
         }
         $incomeByCategory = $incomeByCategoryQuery->join('categories', 'incomes.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(incomes.amount) as total'))
@@ -170,8 +193,9 @@ class ReportController extends Controller
 
         // Income by source
         $incomeBySourceQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($incomeBySourceQuery, 'incomes.project_id');
         if ($projectId) {
-            $incomeBySourceQuery->where('project_id', $projectId);
+            $incomeBySourceQuery->where('incomes.project_id', $projectId);
         }
         $incomeBySource = $incomeBySourceQuery->select('source', DB::raw('SUM(amount) as total'))
             ->groupBy('source')
@@ -180,10 +204,8 @@ class ReportController extends Controller
             ->get();
 
         $categories = Category::where('type', 'income')->where('is_active', true)->orderBy('name')->get();
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
 
         return view('admin.reports.income', compact(
             'startDate',
@@ -214,6 +236,9 @@ class ReportController extends Controller
         $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'constructionMaterial', 'advancePayment'])
             ->where('expenses.company_id', $companyId)
             ->whereBetween('expenses.date', [$startDate, $endDate]);
+        
+        // Filter by accessible projects
+        $this->filterByAccessibleProjects($query, 'expenses.project_id');
 
         if ($categoryId) {
             $query->where('category_id', $categoryId);
@@ -230,7 +255,12 @@ class ReportController extends Controller
         }
         
         if ($projectId) {
-            $query->where('project_id', $projectId);
+            $projectId = (int) $projectId;
+            // Verify user has access to this project
+            if (!$this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $query->where('expenses.project_id', $projectId);
         }
 
         $expenses = $query->orderBy('date', 'desc')->get();
@@ -257,10 +287,8 @@ class ReportController extends Controller
             ->get();
 
         $categories = Category::where('type', 'expense')->where('is_active', true)->orderBy('name')->get();
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
 
         return view('admin.reports.expense', compact(
             'startDate',
@@ -415,8 +443,7 @@ class ReportController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
 
         // Find expense type IDs for salary and advance
-        $salaryAdvanceTypes = \App\Models\ExpenseType::whereIn('code', ['salary', 'advance'])
-            ->orWhereIn('name', ['Salary', 'Advance'])
+        $salaryAdvanceTypes = \App\Models\ExpenseType::whereIn('name', ['Salary', 'Advance'])
             ->pluck('id');
 
         $query = Expense::with(['staff', 'project'])
@@ -438,8 +465,9 @@ class ReportController extends Controller
         // Payments by staff
         $paymentsByStaffQuery = Expense::whereIn('expense_type_id', $salaryAdvanceTypes)
             ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($paymentsByStaffQuery, 'expenses.project_id');
         if ($projectId) {
-            $paymentsByStaffQuery->where('project_id', $projectId);
+            $paymentsByStaffQuery->where('expenses.project_id', $projectId);
         }
         $paymentsByStaff = $paymentsByStaffQuery->join('staff', 'expenses.staff_id', '=', 'staff.id')
             ->join('expense_types', 'expenses.expense_type_id', '=', 'expense_types.id')
@@ -450,8 +478,9 @@ class ReportController extends Controller
         // Total by staff
         $totalByStaffQuery = Expense::whereIn('expense_type_id', $salaryAdvanceTypes)
             ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($totalByStaffQuery, 'expenses.project_id');
         if ($projectId) {
-            $totalByStaffQuery->where('project_id', $projectId);
+            $totalByStaffQuery->where('expenses.project_id', $projectId);
         }
         $totalByStaff = $totalByStaffQuery->join('staff', 'expenses.staff_id', '=', 'staff.id')
             ->select('staff.name', DB::raw('SUM(expenses.amount) as total'))
@@ -460,10 +489,8 @@ class ReportController extends Controller
             ->get();
 
         $staff = Staff::where('is_active', true)->orderBy('name')->get();
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
 
         return view('admin.reports.staff-payment', compact(
             'startDate',
@@ -491,15 +518,22 @@ class ReportController extends Controller
 
         // Total Income (Credit)
         $incomeQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($incomeQuery, 'incomes.project_id');
         if ($projectId) {
-            $incomeQuery->where('project_id', $projectId);
+            $projectId = (int) $projectId;
+            // Verify user has access to this project
+            if (!$this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $incomeQuery->where('incomes.project_id', $projectId);
         }
         $totalIncome = $incomeQuery->sum('amount');
         
         // Total Expenses (Debit)
         $expenseQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($expenseQuery, 'expenses.project_id');
         if ($projectId) {
-            $expenseQuery->where('project_id', $projectId);
+            $expenseQuery->where('expenses.project_id', $projectId);
         }
         $totalExpenses = $expenseQuery->sum('amount');
         
@@ -513,8 +547,9 @@ class ReportController extends Controller
 
         // Debit Details by Category
         $debitByCategoryQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($debitByCategoryQuery, 'expenses.project_id');
         if ($projectId) {
-            $debitByCategoryQuery->where('project_id', $projectId);
+            $debitByCategoryQuery->where('expenses.project_id', $projectId);
         }
         $debitByCategory = $debitByCategoryQuery->join('categories', 'expenses.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(expenses.amount) as total'))
@@ -524,8 +559,9 @@ class ReportController extends Controller
 
         // Credit Details by Category
         $creditByCategoryQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($creditByCategoryQuery, 'incomes.project_id');
         if ($projectId) {
-            $creditByCategoryQuery->where('project_id', $projectId);
+            $creditByCategoryQuery->where('incomes.project_id', $projectId);
         }
         $creditByCategory = $creditByCategoryQuery->join('categories', 'incomes.category_id', '=', 'categories.id')
             ->select('categories.name', DB::raw('SUM(incomes.amount) as total'))
@@ -536,23 +572,23 @@ class ReportController extends Controller
         // Detailed Debit Records
         $debitRecordsQuery = Expense::with(['category', 'subcategory', 'project'])
             ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($debitRecordsQuery, 'expenses.project_id');
         if ($projectId) {
-            $debitRecordsQuery->where('project_id', $projectId);
+            $debitRecordsQuery->where('expenses.project_id', $projectId);
         }
         $debitRecords = $debitRecordsQuery->orderBy('date', 'asc')->get();
 
         // Detailed Credit Records
         $creditRecordsQuery = Income::with(['category', 'subcategory', 'project'])
             ->where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($creditRecordsQuery, 'incomes.project_id');
         if ($projectId) {
-            $creditRecordsQuery->where('project_id', $projectId);
+            $creditRecordsQuery->where('incomes.project_id', $projectId);
         }
         $creditRecords = $creditRecordsQuery->orderBy('date', 'asc')->get();
         
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
 
         return view('admin.reports.balance-sheet', compact(
             'startDate',

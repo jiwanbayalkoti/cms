@@ -35,12 +35,16 @@ class Project extends Model
         'end_date',
         'created_by',
         'updated_by',
+        'files',
+        'photos',
     ];
 
     protected $casts = [
         'budget' => 'decimal:2',
         'start_date' => 'date',
         'end_date' => 'date',
+        'files' => 'array',
+        'photos' => 'array',
     ];
 
     public static function statusOptions(): array
@@ -61,6 +65,11 @@ class Project extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class)->withTimestamps();
     }
 }
 

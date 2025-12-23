@@ -90,7 +90,7 @@
             <h2 class="text-lg font-semibold text-gray-900">Project Consumption Summary</h2>
             <p class="text-sm text-gray-500">Aggregated delivery stats by project</p>
         </div>
-        <div class="overflow-auto">
+        <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>

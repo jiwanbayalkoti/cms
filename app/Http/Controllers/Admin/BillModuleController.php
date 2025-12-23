@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Http\Requests\StoreBillModuleRequest;
 use App\Http\Requests\UpdateBillModuleRequest;
 use App\Http\Requests\ApproveBillRequest;
@@ -22,6 +23,7 @@ use App\Exports\BillModuleExport;
 
 class BillModuleController extends Controller
 {
+    use HasProjectAccess;
     protected $calculator;
 
     public function __construct(BillCalculatorService $calculator)
@@ -34,9 +36,17 @@ class BillModuleController extends Controller
     {
         $query = BillModule::with(['project', 'creator', 'aggregate'])
             ->where('company_id', CompanyContext::getActiveCompanyId());
+        
+        // Filter by accessible projects
+        $this->filterByAccessibleProjects($query, 'project_id');
 
         if ($request->filled('project_id')) {
-            $query->where('project_id', $request->project_id);
+            $projectId = (int) $request->project_id;
+            // Verify user has access to this project
+            if (!$this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $query->where('project_id', $projectId);
         }
 
         if ($request->filled('status')) {
@@ -51,8 +61,8 @@ class BillModuleController extends Controller
         }
 
         $bills = $query->latest()->paginate(15)->withQueryString();
-        $projects = Project::where('company_id', CompanyContext::getActiveCompanyId())
-            ->orderBy('name')->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
 
         return view('admin.bill_modules.index', compact('bills', 'projects'));
     }
@@ -60,8 +70,8 @@ class BillModuleController extends Controller
     public function create(Request $request)
     {
         $projectId = $request->get('project_id');
-        $projects = Project::where('company_id', CompanyContext::getActiveCompanyId())
-            ->orderBy('name')->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         
         $billCategories = BillCategory::where('company_id', CompanyContext::getActiveCompanyId())
             ->where('is_active', true)
@@ -169,8 +179,8 @@ class BillModuleController extends Controller
         }
 
         $bill_module->load('items');
-        $projects = Project::where('company_id', CompanyContext::getActiveCompanyId())
-            ->orderBy('name')->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         $billCategories = BillCategory::where('company_id', CompanyContext::getActiveCompanyId())
             ->where('is_active', true)
             ->with('activeSubcategories')

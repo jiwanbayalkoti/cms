@@ -73,6 +73,7 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Salary</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Amount</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tax Amount</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Amount</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
@@ -96,6 +97,14 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         Rs. {{ number_format($payment->gross_amount, 2) }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-orange-600 font-medium">
+                        Rs. {{ number_format($payment->tax_amount ?? 0, 2) }}
+                        @if($payment->tax_amount > 0)
+                            <div class="text-xs text-gray-500 mt-1">
+                                {{ ucfirst($payment->assessment_type ?? 'single') }}
+                            </div>
+                        @endif
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                         Rs. {{ number_format($payment->net_amount, 2) }}
@@ -130,7 +139,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="px-6 py-4 text-center text-gray-500">
+                    <td colspan="9" class="px-6 py-4 text-center text-gray-500">
                         No salary payments found.
                     </td>
                 </tr>

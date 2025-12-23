@@ -3,16 +3,20 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Models\Income;
 use App\Models\Expense;
 use App\Models\Category;
 use App\Models\Staff;
+use App\Models\Company;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
+    use HasProjectAccess;
     /**
      * Create a new controller instance.
      */
@@ -34,24 +38,39 @@ class DashboardController extends Controller
         $startDate = $dateRange['start'];
         $endDate = $dateRange['end'];
         
-        // Statistics for selected period
-        $totalIncome = Income::where('company_id', $companyId)
-            ->whereBetween('date', [$startDate, $endDate])->sum('amount');
-        $totalExpenses = Expense::where('company_id', $companyId)
-            ->whereBetween('date', [$startDate, $endDate])->sum('amount');
+        // Statistics for selected period - filter by accessible projects
+        $incomeQuery = Income::where('company_id', $companyId)
+            ->whereBetween('date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($incomeQuery, 'project_id');
+        $totalIncome = $incomeQuery->sum('amount');
+        
+        $expenseQuery = Expense::where('company_id', $companyId)
+            ->whereBetween('date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($expenseQuery, 'project_id');
+        $totalExpenses = $expenseQuery->sum('amount');
         $balance = $totalIncome - $totalExpenses;
         
         // Total counts (not affected by period)
         $totalStaff = Staff::where('company_id', $companyId)
             ->where('is_active', true)->count();
         
-        // Recent transactions (last 5 regardless of period)
-        $recentIncomes = Income::with(['category'])
+        // Count only accessible projects
+        $projectsQuery = Project::where('company_id', $companyId);
+        $this->filterByAccessibleProjects($projectsQuery, 'id');
+        $totalProjects = $projectsQuery->count();
+        
+        // Recent transactions (last 5 regardless of period) - filter by accessible projects
+        $recentIncomesQuery = Income::with(['category'])
             ->where('company_id', $companyId)
-            ->latest('date')->limit(5)->get();
-        $recentExpenses = Expense::with(['category', 'staff'])
+            ->latest('date');
+        $this->filterByAccessibleProjects($recentIncomesQuery, 'project_id');
+        $recentIncomes = $recentIncomesQuery->limit(5)->get();
+        
+        $recentExpensesQuery = Expense::with(['category', 'staff'])
             ->where('company_id', $companyId)
-            ->latest('date')->limit(5)->get();
+            ->latest('date');
+        $this->filterByAccessibleProjects($recentExpensesQuery, 'project_id');
+        $recentExpenses = $recentExpensesQuery->limit(5)->get();
         
         // Chart data - adjust based on period
         $chartMonths = $this->getChartMonthsForPeriod($period);
@@ -70,6 +89,7 @@ class DashboardController extends Controller
             'totalExpenses',
             'balance',
             'totalStaff',
+            'totalProjects',
             'recentIncomes',
             'recentExpenses',
             'monthlyData',
@@ -155,14 +175,16 @@ class DashboardController extends Controller
             
             $labels[] = $date->format('M Y');
             
-            $income = Income::where('company_id', $companyId)
-                ->whereBetween('date', [$monthStart, $monthEnd])
-                ->sum('amount');
+            $incomeQuery = Income::where('company_id', $companyId)
+                ->whereBetween('date', [$monthStart, $monthEnd]);
+            $this->filterByAccessibleProjects($incomeQuery, 'project_id');
+            $income = $incomeQuery->sum('amount');
             $incomeData[] = (float) $income;
             
-            $expense = Expense::where('company_id', $companyId)
-                ->whereBetween('date', [$monthStart, $monthEnd])
-                ->sum('amount');
+            $expenseQuery = Expense::where('company_id', $companyId)
+                ->whereBetween('date', [$monthStart, $monthEnd]);
+            $this->filterByAccessibleProjects($expenseQuery, 'project_id');
+            $expense = $expenseQuery->sum('amount');
             $expenseData[] = (float) $expense;
         }
         
@@ -178,10 +200,14 @@ class DashboardController extends Controller
      */
     private function getIncomeByCategory($companyId, $startDate, $endDate)
     {
-        return Income::join('categories', 'incomes.category_id', '=', 'categories.id')
+        $query = Income::join('categories', 'incomes.category_id', '=', 'categories.id')
             ->where('incomes.company_id', $companyId)
-            ->whereBetween('incomes.date', [$startDate, $endDate])
-            ->selectRaw('categories.name as category, SUM(incomes.amount) as total')
+            ->whereBetween('incomes.date', [$startDate, $endDate]);
+        
+        // Filter by accessible projects
+        $this->filterByAccessibleProjects($query, 'incomes.project_id');
+        
+        return $query->selectRaw('categories.name as category, SUM(incomes.amount) as total')
             ->groupBy('categories.id', 'categories.name')
             ->orderByDesc('total')
             ->get()
@@ -199,10 +225,14 @@ class DashboardController extends Controller
      */
     private function getExpenseByCategory($companyId, $startDate, $endDate)
     {
-        return Expense::join('categories', 'expenses.category_id', '=', 'categories.id')
+        $query = Expense::join('categories', 'expenses.category_id', '=', 'categories.id')
             ->where('expenses.company_id', $companyId)
-            ->whereBetween('expenses.date', [$startDate, $endDate])
-            ->selectRaw('categories.name as category, SUM(expenses.amount) as total')
+            ->whereBetween('expenses.date', [$startDate, $endDate]);
+        
+        // Filter by accessible projects
+        $this->filterByAccessibleProjects($query, 'expenses.project_id');
+        
+        return $query->selectRaw('categories.name as category, SUM(expenses.amount) as total')
             ->groupBy('categories.id', 'categories.name')
             ->orderByDesc('total')
             ->get()
@@ -213,5 +243,18 @@ class DashboardController extends Controller
                 ];
             })
             ->toArray();
+    }
+
+    /**
+     * Show the super admin dashboard with company project counts.
+     */
+    public function superAdminDashboard()
+    {
+        // Get all companies with their project counts
+        $companies = Company::withCount('projects')
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.super_admin.dashboard', compact('companies'));
     }
 }

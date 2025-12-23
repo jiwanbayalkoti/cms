@@ -121,6 +121,12 @@ class CompanyController extends Controller
         ]);
 
         session(['active_company_id' => (int) $request->company_id]);
+        
+        // If redirect parameter is provided, redirect to that route
+        if ($request->has('redirect_to') && $request->redirect_to === 'projects') {
+            return redirect()->route('admin.projects.index')->with('success', 'Active company switched.');
+        }
+        
         return back()->with('success', 'Active company switched.');
     }
 

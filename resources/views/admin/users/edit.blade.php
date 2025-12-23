@@ -5,10 +5,7 @@
 @section('content')
 <h1 class="text-2xl font-bold mb-4">Edit User</h1>
 
-<form method="POST" action="{{ route('admin.users.update', $user) }}" class="bg-white p-6 rounded shadow max-w-xl"
-      data-validate="true"
-      data-validation-route="{{ route('admin.users.validate.edit', $user) }}"
-      id="userForm">
+<form method="POST" action="{{ route('admin.users.update', $user) }}" class="bg-white p-6 rounded shadow max-w-xl" id="userForm">
   @csrf
   @method('PUT')
 
@@ -42,15 +39,33 @@
 
   <div class="mb-4">
     <label class="block text-sm font-medium mb-1">Company</label>
-    <select name="company_id" class="w-full border rounded px-3 py-2 @error('company_id') border-red-500 @enderror">
+    @php
+      $activeCompanyId = \App\Support\CompanyContext::getActiveCompanyId();
+      // Prefer old input, then active company context, then user's company
+      $defaultCompanyId = old('company_id', $activeCompanyId ?: $user->company_id);
+    @endphp
+    <select name="company_id" id="company_id" class="w-full border rounded px-3 py-2 @error('company_id') border-red-500 @enderror">
       <option value="">None</option>
       @foreach($companies as $company)
-        <option value="{{ $company->id }}" {{ (old('company_id', $user->company_id) == $company->id) ? 'selected' : '' }}>{{ $company->name }}</option>
+        <option value="{{ $company->id }}" {{ $defaultCompanyId == $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
       @endforeach
     </select>
     <div class="field-error text-red-600 text-sm mt-1" data-field="company_id" style="display: none;"></div>
     @error('company_id')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
   </div>
+
+  @if($projects->count() > 0)
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-1">Project Access (optional)</label>
+      <p class="text-xs text-gray-500 mb-2">Check one or more projects for this user. Leave all unchecked to allow all projects in the selected company.</p>
+      <div id="project-checkboxes" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-auto border rounded p-3 @error('project_ids') border-red-500 @enderror">
+        <!-- populated by script -->
+      </div>
+      <div class="field-error text-red-600 text-sm mt-1" data-field="project_ids" style="display: none;"></div>
+      @error('project_ids')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
+      @error('project_ids.*')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
+    </div>
+  @endif
 
   <div class="mb-4">
     <label class="block text-sm font-medium mb-1">Role</label>
@@ -103,6 +118,81 @@
     <a href="{{ route('admin.users.index') }}" class="px-4 py-2 rounded border">Cancel</a>
   </div>
 </form>
+
+@if($projects->count() > 0)
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      @php
+        $projectOptions = $projects->map(function($p) {
+            return [
+                'id' => $p->id,
+                'name' => $p->name,
+                'company_id' => $p->company_id,
+                'company_name' => optional($p->company)->name ?? 'No Company',
+            ];
+        })->values();
+      @endphp
+      const projects = @json($projectOptions);
+
+      const selected = new Set(@json(old('project_ids', $selectedProjectIds ?? [])));
+      const projectContainer = document.getElementById('project-checkboxes');
+      const companySelect = document.getElementById('company_id') || document.querySelector('select[name="company_id"]');
+
+      function renderProjectOptions(clearSelection = false) {
+        const companyId = companySelect ? companySelect.value : '';
+        if (!projectContainer) {
+          console.error('Project container not found');
+          return;
+        }
+        projectContainer.innerHTML = '';
+        if (!companyId) {
+          projectContainer.innerHTML = '<p class="text-xs text-gray-500">Select a company to load its projects.</p>';
+          return;
+        }
+        if (clearSelection) {
+          selected.clear();
+        }
+        const filtered = projects.filter(p => String(p.company_id) === String(companyId));
+        if (!filtered.length) {
+          projectContainer.innerHTML = '<p class="text-xs text-gray-500">No projects for this company.</p>';
+          return;
+        }
+        filtered.forEach(p => {
+          const id = `project_${p.id}`;
+          const wrapper = document.createElement('label');
+          wrapper.className = 'flex items-center space-x-2 text-sm bg-gray-50 hover:bg-gray-100 rounded px-2 py-1';
+          wrapper.innerHTML = `
+            <input type="checkbox" name="project_ids[]" value="${p.id}" id="${id}" ${selected.has(String(p.id)) ? 'checked' : ''} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+            <span>${p.name}${p.company_name ? ` (${p.company_name})` : ''}</span>
+          `;
+          projectContainer.appendChild(wrapper);
+        });
+      }
+
+      if (projectContainer && companySelect) {
+        // Initial render based on selected company
+        renderProjectOptions();
+        
+        // Listen for company changes - use both change and input events
+        companySelect.addEventListener('change', function() {
+          console.log('Company changed to:', this.value);
+          renderProjectOptions(true);
+        });
+        
+        // Also listen for input event in case change doesn't fire
+        companySelect.addEventListener('input', function() {
+          console.log('Company input changed to:', this.value);
+          renderProjectOptions(true);
+        });
+      } else {
+        console.error('Project container or company select not found', {
+          projectContainer: !!projectContainer,
+          companySelect: !!companySelect
+        });
+      }
+    });
+  </script>
+@endif
 @endsection
 
 

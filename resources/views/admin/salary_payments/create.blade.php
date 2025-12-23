@@ -135,18 +135,34 @@
                 </div>
             </div>
 
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="mb-4">
+                <label for="assessment_type" class="block text-sm font-medium text-gray-700 mb-2">Tax Assessment Type</label>
+                <select name="assessment_type" id="assessment_type"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="single" {{ old('assessment_type') == 'single' ? 'selected' : '' }}>Single Assessment</option>
+                    <option value="couple" {{ old('assessment_type') == 'couple' ? 'selected' : '' }}>Couple Assessment</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Select tax assessment type as per Nepal Government FY 2080/81</p>
+            </div>
+
+            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                <h4 class="text-sm font-semibold text-gray-900 mb-3">Salary Calculation Summary</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Gross Amount</label>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Gross Amount</label>
                         <div class="text-lg font-semibold text-gray-900" id="gross_amount_display">Rs. 0.00</div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Total Deductions</label>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Total Deductions</label>
                         <div class="text-lg font-semibold text-red-600" id="total_deductions_display">Rs. 0.00</div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Net Amount</label>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Tax Amount</label>
+                        <div class="text-lg font-semibold text-orange-600" id="tax_amount_display">Rs. 0.00</div>
+                        <div class="text-xs text-gray-500 mt-1" id="tax_info">Annual: Rs. 0.00</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Net Payable Amount</label>
                         <div class="text-xl font-bold text-indigo-600" id="net_amount_display">Rs. 0.00</div>
                     </div>
                 </div>
@@ -391,14 +407,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     }
 
-    // Auto-fill base salary when staff is selected
+    // Auto-fill base salary and assessment type when staff is selected
     staffSelect.addEventListener('change', function() {
+        const staffId = this.value;
         const selectedOption = this.options[this.selectedIndex];
         const salary = selectedOption.getAttribute('data-salary');
+        
         if (salary) {
             baseSalaryInput.value = salary;
-            calculateAmounts();
         }
+        
+        // Fetch staff details (marriage status, assessment type)
+        if (staffId) {
+            fetch(`{{ route('admin.staff.details', ':id') }}`.replace(':id', staffId))
+                .then(response => response.json())
+                .then(data => {
+                    // Auto-set assessment type based on marriage status
+                    const assessmentTypeSelect = document.getElementById('assessment_type');
+                    if (assessmentTypeSelect && data.assessment_type) {
+                        assessmentTypeSelect.value = data.assessment_type;
+                    }
+                    
+                    // Recalculate amounts with new assessment type
+                    calculateAmounts();
+                })
+                .catch(error => {
+                    console.error('Error fetching staff details:', error);
+                });
+        }
+        
         // Check for existing payment after a short delay
         setTimeout(function() {
             checkExistingPayment();
@@ -421,8 +458,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Calculate amounts when any input changes
-    [baseSalaryInput, workingDaysInput, totalDaysInput, overtimeInput, bonusInput, allowanceInput, deductionInput, advanceDeductionInput].forEach(input => {
+    const assessmentTypeInput = document.getElementById('assessment_type');
+    [baseSalaryInput, workingDaysInput, totalDaysInput, overtimeInput, bonusInput, allowanceInput, deductionInput, advanceDeductionInput, assessmentTypeInput].forEach(input => {
         input.addEventListener('input', function() {
+            calculateAmounts();
+            calculatePayment();
+        });
+        input.addEventListener('change', function() {
             calculateAmounts();
             calculatePayment();
         });
@@ -461,14 +503,81 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const grossAmount = baseSalary + overtime + bonus + allowance;
         const totalDeductions = deduction + advanceDeduction;
-        const netAmount = grossAmount - totalDeductions;
+        
+        // Calculate tax
+        const assessmentType = document.getElementById('assessment_type').value;
+        const taxResult = calculateTax(grossAmount, workingDays, totalDays, assessmentType);
+        const taxAmount = taxResult.monthlyTax;
+        const annualTaxableIncome = taxResult.annualTaxableIncome;
+        
+        const netAmount = grossAmount - totalDeductions - taxAmount;
 
         document.getElementById('gross_amount_display').textContent = 'Rs. ' + grossAmount.toFixed(2);
         document.getElementById('total_deductions_display').textContent = 'Rs. ' + totalDeductions.toFixed(2);
+        document.getElementById('tax_amount_display').textContent = 'Rs. ' + taxAmount.toFixed(2);
+        document.getElementById('tax_info').textContent = 'Annual: Rs. ' + annualTaxableIncome.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('net_amount_display').textContent = 'Rs. ' + netAmount.toFixed(2);
         
         // Recalculate payment after amounts change
         calculatePayment();
+    }
+
+    // Nepal Tax Calculation (FY 2080/81)
+    function calculateTax(monthlyGross, workingDays, totalDays, assessmentType) {
+        // Calculate full month gross for annualization
+        let fullMonthGross = monthlyGross;
+        if (workingDays && totalDays && totalDays > 0) {
+            fullMonthGross = (monthlyGross / workingDays) * totalDays;
+        }
+        
+        // Annual taxable income
+        const annualTaxableIncome = fullMonthGross * 12;
+        
+        // Tax brackets
+        const brackets = assessmentType === 'couple' ? [
+            {min: 0, max: 600000, rate: 0.01},
+            {min: 600000, max: 800000, rate: 0.10},
+            {min: 800000, max: 1100000, rate: 0.20},
+            {min: 1100000, max: 2000000, rate: 0.30},
+            {min: 2000000, max: 5000000, rate: 0.36},
+            {min: 5000000, max: Infinity, rate: 0.39}
+        ] : [
+            {min: 0, max: 500000, rate: 0.01},
+            {min: 500000, max: 700000, rate: 0.10},
+            {min: 700000, max: 1000000, rate: 0.20},
+            {min: 1000000, max: 2000000, rate: 0.30},
+            {min: 2000000, max: 5000000, rate: 0.36},
+            {min: 5000000, max: Infinity, rate: 0.39}
+        ];
+        
+        let totalTax = 0;
+        let remainingIncome = annualTaxableIncome;
+        
+        for (const bracket of brackets) {
+            if (remainingIncome <= 0) break;
+            
+            const bracketRange = bracket.max - bracket.min;
+            const incomeInBracket = Math.min(remainingIncome, bracketRange);
+            
+            if (incomeInBracket > 0) {
+                totalTax += incomeInBracket * bracket.rate;
+                remainingIncome -= incomeInBracket;
+            }
+        }
+        
+        // Monthly tax
+        let monthlyTax = totalTax / 12;
+        
+        // Prorate if partial month
+        if (workingDays && totalDays && totalDays > 0) {
+            monthlyTax = (monthlyTax / totalDays) * workingDays;
+        }
+        
+        return {
+            annualTaxableIncome: annualTaxableIncome,
+            annualTax: totalTax,
+            monthlyTax: monthlyTax
+        };
     }
 
     function calculatePayment() {

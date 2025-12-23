@@ -26,8 +26,32 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-    <!-- Stats Card 1 -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+    <!-- Stats Card 1 - Total Projects -->
+    <a href="{{ route('admin.projects.index') }}" class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-200 cursor-pointer group border-2 border-transparent hover:border-indigo-500">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-indigo-500 group-hover:text-indigo-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Total Projects</dt>
+                        <dd class="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{{ $totalProjects }}</dd>
+                    </dl>
+                </div>
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </a>
+
+    <!-- Stats Card 2 - Total Staff -->
     <div class="bg-white overflow-hidden shadow-lg rounded-lg">
         <div class="p-5">
             <div class="flex items-center">
@@ -46,7 +70,7 @@
         </div>
     </div>
 
-    <!-- Stats Card 2 -->
+    <!-- Stats Card 3 -->
     <div class="bg-white overflow-hidden shadow-lg rounded-lg">
         <div class="p-5">
             <div class="flex items-center">
@@ -72,7 +96,7 @@
         </div>
     </div>
 
-    <!-- Stats Card 3 -->
+    <!-- Stats Card 4 -->
     <div class="bg-white overflow-hidden shadow-lg rounded-lg">
         <div class="p-5">
             <div class="flex items-center">
@@ -98,7 +122,7 @@
         </div>
     </div>
 
-    <!-- Stats Card 4 -->
+    <!-- Stats Card 5 -->
     <div class="bg-white overflow-hidden shadow-lg rounded-lg">
         <div class="p-5">
             <div class="flex items-center">

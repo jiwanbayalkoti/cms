@@ -47,10 +47,10 @@ class SecurityHeaders
         // Note: Adjust CSP policy based on your application's needs
         $csp = "default-src 'self'; " .
                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; " .
-               "style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://cdn.tailwindcss.com https://cdn.jsdelivr.net; " .
-               "font-src 'self' https://fonts.bunny.net data:; " .
-               "img-src 'self' data: blob: https:; " .
-               "connect-src 'self'; " .
+               "style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; " .
+               "font-src 'self' https://fonts.bunny.net https://cdnjs.cloudflare.com data:; " .
+               "img-src 'self' data: blob: https: http:; " .
+               "connect-src 'self' https://cdn.jsdelivr.net; " .
                "frame-ancestors 'none';";
         
         $response->headers->set('Content-Security-Policy', $csp);

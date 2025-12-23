@@ -97,7 +97,8 @@
         <h2 class="text-xl font-semibold text-gray-900">Expense Records</h2>
         <span class="text-sm text-gray-500">{{ $expenses->count() }} record(s)</span>
     </div>
-    <table class="min-w-full divide-y divide-gray-200">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
@@ -132,6 +133,7 @@
             @endforelse
         </tbody>
     </table>
+    </div>
 </div>
 
 <!-- Chart.js -->

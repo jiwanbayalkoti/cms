@@ -202,6 +202,7 @@ class SalaryPaymentController extends Controller
             'allowance_amount' => 'nullable|numeric|min:0',
             'deduction_amount' => 'nullable|numeric|min:0',
             'advance_deduction' => 'nullable|numeric|min:0',
+            'assessment_type' => 'nullable|in:single,couple',
             'status' => 'required|in:pending,partial,paid,cancelled',
             'payment_percentage' => 'nullable|numeric|min:0|max:100',
             'payment_amount' => 'nullable|numeric|min:0',
@@ -241,9 +242,26 @@ class SalaryPaymentController extends Controller
             + ($validated['bonus_amount'] ?? 0)
             + ($validated['allowance_amount'] ?? 0);
 
+        // Get assessment type from form or staff default
+        $staff = \App\Models\Staff::find($validated['staff_id']);
+        $assessmentType = $validated['assessment_type'] ?? $staff->assessment_type ?? 'single';
+        
+        // Calculate tax
+        $taxCalculator = new \App\Services\NepalTaxCalculator();
+        $tempSalaryPayment = new \App\Models\SalaryPayment([
+            'gross_amount' => $grossAmount,
+            'working_days' => $validated['working_days'] ?? null,
+            'total_days' => $validated['total_days'] ?? null,
+            'assessment_type' => $assessmentType,
+        ]);
+        $taxResult = $tempSalaryPayment->calculateTax();
+        $taxAmount = $taxResult['tax_amount'];
+        $taxableIncome = $taxResult['taxable_income'];
+
         $netAmount = $grossAmount 
             - ($validated['deduction_amount'] ?? 0)
-            - ($validated['advance_deduction'] ?? 0);
+            - ($validated['advance_deduction'] ?? 0)
+            - $taxAmount;
 
         // Initialize payment amounts from form or calculate
         $status = $validated['status'];
@@ -317,6 +335,10 @@ class SalaryPaymentController extends Controller
             'allowance_amount' => $validated['allowance_amount'] ?? 0,
             'deduction_amount' => $validated['deduction_amount'] ?? 0,
             'advance_deduction' => $validated['advance_deduction'] ?? 0,
+            'assessment_type' => $assessmentType,
+            'taxable_income' => $taxableIncome,
+            'tax_amount' => $taxAmount,
+            'tax_exempt_amount' => 0,
             'gross_amount' => $grossAmount,
             'net_amount' => $netAmount,
             'paid_amount' => $paidAmount,
@@ -416,6 +438,7 @@ class SalaryPaymentController extends Controller
             'allowance_amount' => 'nullable|numeric|min:0',
             'deduction_amount' => 'nullable|numeric|min:0',
             'advance_deduction' => 'nullable|numeric|min:0',
+            'assessment_type' => 'nullable|in:single,couple',
             'status' => 'required|in:pending,partial,paid,cancelled',
             'payment_percentage' => 'nullable|numeric|min:0|max:100',
             'payment_amount' => 'nullable|numeric|min:0',
@@ -444,12 +467,29 @@ class SalaryPaymentController extends Controller
             + ($validated['bonus_amount'] ?? 0)
             + ($validated['allowance_amount'] ?? 0);
 
-        $netAmount = $grossAmount 
-            - ($validated['deduction_amount'] ?? 0)
-            - ($validated['advance_deduction'] ?? 0);
+        // Get assessment type from form or staff default
+        $staff = \App\Models\Staff::find($validated['staff_id']);
+        $assessmentType = $validated['assessment_type'] ?? $staff->assessment_type ?? $salaryPayment->assessment_type ?? 'single';
+        
+        // Calculate tax
+        $taxCalculator = new \App\Services\NepalTaxCalculator();
+        $tempSalaryPayment = new \App\Models\SalaryPayment([
+            'gross_amount' => $grossAmount,
+            'working_days' => $validated['working_days'] ?? null,
+            'total_days' => $validated['total_days'] ?? null,
+            'assessment_type' => $assessmentType,
+        ]);
+        $taxResult = $tempSalaryPayment->calculateTax();
+        $taxAmount = $taxResult['tax_amount'];
+        $taxableIncome = $taxResult['taxable_income'];
 
         $oldStatus = $salaryPayment->status;
         $oldNetAmount = $salaryPayment->net_amount;
+        
+        $netAmount = $grossAmount 
+            - ($validated['deduction_amount'] ?? 0)
+            - ($validated['advance_deduction'] ?? 0)
+            - $taxAmount;
         
         // Get paid_amount and balance_amount from hidden fields if provided
         $status = $validated['status'];
@@ -509,6 +549,10 @@ class SalaryPaymentController extends Controller
             'allowance_amount' => $validated['allowance_amount'] ?? 0,
             'deduction_amount' => $validated['deduction_amount'] ?? 0,
             'advance_deduction' => $validated['advance_deduction'] ?? 0,
+            'assessment_type' => $assessmentType,
+            'taxable_income' => $taxableIncome,
+            'tax_amount' => $taxAmount,
+            'tax_exempt_amount' => 0,
             'gross_amount' => $grossAmount,
             'net_amount' => $netAmount,
             'paid_amount' => $paidAmount,

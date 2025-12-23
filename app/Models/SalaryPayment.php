@@ -26,6 +26,10 @@ class SalaryPayment extends Model
         'allowance_amount',
         'deduction_amount',
         'advance_deduction',
+        'assessment_type',
+        'taxable_income',
+        'tax_amount',
+        'tax_exempt_amount',
         'gross_amount',
         'net_amount',
         'paid_amount',
@@ -49,6 +53,9 @@ class SalaryPayment extends Model
         'allowance_amount' => 'decimal:2',
         'deduction_amount' => 'decimal:2',
         'advance_deduction' => 'decimal:2',
+        'taxable_income' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'tax_exempt_amount' => 'decimal:2',
         'gross_amount' => 'decimal:2',
         'net_amount' => 'decimal:2',
         'paid_amount' => 'decimal:2',
@@ -127,11 +134,49 @@ class SalaryPayment extends Model
     }
 
     /**
-     * Calculate net amount.
+     * Calculate net amount (after deductions and tax).
      */
     public function calculateNetAmount(): float
     {
-        return $this->gross_amount - $this->deduction_amount - $this->advance_deduction;
+        return $this->gross_amount - $this->deduction_amount - $this->advance_deduction - $this->tax_amount;
+    }
+    
+    /**
+     * Calculate tax based on Nepal tax rates.
+     */
+    public function calculateTax(): array
+    {
+        $calculator = new \App\Services\NepalTaxCalculator();
+        
+        // Calculate annual taxable income from monthly gross
+        $monthlyGross = $this->gross_amount;
+        
+        // If partial month, annualize it
+        if ($this->working_days && $this->total_days && $this->total_days > 0) {
+            $fullMonthGross = ($monthlyGross / $this->working_days) * $this->total_days;
+        } else {
+            $fullMonthGross = $monthlyGross;
+        }
+        
+        $annualTaxableIncome = $fullMonthGross * 12;
+        
+        // Calculate tax
+        $assessmentType = $this->assessment_type ?? 'single';
+        $taxResult = $calculator::calculateTax($annualTaxableIncome, $assessmentType);
+        
+        // Monthly tax is annual tax / 12, but prorate if partial month
+        $monthlyTax = $taxResult['tax_amount'] / 12;
+        
+        if ($this->working_days && $this->total_days && $this->total_days > 0) {
+            $monthlyTax = ($monthlyTax / $this->total_days) * $this->working_days;
+        }
+        
+        return [
+            'taxable_income' => $annualTaxableIncome,
+            'tax_amount' => round($monthlyTax, 2),
+            'assessment_type' => $assessmentType,
+            'breakdown' => $taxResult['breakdown'],
+        ];
     }
 
     /**

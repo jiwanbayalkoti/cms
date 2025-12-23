@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\User;
 use App\Models\Company;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Support\CompanyContext;
@@ -41,6 +42,8 @@ class UserController extends Controller
             'company_id' => 'nullable|exists:companies,id',
             'role' => 'required|in:super_admin,admin,user',
             'is_admin' => 'nullable|boolean',
+            'project_ids' => 'nullable|array',
+            'project_ids.*' => 'integer|exists:projects,id',
         ];
         
         return $this->validateForm($request, $rules);
@@ -77,16 +80,20 @@ class UserController extends Controller
     {
         $currentUser = auth()->user();
         $companies = Company::orderBy('name')->get();
+        $projectsQuery = Project::with('company')->orderBy('name');
         
         // Regular admin can only create users for their company
         if (!$currentUser->isSuperAdmin()) {
             $companyId = CompanyContext::getActiveCompanyId();
             if ($companyId) {
                 $companies = Company::where('id', $companyId)->get();
+                $projectsQuery->where('company_id', $companyId);
             }
         }
+
+        $projects = $projectsQuery->get();
         
-        return view('admin.users.create', compact('companies'));
+        return view('admin.users.create', compact('companies', 'projects'));
     }
 
     public function store(Request $request)
@@ -100,6 +107,8 @@ class UserController extends Controller
             'company_id' => 'nullable|exists:companies,id',
             'role' => 'required|in:super_admin,admin,user',
             'is_admin' => 'nullable|boolean',
+            'project_ids' => 'nullable|array',
+            'project_ids.*' => 'integer|exists:projects,id',
         ]);
 
         // Role-based restrictions
@@ -134,6 +143,23 @@ class UserController extends Controller
         $user->is_admin = in_array($validated['role'], ['admin', 'super_admin']);
         $user->save();
 
+        // Sync project access
+        $projectIds = collect($request->input('project_ids', []))
+            ->filter()
+            ->map(fn($id) => (int) $id)
+            ->unique();
+
+        if ($projectIds->isNotEmpty()) {
+            $projectQuery = Project::whereIn('id', $projectIds);
+            if ($companyId) {
+                $projectQuery->where('company_id', $companyId);
+            }
+            $allowedProjectIds = $projectQuery->pluck('id')->all();
+            $user->projects()->sync($allowedProjectIds);
+        } else {
+            $user->projects()->sync([]);
+        }
+
         return redirect()->route('admin.users.index')->with('success', 'User created successfully.');
     }
 
@@ -155,16 +181,21 @@ class UserController extends Controller
         }
         
         $companies = Company::orderBy('name')->get();
+        $projectsQuery = Project::with('company')->orderBy('name');
         
         // Regular admin can only see their company
         if (!$currentUser->isSuperAdmin()) {
             $companyId = CompanyContext::getActiveCompanyId();
             if ($companyId) {
                 $companies = Company::where('id', $companyId)->get();
+                $projectsQuery->where('company_id', $companyId);
             }
         }
         
-        return view('admin.users.edit', compact('user', 'companies'));
+        $projects = $projectsQuery->get();
+        $selectedProjectIds = $user->projects()->pluck('projects.id')->all();
+        
+        return view('admin.users.edit', compact('user', 'companies', 'projects', 'selectedProjectIds'));
     }
 
     public function update(Request $request, User $user)
@@ -174,11 +205,18 @@ class UserController extends Controller
         // Prevent users from modifying their own role
         if ($currentUser->id === $user->id) {
             // Users cannot change their own role or company
-            $validated = $request->validate([
+            $rules = [
                 'name' => 'sometimes|string|max:255',
                 'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
-                'password' => ['nullable', 'string', 'min:8', 'confirmed', new StrongPassword()],
-            ]);
+            ];
+            
+            // Only validate password if it's provided (not empty)
+            if ($request->filled('password')) {
+                $rules['password'] = ['required', 'string', 'min:8', 'confirmed', new StrongPassword()];
+                $rules['password_confirmation'] = 'required|string';
+            }
+            
+            $validated = $request->validate($rules);
             
             if (array_key_exists('name', $validated)) {
                 $user->name = $validated['name'];
@@ -207,14 +245,24 @@ class UserController extends Controller
             }
         }
         
-        $validated = $request->validate([
+        // Build validation rules - password only required if provided
+        $rules = [
             'company_id' => 'nullable|exists:companies,id',
             'role' => 'required|in:super_admin,admin,user',
             'is_admin' => 'nullable|boolean',
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
-            'password' => ['nullable', 'string', 'min:8', 'confirmed', new StrongPassword()],
-        ]);
+            'project_ids' => 'nullable|array',
+            'project_ids.*' => 'integer|exists:projects,id',
+        ];
+        
+        // Only validate password if it's provided (not empty)
+        if ($request->filled('password')) {
+            $rules['password'] = ['required', 'string', 'min:8', 'confirmed', new StrongPassword()];
+            $rules['password_confirmation'] = 'required|string';
+        }
+        
+        $validated = $request->validate($rules);
 
         // Role-based restrictions
         // Only super admin can assign super_admin role
@@ -251,6 +299,24 @@ class UserController extends Controller
         // Sync is_admin with role for backward compatibility
         $user->is_admin = in_array($validated['role'], ['admin', 'super_admin']);
         $user->save();
+
+        // Sync project access
+        $projectIds = collect($request->input('project_ids', []))
+            ->filter()
+            ->map(fn($id) => (int) $id)
+            ->unique();
+
+        if ($projectIds->isNotEmpty()) {
+            $projectQuery = Project::whereIn('id', $projectIds);
+            $targetCompanyId = $validated['company_id'] ?? $user->company_id;
+            if ($targetCompanyId) {
+                $projectQuery->where('company_id', $targetCompanyId);
+            }
+            $allowedProjectIds = $projectQuery->pluck('id')->all();
+            $user->projects()->sync($allowedProjectIds);
+        } else {
+            $user->projects()->sync([]);
+        }
 
         return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');
     }

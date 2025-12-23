@@ -19,9 +19,23 @@ class Staff extends Model
         'position_id',
         'address',
         'salary',
+        'marriage_status',
+        'assessment_type',
         'join_date',
         'is_active',
     ];
+    
+    protected static function boot()
+    {
+        parent::boot();
+        
+        // Auto-sync assessment_type based on marriage_status
+        static::saving(function ($staff) {
+            if ($staff->isDirty('marriage_status')) {
+                $staff->assessment_type = $staff->marriage_status === 'married' ? 'couple' : 'single';
+            }
+        });
+    }
 
     protected $casts = [
         'is_active' => 'boolean',

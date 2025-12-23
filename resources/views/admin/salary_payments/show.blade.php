@@ -234,6 +234,49 @@
                 </div>
             </dl>
         </div>
+
+        <!-- Tax Information -->
+        <div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Tax Information</h3>
+            <dl class="space-y-3">
+                <div class="flex justify-between items-center pb-2 border-b border-gray-200">
+                    <dt class="text-sm font-medium text-gray-600">Assessment Type</dt>
+                    <dd class="text-sm font-semibold text-gray-900">
+                        {{ ucfirst($salaryPayment->assessment_type ?? 'single') }} Assessment
+                    </dd>
+                </div>
+
+                @if($salaryPayment->taxable_income && $salaryPayment->taxable_income > 0)
+                <div class="flex justify-between items-center pb-2 border-b border-gray-200">
+                    <dt class="text-sm font-medium text-gray-600">Annual Taxable Income</dt>
+                    <dd class="text-sm font-semibold text-gray-900">Rs. {{ number_format($salaryPayment->taxable_income, 2) }}</dd>
+                </div>
+                @endif
+
+                <div class="flex justify-between items-center pb-2 border-b border-gray-200">
+                    <dt class="text-sm font-medium text-gray-600">Monthly Tax Amount</dt>
+                    <dd class="text-sm font-semibold text-orange-600">
+                        Rs. {{ number_format($salaryPayment->tax_amount ?? 0, 2) }}
+                    </dd>
+                </div>
+
+                @if($salaryPayment->tax_amount && $salaryPayment->tax_amount > 0 && $salaryPayment->taxable_income)
+                @php
+                    $annualTax = ($salaryPayment->tax_amount / ($salaryPayment->working_days && $salaryPayment->total_days ? ($salaryPayment->working_days / $salaryPayment->total_days) : 1)) * 12;
+                    $taxPercentage = $salaryPayment->taxable_income > 0 ? ($annualTax / $salaryPayment->taxable_income) * 100 : 0;
+                @endphp
+                <div class="flex justify-between items-center pt-2 border-t-2 border-gray-300">
+                    <dt class="text-base font-semibold text-gray-900">Effective Tax Rate</dt>
+                    <dd class="text-base font-bold text-orange-600">
+                        {{ number_format($taxPercentage, 2) }}%
+                        <span class="text-xs text-gray-500">(Annual: Rs. {{ number_format($annualTax, 2) }})</span>
+                    </dd>
+                </div>
+                @elseif(!$salaryPayment->tax_amount || $salaryPayment->tax_amount == 0)
+                <div class="text-sm text-gray-500 italic">No tax applicable</div>
+                @endif
+            </dl>
+        </div>
     </div>
 
     <!-- Net Amount -->

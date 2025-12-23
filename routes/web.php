@@ -63,6 +63,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::middleware(['admin'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         
+        // Super Admin Dashboard
+        Route::middleware(['super_admin'])->group(function () {
+            Route::get('/super-admin/dashboard', [DashboardController::class, 'superAdminDashboard'])->name('super-admin.dashboard');
+        });
+        
         // Categories CRUD
         Route::resource('categories', CategoryController::class);
         Route::post('categories/validate', [CategoryController::class, 'validateCategory'])->name('categories.validate');
@@ -76,12 +81,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('staff', StaffController::class);
         Route::post('staff/validate', [StaffController::class, 'validateStaff'])->name('staff.validate');
         Route::post('staff/{staff}/validate', [StaffController::class, 'validateStaff'])->name('staff.validate.edit');
+        Route::get('staff/{staff}/details', [StaffController::class, 'getDetails'])->name('staff.details');
         
         // Positions CRUD
         Route::resource('positions', PositionController::class);
         
         // Projects CRUD
         Route::resource('projects', ProjectController::class);
+        Route::get('projects/{project}/gallery', [ProjectController::class, 'gallery'])->name('projects.gallery');
         Route::post('projects/validate', [ProjectController::class, 'validateProjectForm'])->name('projects.validate');
         Route::post('projects/switch', [ProjectController::class, 'switch'])->name('projects.switch');
         

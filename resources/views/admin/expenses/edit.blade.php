@@ -41,11 +41,11 @@
         @foreach($expenseTypes as $type)
             <option value="{{ $type->id }}" {{ old('expense_type_id', $expense->expense_type_id) == $type->id ? 'selected' : '' }}>{{ $type->name }}</option>
         @endforeach
-    </select>
+                </select>
     @error('expense_type_id')
-        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-    @enderror
-</div>
+                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
 
             <div id="staff_field" style="display: none;">
                 <label for="staff_id" class="block text-sm font-medium text-gray-700 mb-2">Staff Member <span class="text-red-500">*</span></label>
@@ -206,33 +206,33 @@
         // Store the original selected subcategory ID
         const originalSubcategoryId = {{ old('subcategory_id', $expense->subcategory_id) ?: 'null' }};
         
-        function toggleFields() {
+    function toggleFields() {
             const expenseType = document.getElementById('expense_type_id').value;
-            const staffField = document.getElementById('staff_field');
-            const itemField = document.getElementById('item_field');
-            const staffSelect = document.getElementById('staff_id');
-            
-            if (expenseType === 'salary' || expenseType === 'advance') {
-                staffField.style.display = 'block';
-                itemField.style.display = 'none';
-                staffSelect.setAttribute('required', 'required');
-            } else {
-                staffField.style.display = 'none';
-                itemField.style.display = 'block';
-                staffSelect.removeAttribute('required');
-            }
-            
-            if (expenseType === 'rent') {
-                itemField.style.display = 'none';
-            }
+        const staffField = document.getElementById('staff_field');
+        const itemField = document.getElementById('item_field');
+        const staffSelect = document.getElementById('staff_id');
+        
+        if (expenseType === 'salary' || expenseType === 'advance') {
+            staffField.style.display = 'block';
+            itemField.style.display = 'none';
+            staffSelect.setAttribute('required', 'required');
+        } else {
+            staffField.style.display = 'none';
+            itemField.style.display = 'block';
+            staffSelect.removeAttribute('required');
         }
         
+        if (expenseType === 'rent') {
+            itemField.style.display = 'none';
+        }
+    }
+    
         const expenseTypeSelect = document.getElementById('expense_type_id');
         if (expenseTypeSelect) {
             expenseTypeSelect.addEventListener('change', toggleFields);
-            toggleFields();
+    toggleFields();
         }
-        
+    
         // Load subcategories dynamically when category changes
         const categorySelect = document.getElementById('category_id');
         const subcategorySelect = document.getElementById('subcategory_id');
@@ -299,8 +299,8 @@
             const categoryId = categorySelect.value;
             if (categoryId) {
                 categorySelect.dispatchEvent(new Event('change'));
+                }
             }
-        }
     });
 
     // Image preview functionality

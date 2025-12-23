@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\ValidatesForms;
+use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Http\Requests\Admin\StoreConstructionMaterialRequest;
 use App\Http\Requests\Admin\UpdateConstructionMaterialRequest;
 use App\Models\ConstructionMaterial;
@@ -26,7 +27,7 @@ use App\Exports\ConstructionMaterialsExport;
 
 class ConstructionMaterialController extends Controller
 {
-    use ValidatesForms;
+    use ValidatesForms, HasProjectAccess;
     
     public function __construct()
     {
@@ -125,6 +126,9 @@ class ConstructionMaterialController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
         
         $query = ConstructionMaterial::where('company_id', $companyId);
+        
+        // Filter by accessible projects
+        $this->filterByAccessibleProjects($query, 'project_id');
 
         if ($request->filled('material_name')) {
             $query->where('material_name', 'like', '%' . $request->material_name . '%');
@@ -185,10 +189,8 @@ class ConstructionMaterialController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         $purchasedBies = PurchasedBy::where('is_active', true)->orderBy('name')->get();
 
         return view('admin.construction_materials.index', compact('materials', 'materialNames', 'suppliers', 'projects', 'purchasedBies', 'totalCost', 'totalQuantityReceived', 'totalQuantityUsed', 'totalQuantityRemaining', 'totalAdvancePayments', 'netBalance'));
@@ -202,10 +204,8 @@ class ConstructionMaterialController extends Controller
         $units = MaterialUnit::orderBy('name')->get();
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
         $workTypes = WorkType::where('is_active', true)->orderBy('name')->get();
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         $materialNames = MaterialName::orderBy('name')->get();
         $paymentModes = PaymentMode::orderBy('name')->get();
         $purchasedBies = PurchasedBy::where('is_active', true)->orderBy('name')->get();
@@ -257,10 +257,8 @@ class ConstructionMaterialController extends Controller
         $units = MaterialUnit::orderBy('name')->get();
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
         $workTypes = WorkType::where('is_active', true)->orderBy('name')->get();
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         $materialNames = MaterialName::orderBy('name')->get();
         $paymentModes = PaymentMode::orderBy('name')->get();
         $purchasedBies = PurchasedBy::where('is_active', true)->orderBy('name')->get();
