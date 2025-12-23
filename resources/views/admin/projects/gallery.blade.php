@@ -9,11 +9,6 @@
 
     $activeCompanyId = CompanyContext::getActiveCompanyId();
 @endphp
-<?php 
-echo "<pre>";
-print_r($project->photos);
-echo "</pre>";
-?>
 <div class="mb-6 flex items-center justify-between">
     <div>
         <h1 class="text-3xl font-bold text-gray-900">{{ $project->name }} - Photo Gallery</h1>
@@ -63,9 +58,17 @@ echo "</pre>";
                                     // Generate URL using asset() for reliable URL generation
                                     // This works with the storage symlink: public/storage -> storage/app/public
                                     $photoUrl = '';
+                                    $fileExists = false;
+                                    
                                     if ($photoPath) {
-                                        // Use asset() which generates relative URLs that work regardless of APP_URL config
-                                        $photoUrl = asset('storage/' . $photoPath);
+                                        // Clean the path (remove any leading/trailing slashes)
+                                        $photoPath = ltrim($photoPath, '/');
+                                        
+                                        // Check if file exists in storage
+                                        $fileExists = Storage::disk('public')->exists($photoPath);
+                                        
+                                        // Generate URL - ensure no double slashes
+                                        $photoUrl = asset('storage/' . ltrim($photoPath, '/'));
                                     }
                                 @endphp
                                 @if($photoUrl)
@@ -76,8 +79,11 @@ echo "</pre>";
                                             class="w-full h-full"
                                             style="width: 100%; height: 160px; object-fit: cover; display: block; cursor: pointer;"
                                             loading="lazy"
+                                            data-path="{{ $photoPath }}"
+                                            data-url="{{ $photoUrl }}"
+                                            data-exists="{{ $fileExists ? 'true' : 'false' }}"
                                             onclick="openLightbox('{{ $photoUrl }}', '{{ $photoName }}')"
-                                            onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27200%27 height=%27160%27%3E%3Crect width=%27200%27 height=%27160%27 fill=%27%23e5e7eb%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 text-anchor=%27middle%27 dy=%27.3em%27 fill=%27%239ca3af%27 font-size=%2712%27%3ENot Found%3C/text%3E%3C/svg%3E';">
+                                            onerror="console.error('Failed to load image:', this.dataset.url, 'Path:', this.dataset.path, 'Exists:', this.dataset.exists); this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27200%27 height=%27160%27%3E%3Crect width=%27200%27 height=%27160%27 fill=%27%23e5e7eb%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 text-anchor=%27middle%27 dy=%27.3em%27 fill=%27%239ca3af%27 font-size=%2712%27%3ENot Found%3C/text%3E%3C/svg%3E';">
                                     </div>
                                 @else
                                     <div class="bg-gray-200 rounded-lg flex items-center justify-center" style="height: 160px;">
