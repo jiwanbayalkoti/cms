@@ -192,7 +192,7 @@ function addAlbumField(albumName = '', existingPhotos = [], existingAlbumIndex =
         existingPhotos.forEach((photo, photoIndex) => {
             photosHtml += `
                 <div class="relative group">
-                    <img src="{{ asset('storage') }}/${photo.path}" alt="${photo.original_name}" class="w-full h-32 object-cover rounded-lg">
+                    <img src="/repositories/cms/storage/${photo.path}" alt="${photo.original_name}" class="w-full h-32 object-cover rounded-lg">
                     <input type="hidden" name="existing_album_indices[${albumIndex}]" value="${existingAlbumIndex}">
                     <input type="hidden" name="existing_photos[${albumIndex}][${photoIndex}]" value="${photo.path}">
                     <button type="button" onclick="removeExistingPhoto(this, '${albumIndex}', '${photoIndex}')" class="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">

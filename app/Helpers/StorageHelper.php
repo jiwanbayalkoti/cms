@@ -8,8 +8,8 @@ class StorageHelper
 {
     /**
      * Get public storage URL for a file path
-     * Files are stored in storage/app/public and accessed via symlink
      * Project path: public_html/repositories/cms
+     * Symlink: public/storage -> storage/app/public
      * 
      * @param string|null $path The storage path (relative to storage/app/public)
      * @return string|null The full URL or null if file doesn't exist
@@ -23,11 +23,12 @@ class StorageHelper
         // Clean the path
         $path = ltrim($path, '/');
         
-        // For cPanel setup: project is in public_html/repositories/cms
-        // Symlink: public/storage -> storage/app/public
-        // URL should be: /repositories/cms/storage/projects/photos/filename.jpg
-        // Using asset() which respects the symlink and base path
-        return asset('storage/' . $path);
+        // Base path for project in subdirectory: public_html/repositories/cms
+        $basePath = '/repositories/cms';
+        
+        // Generate URL: /repositories/cms/storage/projects/photos/filename.jpg
+        // This works with symlink: public/storage -> storage/app/public
+        return url($basePath . '/storage/' . $path);
     }
     
     /**
