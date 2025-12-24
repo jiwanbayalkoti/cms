@@ -7,7 +7,7 @@
 ## Exact Folder Structure Required
 
 ```
-public_html/
+jbtechco/
 └── repositories/
     └── cms/                          (Laravel root)
         ├── public/
@@ -31,7 +31,7 @@ public_html/
 
 ### 1. Create Storage Symlink
 ```bash
-cd public_html/repositories/cms
+cd jbtechco/repositories/cms
 php artisan storage:link
 ```
 
@@ -105,7 +105,7 @@ public static function url(?string $path): ?string
 | Component | Value |
 |-----------|-------|
 | Domain | `https://jbtech.com.np` |
-| Base Path | `/repositories/cms` |
+| Base Path | `/repositories/cms` (from jbtechco/) |
 | Storage Path | `/storage` |
 | File Path | `projects/photos/filename.jpg` |
 | **Complete URL** | `https://jbtech.com.np/repositories/cms/storage/projects/photos/filename.jpg` |

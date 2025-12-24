@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # cPanel Storage Link Setup Script
-# For Laravel project in: public_html/repositories/cms
+# For Laravel project in: jbtechco/repositories/cms
 
 echo "=========================================="
 echo "cPanel Laravel Storage Link Setup"
@@ -9,17 +9,56 @@ echo "=========================================="
 echo ""
 
 # Change to project directory
-PROJECT_DIR="public_html/repositories/cms"
+# Try common paths
+PROJECT_DIR=""
 
-if [ ! -d "$PROJECT_DIR" ]; then
-    echo "Error: Project directory '$PROJECT_DIR' not found!"
-    echo "Please update PROJECT_DIR variable in this script to match your server path."
+# Check if we're already in the project root
+if [ -f "artisan" ]; then
+    PROJECT_DIR="$(pwd)"
+    echo "Already in project root: $PROJECT_DIR"
+else
+    # Try different possible paths
+    if [ -d "jbtechco/repositories/cms" ]; then
+        PROJECT_DIR="jbtechco/repositories/cms"
+    elif [ -d "~/jbtechco/repositories/cms" ]; then
+        PROJECT_DIR="~/jbtechco/repositories/cms"
+    elif [ -d "/home/$(whoami)/jbtechco/repositories/cms" ]; then
+        PROJECT_DIR="/home/$(whoami)/jbtechco/repositories/cms"
+    elif [ -d "public_html/repositories/cms" ]; then
+        PROJECT_DIR="public_html/repositories/cms"
+    else
+        echo "Error: Cannot find Laravel project directory!"
+        echo "Please run this script from one of these locations:"
+        echo "  - Inside the Laravel project root (where 'artisan' file exists)"
+        echo "  - In the directory containing 'jbtechco/repositories/cms'"
+        echo ""
+        echo "Current directory: $(pwd)"
+        echo ""
+        echo "Or manually set PROJECT_DIR in this script to your project path."
+        exit 1
+    fi
+    
+    if [ ! -d "$PROJECT_DIR" ]; then
+        echo "Error: Project directory '$PROJECT_DIR' not found!"
+        echo "Current directory: $(pwd)"
+        echo "Please navigate to the correct directory or update PROJECT_DIR in the script."
+        exit 1
+    fi
+    
+    cd "$PROJECT_DIR" || exit 1
+fi
+
+echo "Current directory: $(pwd)"
+echo ""
+
+# Verify we're in the right place
+if [ ! -f "artisan" ]; then
+    echo "Error: 'artisan' file not found in current directory!"
+    echo "Please navigate to the Laravel project root directory."
     exit 1
 fi
 
-cd "$PROJECT_DIR" || exit 1
-
-echo "Current directory: $(pwd)"
+echo "✓ Found artisan file"
 echo ""
 
 # Check if storage/app/public exists

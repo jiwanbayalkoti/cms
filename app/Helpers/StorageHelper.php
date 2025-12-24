@@ -20,15 +20,13 @@ class StorageHelper
             return null;
         }
         
-        // Clean the path
-        $path = ltrim($path, '/');
+        // Clean the path (remove leading/trailing slashes)
+        $path = trim($path, '/');
         
-        // Base path for project in subdirectory: public_html/repositories/cms
-        $basePath = '/repositories/cms';
-        
-        // Generate URL: /repositories/cms/storage/projects/photos/filename.jpg
-        // This works with symlink: public/storage -> storage/app/public
-        return url($basePath . '/storage/' . $path);
+        // Database stores: 'projects/photos/filename.jpg' (from store() method)
+        // URL should be: '/storage/projects/photos/filename.jpg' (via symlink)
+        // Using asset() which respects the symlink and base path
+        return asset('storage/' . $path);
     }
     
     /**
