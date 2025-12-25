@@ -122,7 +122,15 @@
 
         <div class="mt-6 flex items-center justify-end space-x-4">
             <a href="{{ route('admin.projects.index') }}" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200">Cancel</a>
-            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200">Create Project</button>
+            <button type="submit" id="submitBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200 flex items-center">
+                <span id="submitText">Create Project</span>
+                <span id="submitLoader" class="hidden ml-2">
+                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </span>
+            </button>
         </div>
     </form>
 </div>
@@ -244,10 +252,37 @@ function removeAlbumField(fieldId) {
 
 function previewAlbumPhotos(input, fieldId) {
     const preview = document.getElementById(`preview-${fieldId}`);
-    preview.innerHTML = '';
     
-    if (input.files) {
-        Array.from(input.files).forEach((file, index) => {
+    if (input.files && input.files.length > 0) {
+        // Show loader
+        const loaderDiv = document.createElement('div');
+        loaderDiv.id = `loader-${fieldId}`;
+        loaderDiv.className = 'col-span-full flex items-center justify-center py-8';
+        loaderDiv.innerHTML = `
+            <div class="flex flex-col items-center">
+                <svg class="animate-spin h-8 w-8 text-green-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-sm text-gray-600">Loading photos...</p>
+            </div>
+        `;
+        preview.innerHTML = '';
+        preview.appendChild(loaderDiv);
+        
+        // Disable file input while loading
+        input.disabled = true;
+        
+        let filesProcessed = 0;
+        const totalFiles = Array.from(input.files).filter(file => file.type.startsWith('image/')).length;
+        
+        if (totalFiles === 0) {
+            loaderDiv.remove();
+            input.disabled = false;
+            return;
+        }
+        
+        Array.from(input.files).forEach((file) => {
             if (file.type.startsWith('image/')) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -255,13 +290,33 @@ function previewAlbumPhotos(input, fieldId) {
                     div.className = 'relative group';
                     div.innerHTML = `
                         <img src="${e.target.result}" alt="${file.name}" class="w-full h-32 object-cover rounded-lg">
-                        <button type="button" onclick="removePhotoPreview(this)" class="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button type="button" onclick="removePhotoPreview(this)" class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 shadow-lg opacity-90 hover:opacity-100 transition-opacity" title="Remove this photo">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
                         </button>
                     `;
                     preview.appendChild(div);
+                    
+                    filesProcessed++;
+                    // Remove loader when all files are processed
+                    if (filesProcessed === totalFiles) {
+                        const loader = document.getElementById(`loader-${fieldId}`);
+                        if (loader) {
+                            loader.remove();
+                        }
+                        input.disabled = false;
+                    }
+                };
+                reader.onerror = function() {
+                    filesProcessed++;
+                    if (filesProcessed === totalFiles) {
+                        const loader = document.getElementById(`loader-${fieldId}`);
+                        if (loader) {
+                            loader.remove();
+                        }
+                        input.disabled = false;
+                    }
                 };
                 reader.readAsDataURL(file);
             }
@@ -283,6 +338,19 @@ function removeExistingPhoto(button, albumIndex, photoIndex) {
     photoDiv.parentElement.appendChild(deleteInput);
     photoDiv.remove();
 }
+
+// Show loader when form is submitted
+document.getElementById('projectForm').addEventListener('submit', function(e) {
+    const submitBtn = document.getElementById('submitBtn');
+    const submitText = document.getElementById('submitText');
+    const submitLoader = document.getElementById('submitLoader');
+    
+    if (submitBtn && submitText && submitLoader) {
+        submitBtn.disabled = true;
+        submitText.textContent = 'Creating...';
+        submitLoader.classList.remove('hidden');
+    }
+});
 
 // Add initial file field on page load
 document.addEventListener('DOMContentLoaded', function() {
