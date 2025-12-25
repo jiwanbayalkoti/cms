@@ -89,6 +89,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Projects CRUD
         Route::resource('projects', ProjectController::class);
         Route::get('projects/{project}/gallery', [ProjectController::class, 'gallery'])->name('projects.gallery');
+        Route::post('projects/{project}/gallery/album', [ProjectController::class, 'addAlbum'])->name('projects.gallery.album.add');
+        Route::put('projects/{project}/gallery/album/{albumIndex}', [ProjectController::class, 'updateAlbum'])->name('projects.gallery.album.update');
+        Route::delete('projects/{project}/gallery/album/{albumIndex}', [ProjectController::class, 'deleteAlbum'])->name('projects.gallery.album.delete');
+        Route::post('projects/{project}/gallery/album/{albumIndex}/photos', [ProjectController::class, 'addPhotos'])->name('projects.gallery.photos.add');
+        Route::delete('projects/{project}/gallery/album/{albumIndex}/photo/{photoIndex}', [ProjectController::class, 'deletePhoto'])->name('projects.gallery.photo.delete');
+        Route::post('projects/{project}/gallery/album/{albumIndex}/photo/{photoIndex}', [ProjectController::class, 'deletePhoto'])->name('projects.gallery.photo.delete.post');
         Route::post('projects/validate', [ProjectController::class, 'validateProjectForm'])->name('projects.validate');
         Route::post('projects/switch', [ProjectController::class, 'switch'])->name('projects.switch');
         

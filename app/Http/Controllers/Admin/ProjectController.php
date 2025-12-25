@@ -164,6 +164,245 @@ class ProjectController extends Controller
         ]);
     }
 
+    public function addAlbum(Request $request, Project $project)
+    {
+        $this->authorizeCompanyAccess($project);
+        
+        if (!auth()->user()->isAdmin()) {
+            return response()->json(['error' => 'Only administrators can add albums.'], 403);
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'photos' => 'nullable|array',
+            'photos.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+        ]);
+
+        $photos = $project->photos ?? [];
+        $newAlbum = [
+            'name' => $request->input('name'),
+            'photos' => [],
+        ];
+
+        // Handle photo uploads
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $photo) {
+                if ($photo && $photo->isValid()) {
+                    $compressedPath = $this->compressAndStoreImage($photo, 'projects/photos');
+                    if ($compressedPath) {
+                        $newAlbum['photos'][] = [
+                            'path' => $compressedPath,
+                            'original_name' => $photo->getClientOriginalName(),
+                            'size' => \Storage::disk('public')->size($compressedPath),
+                            'mime_type' => 'image/jpeg',
+                            'uploaded_at' => now()->toDateTimeString(),
+                        ];
+                    }
+                }
+            }
+        }
+
+        $photos[] = $newAlbum;
+        $project->update(['photos' => $photos]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Album added successfully.',
+            'album' => $newAlbum,
+            'albumIndex' => count($photos) - 1,
+        ]);
+    }
+
+    public function updateAlbum(Request $request, Project $project, int $albumIndex)
+    {
+        $this->authorizeCompanyAccess($project);
+        
+        if (!auth()->user()->isAdmin()) {
+            return response()->json(['error' => 'Only administrators can update albums.'], 403);
+        }
+
+        $photos = $project->photos ?? [];
+        if (!isset($photos[$albumIndex])) {
+            return response()->json(['error' => 'Album not found.'], 404);
+        }
+
+        $request->validate([
+            'name' => 'nullable|string|max:255',
+            'photos' => 'nullable|array',
+            'photos.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+            'delete_photos' => 'nullable|array',
+        ]);
+
+        $album = $photos[$albumIndex];
+
+        // Update album name
+        if ($request->has('name')) {
+            $album['name'] = $request->input('name');
+        }
+
+        // Delete photos
+        if ($request->has('delete_photos')) {
+            foreach ($request->input('delete_photos') as $photoIndex) {
+                $photoIndex = (int) $photoIndex;
+                if (isset($album['photos'][$photoIndex])) {
+                    $photoPath = $album['photos'][$photoIndex]['path'] ?? null;
+                    if ($photoPath) {
+                        $this->deletePhotoFile($photoPath);
+                    }
+                    unset($album['photos'][$photoIndex]);
+                }
+            }
+            $album['photos'] = array_values($album['photos']);
+        }
+
+        // Add new photos
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $photo) {
+                if ($photo && $photo->isValid()) {
+                    $compressedPath = $this->compressAndStoreImage($photo, 'projects/photos');
+                    if ($compressedPath) {
+                        $album['photos'][] = [
+                            'path' => $compressedPath,
+                            'original_name' => $photo->getClientOriginalName(),
+                            'size' => \Storage::disk('public')->size($compressedPath),
+                            'mime_type' => 'image/jpeg',
+                            'uploaded_at' => now()->toDateTimeString(),
+                        ];
+                    }
+                }
+            }
+        }
+
+        $photos[$albumIndex] = $album;
+        $project->update(['photos' => $photos]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Album updated successfully.',
+            'album' => $album,
+        ]);
+    }
+
+    public function deleteAlbum(Project $project, int $albumIndex)
+    {
+        $this->authorizeCompanyAccess($project);
+        
+        if (!auth()->user()->isAdmin()) {
+            return response()->json(['error' => 'Only administrators can delete albums.'], 403);
+        }
+
+        $photos = $project->photos ?? [];
+        if (!isset($photos[$albumIndex])) {
+            return response()->json(['error' => 'Album not found.'], 404);
+        }
+
+        // Delete all photos in the album
+        $album = $photos[$albumIndex];
+        if (isset($album['photos']) && is_array($album['photos'])) {
+            foreach ($album['photos'] as $photo) {
+                $photoPath = $photo['path'] ?? null;
+                if ($photoPath) {
+                    $this->deletePhotoFile($photoPath);
+                }
+            }
+        }
+
+        unset($photos[$albumIndex]);
+        $photos = array_values($photos); // Reindex array
+        $project->update(['photos' => $photos]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Album deleted successfully.',
+        ]);
+    }
+
+    public function addPhotos(Request $request, Project $project, int $albumIndex)
+    {
+        $this->authorizeCompanyAccess($project);
+        
+        if (!auth()->user()->isAdmin()) {
+            return response()->json(['error' => 'Only administrators can add photos.'], 403);
+        }
+
+        $photos = $project->photos ?? [];
+        if (!isset($photos[$albumIndex])) {
+            return response()->json(['error' => 'Album not found.'], 404);
+        }
+
+        $request->validate([
+            'photos' => 'required|array|min:1',
+            'photos.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+        ]);
+
+        $album = $photos[$albumIndex];
+        $newPhotos = [];
+
+        // Handle photo uploads
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $photo) {
+                if ($photo && $photo->isValid()) {
+                    $compressedPath = $this->compressAndStoreImage($photo, 'projects/photos');
+                    if ($compressedPath) {
+                        $newPhoto = [
+                            'path' => $compressedPath,
+                            'original_name' => $photo->getClientOriginalName(),
+                            'size' => \Storage::disk('public')->size($compressedPath),
+                            'mime_type' => 'image/jpeg',
+                            'uploaded_at' => now()->toDateTimeString(),
+                        ];
+                        $album['photos'][] = $newPhoto;
+                        $newPhotos[] = $newPhoto;
+                    }
+                }
+            }
+        }
+
+        $photos[$albumIndex] = $album;
+        $project->update(['photos' => $photos]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Photos added successfully.',
+            'photos' => $newPhotos,
+        ]);
+    }
+
+    public function deletePhoto(Project $project, int $albumIndex, int $photoIndex)
+    {
+        $this->authorizeCompanyAccess($project);
+        
+        if (!auth()->user()->isAdmin()) {
+            return response()->json(['error' => 'Only administrators can delete photos.'], 403);
+        }
+
+        $photos = $project->photos ?? [];
+        if (!isset($photos[$albumIndex])) {
+            return response()->json(['error' => 'Album not found.'], 404);
+        }
+
+        $album = $photos[$albumIndex];
+        if (!isset($album['photos'][$photoIndex])) {
+            return response()->json(['error' => 'Photo not found.'], 404);
+        }
+
+        // Delete photo file
+        $photoPath = $album['photos'][$photoIndex]['path'] ?? null;
+        if ($photoPath) {
+            $this->deletePhotoFile($photoPath);
+        }
+
+        unset($album['photos'][$photoIndex]);
+        $album['photos'] = array_values($album['photos']); // Reindex array
+        $photos[$albumIndex] = $album;
+        $project->update(['photos' => $photos]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Photo deleted successfully.',
+        ]);
+    }
+
     public function edit(Project $project)
     {
         $this->authorizeCompanyAccess($project);
@@ -193,11 +432,7 @@ class ProjectController extends Controller
             $validated['files'] = $files;
         }
 
-        // Handle photo gallery uploads (only admins can delete photos)
-        $photos = $this->handlePhotoUploads($request, $project);
-        if ($photos !== null) {
-            $validated['photos'] = $photos;
-        }
+        // Photo gallery is now managed separately via gallery page
 
         try {
             $project->update($validated);
@@ -535,7 +770,7 @@ class ProjectController extends Controller
 
     /**
      * Compress and resize image before storing
-     * Reduces file size to approximately 200-300 KB while maintaining quality
+     * Aggressively reduces file size to under 10 KB while maintaining acceptable quality
      * 
      * @param \Illuminate\Http\UploadedFile $file The uploaded image file
      * @param string $directory Storage directory (e.g., 'projects/photos')
@@ -561,15 +796,20 @@ class ProjectController extends Controller
             $originalHeight = $imageInfo[1];
             $mimeType = $imageInfo['mime'];
 
-            // Maximum dimensions (maintains aspect ratio)
-            $maxWidth = 1920;
-            $maxHeight = 1920;
-            $targetSizeKB = 250; // Target 250 KB (middle of 200-300 KB range)
+            // Aggressive maximum dimensions for under 10KB target
+            // Start with smaller dimensions and adjust if needed
+            $maxWidth = 800;
+            $maxHeight = 800;
+            $targetSizeKB = 8; // Target 8 KB (under 10KB)
 
             // Calculate new dimensions
             $ratio = min($maxWidth / $originalWidth, $maxHeight / $originalHeight, 1);
             $newWidth = (int)($originalWidth * $ratio);
             $newHeight = (int)($originalHeight * $ratio);
+
+            // Ensure minimum dimensions for very small images
+            if ($newWidth < 100) $newWidth = 100;
+            if ($newHeight < 100) $newHeight = 100;
 
             // Create image resource based on MIME type
             $sourceImage = null;
@@ -601,15 +841,12 @@ class ProjectController extends Controller
             // Create new image with calculated dimensions
             $newImage = imagecreatetruecolor($newWidth, $newHeight);
 
-            // Preserve transparency for PNG and GIF
-            if ($mimeType === 'image/png' || $mimeType === 'image/gif') {
-                imagealphablending($newImage, false);
-                imagesavealpha($newImage, true);
-                $transparent = imagecolorallocatealpha($newImage, 255, 255, 255, 127);
-                imagefilledrectangle($newImage, 0, 0, $newWidth, $newHeight, $transparent);
-            }
+            // For aggressive compression, convert to RGB (no transparency)
+            // This reduces file size significantly
+            $white = imagecolorallocate($newImage, 255, 255, 255);
+            imagefilledrectangle($newImage, 0, 0, $newWidth, $newHeight, $white);
 
-            // Resize image
+            // Resize image with high-quality resampling
             imagecopyresampled(
                 $newImage,
                 $sourceImage,
@@ -633,13 +870,16 @@ class ProjectController extends Controller
                 mkdir($dir, 0755, true);
             }
 
-            // Save with quality adjustment to achieve target size
-            $quality = 85; // Start with 85% quality
-            $minQuality = 60;
-            $maxQuality = 95;
+            // Aggressive quality adjustment to achieve under 10KB
+            $quality = 50; // Start with lower quality (50%)
+            $minQuality = 30; // Minimum quality threshold
+            $maxQuality = 70; // Maximum quality
             $attempts = 0;
-            $maxAttempts = 10;
+            $maxAttempts = 15;
+            $bestQuality = $quality;
+            $bestSize = PHP_INT_MAX;
 
+            // First pass: Find approximate quality
             do {
                 // Save as JPEG
                 imagejpeg($newImage, $fullPath, $quality);
@@ -648,24 +888,58 @@ class ProjectController extends Controller
                 $fileSizeKB = filesize($fullPath) / 1024;
                 $attempts++;
 
+                if ($fileSizeKB < $bestSize && $fileSizeKB <= $targetSizeKB * 1.2) {
+                    $bestSize = $fileSizeKB;
+                    $bestQuality = $quality;
+                }
+
                 // Adjust quality based on file size
-                if ($fileSizeKB > $targetSizeKB * 1.2 && $quality > $minQuality) {
-                    // File too large, reduce quality
+                if ($fileSizeKB > $targetSizeKB * 1.2) {
+                    // File too large, reduce quality more aggressively
                     $quality -= 5;
-                } elseif ($fileSizeKB < $targetSizeKB * 0.7 && $quality < $maxQuality) {
-                    // File too small, increase quality
-                    $quality += 5;
+                    if ($quality < $minQuality) {
+                        // If still too large at minimum quality, reduce dimensions
+                        $newWidth = (int)($newWidth * 0.9);
+                        $newHeight = (int)($newHeight * 0.9);
+                        if ($newWidth < 50 || $newHeight < 50) {
+                            break; // Too small, use current result
+                        }
+                        // Recreate image with smaller dimensions
+                        imagedestroy($newImage);
+                        $newImage = imagecreatetruecolor($newWidth, $newHeight);
+                        $white = imagecolorallocate($newImage, 255, 255, 255);
+                        imagefilledrectangle($newImage, 0, 0, $newWidth, $newHeight, $white);
+                        imagecopyresampled(
+                            $newImage,
+                            $sourceImage,
+                            0, 0, 0, 0,
+                            $newWidth,
+                            $newHeight,
+                            $originalWidth,
+                            $originalHeight
+                        );
+                        $quality = 50; // Reset quality after resize
+                    }
+                } elseif ($fileSizeKB < $targetSizeKB * 0.5 && $quality < $maxQuality) {
+                    // File too small, can increase quality slightly
+                    $quality += 3;
                 } else {
-                    // Within acceptable range (70% to 120% of target)
+                    // Within acceptable range
                     break;
                 }
-            } while ($attempts < $maxAttempts && ($fileSizeKB > $targetSizeKB * 1.2 || $fileSizeKB < $targetSizeKB * 0.7));
+            } while ($attempts < $maxAttempts);
+
+            // Use best quality found
+            if ($bestSize < PHP_INT_MAX) {
+                imagejpeg($newImage, $fullPath, $bestQuality);
+                $fileSizeKB = filesize($fullPath) / 1024;
+            }
 
             // Clean up memory
             imagedestroy($sourceImage);
             imagedestroy($newImage);
 
-            \Log::info("Image compressed: {$file->getClientOriginalName()} -> {$fileSizeKB}KB (quality: {$quality})");
+            \Log::info("Image compressed: {$file->getClientOriginalName()} -> {$fileSizeKB}KB (quality: {$bestQuality}, dimensions: {$newWidth}x{$newHeight})");
 
             return $storagePath;
 
