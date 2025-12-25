@@ -153,11 +153,15 @@
             </div>
             <div id="albumFieldsContainer" class="space-y-6">
                 @if($project->photos && count($project->photos) > 0)
-                    @foreach($project->photos as $index => $album)
-                        <div id="existing-album-{{ $index }}" class="border border-gray-300 rounded-lg p-6 bg-gray-50">
+                    @foreach($project->photos as $existingAlbumIndex => $album)
+                        @php
+                            // Form index is the position in the form (0, 1, 2...)
+                            $formAlbumIndex = $loop->index;
+                        @endphp
+                        <div id="existing-album-{{ $existingAlbumIndex }}" class="border border-gray-300 rounded-lg p-6 bg-gray-50" data-form-index="{{ $formAlbumIndex }}">
                             <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-lg font-semibold text-gray-900">Album {{ $index + 1 }}</h3>
-                                <button type="button" onclick="removeAlbumField('existing-album-{{ $index }}')" class="px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition duration-200">
+                                <h3 class="text-lg font-semibold text-gray-900">Album {{ $formAlbumIndex + 1 }}</h3>
+                                <button type="button" onclick="removeAlbumField('existing-album-{{ $existingAlbumIndex }}')" class="px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition duration-200">
                                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                     </svg>
@@ -167,14 +171,14 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Album Name</label>
                                 <input type="text" name="album_names[]" value="{{ $album['name'] ?? '' }}" placeholder="e.g., Foundation, Beam, DBC" 
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" required>
-                                <input type="hidden" name="existing_album_indices[]" value="{{ $index }}">
+                                <input type="hidden" name="existing_album_indices[]" value="{{ $existingAlbumIndex }}">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Photos (Multiple selection allowed)</label>
-                                <input type="file" name="album_photos[{{ $index }}][]" multiple accept="image/*" 
+                                <input type="file" name="album_photos[{{ $formAlbumIndex }}][]" multiple accept="image/*" 
                                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    onchange="previewAlbumPhotos(this, 'existing-album-{{ $index }}')">
-                                <div id="preview-existing-album-{{ $index }}" class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    onchange="previewAlbumPhotos(this, 'existing-album-{{ $existingAlbumIndex }}')">
+                                <div id="preview-existing-album-{{ $existingAlbumIndex }}" class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                                     @if(isset($album['photos']) && count($album['photos']) > 0)
                                         @foreach($album['photos'] as $photoIndex => $photo)
                                             <div class="relative group">
@@ -184,12 +188,14 @@
                                                     $photoUrl = \App\Helpers\StorageHelper::url($photoPath);
                                                 @endphp
                                                 <img src="{{ $photoUrl }}" alt="{{ $photo['original_name'] ?? '' }}" class="w-full h-32 object-cover rounded-lg">
-                                                <input type="hidden" name="existing_photos[{{ $index }}][{{ $photoIndex }}]" value="{{ $photo['path'] ?? '' }}">
-                                                <button type="button" onclick="removeExistingPhoto(this, '{{ $index }}', '{{ $photoIndex }}')" class="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <input type="hidden" name="existing_photos[{{ $formAlbumIndex }}][{{ $photoIndex }}]" value="{{ $photo['path'] ?? '' }}">
+                                                @if(auth()->user()->isAdmin())
+                                                <button type="button" onclick="removeExistingPhoto(this, {{ $formAlbumIndex }}, {{ $photoIndex }})" class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 shadow-lg opacity-90 hover:opacity-100 transition-opacity" title="Delete this photo">
                                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                                     </svg>
                                                 </button>
+                                                @endif
                                             </div>
                                         @endforeach
                                     @endif
@@ -252,18 +258,19 @@ let albumFieldIndex = {{ $project->photos ? count($project->photos) : 0 }};
 function addAlbumField(albumName = '', existingPhotos = [], existingAlbumIndex = null) {
     const container = document.getElementById('albumFieldsContainer');
     const fieldId = `album-field-${albumFieldIndex++}`;
-    const albumIndex = container.children.length;
+    // Form index is the position in the form (count existing children)
+    const formAlbumIndex = container.children.length;
     
     let photosHtml = '';
     if (existingPhotos && existingPhotos.length > 0) {
         existingPhotos.forEach((photo, photoIndex) => {
             const photoPath = photo.path || photo;
             const photoName = photo.original_name || photo.name || '';
-            photosHtml += `
+                    photosHtml += `
                 <div class="relative group">
                     <img src="/storage/${photoPath}" alt="${photoName}" class="w-full h-32 object-cover rounded-lg">
-                    <input type="hidden" name="existing_photos[${albumIndex}][${photoIndex}]" value="${photoPath}">
-                    <button type="button" onclick="removeExistingPhoto(this, '${albumIndex}', '${photoIndex}')" class="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <input type="hidden" name="existing_photos[${formAlbumIndex}][${photoIndex}]" value="${photoPath}">
+                    <button type="button" onclick="removeExistingPhoto(this, ${formAlbumIndex}, ${photoIndex})" class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 shadow-lg opacity-90 hover:opacity-100 transition-opacity" title="Delete this photo">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -274,9 +281,9 @@ function addAlbumField(albumName = '', existingPhotos = [], existingAlbumIndex =
     }
     
     const albumFieldHtml = `
-        <div id="${fieldId}" class="border border-gray-300 rounded-lg p-6 bg-gray-50">
+        <div id="${fieldId}" class="border border-gray-300 rounded-lg p-6 bg-gray-50" data-form-index="${formAlbumIndex}">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-900">Album ${albumIndex + 1}</h3>
+                <h3 class="text-lg font-semibold text-gray-900">Album ${formAlbumIndex + 1}</h3>
                 <button type="button" onclick="removeAlbumField('${fieldId}')" class="px-3 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition duration-200">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -287,11 +294,11 @@ function addAlbumField(albumName = '', existingPhotos = [], existingAlbumIndex =
                 <label class="block text-sm font-medium text-gray-700 mb-2">Album Name</label>
                 <input type="text" name="album_names[]" value="${albumName}" placeholder="e.g., Foundation, Beam, DBC" 
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" required>
-                ${existingAlbumIndex !== null ? `<input type="hidden" name="existing_album_indices[${albumIndex}]" value="${existingAlbumIndex}">` : ''}
+                ${existingAlbumIndex !== null ? `<input type="hidden" name="existing_album_indices[]" value="${existingAlbumIndex}">` : ''}
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Photos (Multiple selection allowed)</label>
-                <input type="file" name="album_photos[${albumIndex}][]" multiple accept="image/*" 
+                <input type="file" name="album_photos[${formAlbumIndex}][]" multiple accept="image/*" 
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                     onchange="previewAlbumPhotos(this, '${fieldId}')">
                 <div id="preview-${fieldId}" class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -342,14 +349,32 @@ function removePhotoPreview(button) {
     button.closest('.relative').remove();
 }
 
-function removeExistingPhoto(button, albumIndex, photoIndex) {
+function removeExistingPhoto(button, formAlbumIndex, photoIndex) {
     const photoDiv = button.closest('.relative');
-    // Add delete flag
+    if (!photoDiv) return;
+    
+    // Remove the hidden input for this photo
+    const hiddenInput = photoDiv.querySelector('input[type="hidden"][name*="existing_photos"]');
+    if (hiddenInput) {
+        hiddenInput.remove();
+    }
+    
+    // Add delete flag to mark this photo for deletion on the server
     const deleteInput = document.createElement('input');
     deleteInput.type = 'hidden';
     deleteInput.name = 'delete_photos[]';
-    deleteInput.value = `${albumIndex}-${photoIndex}`;
-    photoDiv.parentElement.appendChild(deleteInput);
+    deleteInput.value = `${formAlbumIndex}-${photoIndex}`;
+    
+    // Add the delete flag to the form (or the album container)
+    const albumContainer = photoDiv.closest('[id^="existing-album-"], [id^="album-field-"]');
+    if (albumContainer) {
+        albumContainer.appendChild(deleteInput);
+    } else {
+        // Fallback: add to form
+        document.getElementById('projectForm').appendChild(deleteInput);
+    }
+    
+    // Remove the photo from the UI
     photoDiv.remove();
 }
 </script>

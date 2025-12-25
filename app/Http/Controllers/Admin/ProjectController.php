@@ -177,6 +177,13 @@ class ProjectController extends Controller
     public function update(Request $request, Project $project)
     {
         $this->authorizeCompanyAccess($project);
+        
+        // Ensure only admin or super_admin can update projects
+        $user = auth()->user();
+        if (!$user->isAdmin()) {
+            abort(403, 'Only administrators can update projects.');
+        }
+        
         $validated = $this->validateProject($request, $project);
         $validated['updated_by'] = auth()->id();
 
@@ -186,7 +193,7 @@ class ProjectController extends Controller
             $validated['files'] = $files;
         }
 
-        // Handle photo gallery uploads
+        // Handle photo gallery uploads (only admins can delete photos)
         $photos = $this->handlePhotoUploads($request, $project);
         if ($photos !== null) {
             $validated['photos'] = $photos;
@@ -410,24 +417,28 @@ class ProjectController extends Controller
             }
         }
 
-        // Remove deleted photos from albums
+        // Remove deleted photos from albums (only admins can delete photos)
         if (!empty($deletePhotos)) {
-            foreach ($deletePhotos as $photoKey) {
-                // Format: album_index-photo_index
-                $parts = explode('-', $photoKey);
-                if (count($parts) === 2) {
-                    $formAlbumIndex = (int) $parts[0];
-                    $photoIndex = (int) $parts[1];
-                    
-                    // Find the existing album index for this form album
-                    $existingAlbumIndex = $existingAlbumIndices[$formAlbumIndex] ?? null;
-                    if ($existingAlbumIndex !== null && isset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex])) {
-                        $photoPath = $existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]['path'] ?? null;
-                        if ($photoPath && \Storage::disk('public')->exists($photoPath)) {
-                            \Storage::disk('public')->delete($photoPath);
+            $user = auth()->user();
+            // Only process deletions if user is admin or super_admin
+            if ($user && $user->isAdmin()) {
+                foreach ($deletePhotos as $photoKey) {
+                    // Format: album_index-photo_index
+                    $parts = explode('-', $photoKey);
+                    if (count($parts) === 2) {
+                        $formAlbumIndex = (int) $parts[0];
+                        $photoIndex = (int) $parts[1];
+                        
+                        // Find the existing album index for this form album
+                        $existingAlbumIndex = $existingAlbumIndices[$formAlbumIndex] ?? null;
+                        if ($existingAlbumIndex !== null && isset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex])) {
+                            $photoPath = $existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]['path'] ?? null;
+                            if ($photoPath && \Storage::disk('public')->exists($photoPath)) {
+                                \Storage::disk('public')->delete($photoPath);
+                            }
+                            unset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]);
+                            $existingAlbums[$existingAlbumIndex]['photos'] = array_values($existingAlbums[$existingAlbumIndex]['photos']);
                         }
-                        unset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]);
-                        $existingAlbums[$existingAlbumIndex]['photos'] = array_values($existingAlbums[$existingAlbumIndex]['photos']);
                     }
                 }
             }
