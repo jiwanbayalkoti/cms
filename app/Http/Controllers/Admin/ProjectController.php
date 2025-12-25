@@ -510,15 +510,17 @@ class ProjectController extends Controller
             if (isset($albumPhotos[$formAlbumIndex]) && is_array($albumPhotos[$formAlbumIndex])) {
                 foreach ($albumPhotos[$formAlbumIndex] as $photo) {
                     if ($photo && $photo->isValid()) {
-                        // Store in storage/app/public/projects/photos directory
-                        $path = $photo->store('projects/photos', 'public');
-                        $album['photos'][] = [
-                            'path' => $path,
-                            'original_name' => $photo->getClientOriginalName(),
-                            'size' => $photo->getSize(),
-                            'mime_type' => $photo->getMimeType(),
-                            'uploaded_at' => now()->toDateTimeString(),
-                        ];
+                        // Compress and resize image before storing
+                        $compressedPath = $this->compressAndStoreImage($photo, 'projects/photos');
+                        if ($compressedPath) {
+                            $album['photos'][] = [
+                                'path' => $compressedPath,
+                                'original_name' => $photo->getClientOriginalName(),
+                                'size' => \Storage::disk('public')->size($compressedPath),
+                                'mime_type' => 'image/jpeg', // Compressed images are saved as JPEG
+                                'uploaded_at' => now()->toDateTimeString(),
+                            ];
+                        }
                     }
                 }
             }
@@ -529,6 +531,152 @@ class ProjectController extends Controller
         }
 
         return !empty($updatedAlbums) ? $updatedAlbums : null;
+    }
+
+    /**
+     * Compress and resize image before storing
+     * Reduces file size to approximately 200-300 KB while maintaining quality
+     * 
+     * @param \Illuminate\Http\UploadedFile $file The uploaded image file
+     * @param string $directory Storage directory (e.g., 'projects/photos')
+     * @return string|null The storage path or null on failure
+     */
+    protected function compressAndStoreImage(\Illuminate\Http\UploadedFile $file, string $directory): ?string
+    {
+        try {
+            // Check if GD extension is available
+            if (!extension_loaded('gd')) {
+                \Log::warning('GD extension not available, storing image without compression');
+                return $file->store($directory, 'public');
+            }
+
+            // Get image info
+            $imageInfo = getimagesize($file->getRealPath());
+            if (!$imageInfo) {
+                \Log::error('Unable to get image info for: ' . $file->getClientOriginalName());
+                return $file->store($directory, 'public');
+            }
+
+            $originalWidth = $imageInfo[0];
+            $originalHeight = $imageInfo[1];
+            $mimeType = $imageInfo['mime'];
+
+            // Maximum dimensions (maintains aspect ratio)
+            $maxWidth = 1920;
+            $maxHeight = 1920;
+            $targetSizeKB = 250; // Target 250 KB (middle of 200-300 KB range)
+
+            // Calculate new dimensions
+            $ratio = min($maxWidth / $originalWidth, $maxHeight / $originalHeight, 1);
+            $newWidth = (int)($originalWidth * $ratio);
+            $newHeight = (int)($originalHeight * $ratio);
+
+            // Create image resource based on MIME type
+            $sourceImage = null;
+            switch ($mimeType) {
+                case 'image/jpeg':
+                    $sourceImage = imagecreatefromjpeg($file->getRealPath());
+                    break;
+                case 'image/png':
+                    $sourceImage = imagecreatefrompng($file->getRealPath());
+                    break;
+                case 'image/gif':
+                    $sourceImage = imagecreatefromgif($file->getRealPath());
+                    break;
+                case 'image/webp':
+                    if (function_exists('imagecreatefromwebp')) {
+                        $sourceImage = imagecreatefromwebp($file->getRealPath());
+                    }
+                    break;
+                default:
+                    \Log::warning('Unsupported image type: ' . $mimeType);
+                    return $file->store($directory, 'public');
+            }
+
+            if (!$sourceImage) {
+                \Log::error('Failed to create image resource');
+                return $file->store($directory, 'public');
+            }
+
+            // Create new image with calculated dimensions
+            $newImage = imagecreatetruecolor($newWidth, $newHeight);
+
+            // Preserve transparency for PNG and GIF
+            if ($mimeType === 'image/png' || $mimeType === 'image/gif') {
+                imagealphablending($newImage, false);
+                imagesavealpha($newImage, true);
+                $transparent = imagecolorallocatealpha($newImage, 255, 255, 255, 127);
+                imagefilledrectangle($newImage, 0, 0, $newWidth, $newHeight, $transparent);
+            }
+
+            // Resize image
+            imagecopyresampled(
+                $newImage,
+                $sourceImage,
+                0, 0, 0, 0,
+                $newWidth,
+                $newHeight,
+                $originalWidth,
+                $originalHeight
+            );
+
+            // Generate filename
+            $extension = 'jpg';
+            $filename = \Illuminate\Support\Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME));
+            $filename = $filename . '_' . time() . '_' . uniqid() . '.' . $extension;
+            $storagePath = $directory . '/' . $filename;
+            $fullPath = storage_path('app/public/' . $storagePath);
+
+            // Ensure directory exists
+            $dir = dirname($fullPath);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+
+            // Save with quality adjustment to achieve target size
+            $quality = 85; // Start with 85% quality
+            $minQuality = 60;
+            $maxQuality = 95;
+            $attempts = 0;
+            $maxAttempts = 10;
+
+            do {
+                // Save as JPEG
+                imagejpeg($newImage, $fullPath, $quality);
+
+                // Check file size
+                $fileSizeKB = filesize($fullPath) / 1024;
+                $attempts++;
+
+                // Adjust quality based on file size
+                if ($fileSizeKB > $targetSizeKB * 1.2 && $quality > $minQuality) {
+                    // File too large, reduce quality
+                    $quality -= 5;
+                } elseif ($fileSizeKB < $targetSizeKB * 0.7 && $quality < $maxQuality) {
+                    // File too small, increase quality
+                    $quality += 5;
+                } else {
+                    // Within acceptable range (70% to 120% of target)
+                    break;
+                }
+            } while ($attempts < $maxAttempts && ($fileSizeKB > $targetSizeKB * 1.2 || $fileSizeKB < $targetSizeKB * 0.7));
+
+            // Clean up memory
+            imagedestroy($sourceImage);
+            imagedestroy($newImage);
+
+            \Log::info("Image compressed: {$file->getClientOriginalName()} -> {$fileSizeKB}KB (quality: {$quality})");
+
+            return $storagePath;
+
+        } catch (\Exception $e) {
+            \Log::error('Error compressing image: ' . $e->getMessage(), [
+                'file' => $file->getClientOriginalName(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            // Fallback to original storage method
+            return $file->store($directory, 'public');
+        }
     }
 
     /**
