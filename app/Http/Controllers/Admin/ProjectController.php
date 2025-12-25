@@ -218,6 +218,46 @@ class ProjectController extends Controller
     public function destroy(Project $project)
     {
         $this->authorizeCompanyAccess($project);
+        
+        // Delete all photos from storage before deleting the project
+        if ($project->photos && is_array($project->photos)) {
+            foreach ($project->photos as $album) {
+                if (isset($album['photos']) && is_array($album['photos'])) {
+                    foreach ($album['photos'] as $photo) {
+                        $photoPath = $photo['path'] ?? null;
+                        if ($photoPath) {
+                            // Delete from storage/app/public (root storage directory)
+                            $this->deletePhotoFile($photoPath);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Delete all files from storage before deleting the project
+        if ($project->files && is_array($project->files)) {
+            foreach ($project->files as $file) {
+                $filePath = $file['path'] ?? null;
+                if ($filePath) {
+                    try {
+                        $storage = \Storage::disk('public');
+                        if ($storage->exists($filePath)) {
+                            $storage->delete($filePath);
+                        }
+                        // Fallback: Delete directly from file system
+                        $fullPath = storage_path('app/public/' . $filePath);
+                        if (file_exists($fullPath)) {
+                            @unlink($fullPath);
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error("Error deleting project file: {$filePath}", [
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+            }
+        }
+        
         $project->delete();
 
         return redirect()->route('admin.projects.index')
@@ -407,8 +447,9 @@ class ProjectController extends Controller
                     if (isset($album['photos']) && is_array($album['photos'])) {
                         foreach ($album['photos'] as $photo) {
                             $photoPath = $photo['path'] ?? null;
-                            if ($photoPath && \Storage::disk('public')->exists($photoPath)) {
-                                \Storage::disk('public')->delete($photoPath);
+                            if ($photoPath) {
+                                // Delete from storage/app/public (root storage directory)
+                                $this->deletePhotoFile($photoPath);
                             }
                         }
                     }
@@ -433,8 +474,9 @@ class ProjectController extends Controller
                         $existingAlbumIndex = $existingAlbumIndices[$formAlbumIndex] ?? null;
                         if ($existingAlbumIndex !== null && isset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex])) {
                             $photoPath = $existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]['path'] ?? null;
-                            if ($photoPath && \Storage::disk('public')->exists($photoPath)) {
-                                \Storage::disk('public')->delete($photoPath);
+                            if ($photoPath) {
+                                // Delete from storage/app/public (root storage directory)
+                                $this->deletePhotoFile($photoPath);
                             }
                             unset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]);
                             $existingAlbums[$existingAlbumIndex]['photos'] = array_values($existingAlbums[$existingAlbumIndex]['photos']);
@@ -487,6 +529,59 @@ class ProjectController extends Controller
         }
 
         return !empty($updatedAlbums) ? $updatedAlbums : null;
+    }
+
+    /**
+     * Delete photo file from storage root directory
+     * Ensures file is deleted from storage/app/public (root storage)
+     * 
+     * @param string $photoPath The relative path from storage/app/public (e.g., 'projects/photos/image.jpg')
+     * @return bool True if file was deleted or didn't exist, false on error
+     */
+    protected function deletePhotoFile(string $photoPath): bool
+    {
+        if (empty($photoPath)) {
+            return false;
+        }
+
+        try {
+            // Clean the path (remove leading/trailing slashes)
+            $photoPath = trim($photoPath, '/');
+            
+            // Method 1: Use Laravel Storage facade (primary method)
+            $storage = \Storage::disk('public');
+            if ($storage->exists($photoPath)) {
+                $deleted = $storage->delete($photoPath);
+                if ($deleted) {
+                    \Log::info("Photo deleted via Storage facade: {$photoPath}");
+                    return true;
+                }
+            }
+            
+            // Method 2: Fallback - Delete directly from file system (root storage)
+            $fullPath = storage_path('app/public/' . $photoPath);
+            if (file_exists($fullPath)) {
+                $deleted = @unlink($fullPath);
+                if ($deleted) {
+                    \Log::info("Photo deleted via file system: {$fullPath}");
+                    return true;
+                } else {
+                    \Log::warning("Failed to delete photo file: {$fullPath}");
+                    return false;
+                }
+            }
+            
+            // File doesn't exist (already deleted or never existed)
+            \Log::info("Photo file not found (may already be deleted): {$photoPath}");
+            return true;
+            
+        } catch (\Exception $e) {
+            \Log::error("Error deleting photo file: {$photoPath}", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
     }
 }
 
