@@ -143,13 +143,20 @@ class UserController extends Controller
         $user->is_admin = in_array($validated['role'], ['admin', 'super_admin']);
         $user->save();
 
-        // Sync project access
+        // Sync project access - always update if project_ids is in request
+        // Filter out empty strings and invalid values from project_ids array
         $projectIds = collect($request->input('project_ids', []))
-            ->filter()
+            ->filter(function($id) {
+                return !empty($id) && $id !== '' && is_numeric($id);
+            })
             ->map(fn($id) => (int) $id)
-            ->unique();
+            ->unique()
+            ->values()
+            ->all();
 
-        if ($projectIds->isNotEmpty()) {
+        // Always sync project assignments (even if empty array)
+        if (!empty($projectIds)) {
+            // User has selected specific projects - sync them
             $projectQuery = Project::whereIn('id', $projectIds);
             if ($companyId) {
                 $projectQuery->where('company_id', $companyId);
@@ -157,6 +164,8 @@ class UserController extends Controller
             $allowedProjectIds = $projectQuery->pluck('id')->all();
             $user->projects()->sync($allowedProjectIds);
         } else {
+            // No projects selected (all checkboxes unchecked) - clear all project assignments
+            // This allows user to have access to all projects in their company (per getAccessibleProjectIds logic)
             $user->projects()->sync([]);
         }
 
@@ -300,21 +309,31 @@ class UserController extends Controller
         $user->is_admin = in_array($validated['role'], ['admin', 'super_admin']);
         $user->save();
 
-        // Sync project access
+        // Sync project access - always update if project_ids is in request
+        // Filter out empty strings and invalid values from project_ids array
         $projectIds = collect($request->input('project_ids', []))
-            ->filter()
+            ->filter(function($id) {
+                return !empty($id) && $id !== '' && is_numeric($id);
+            })
             ->map(fn($id) => (int) $id)
-            ->unique();
+            ->unique()
+            ->values()
+            ->all();
 
-        if ($projectIds->isNotEmpty()) {
+        // Always sync project assignments (even if empty array)
+        $targetCompanyId = $validated['company_id'] ?? $user->company_id;
+        
+        if (!empty($projectIds)) {
+            // User has selected specific projects - sync them
             $projectQuery = Project::whereIn('id', $projectIds);
-            $targetCompanyId = $validated['company_id'] ?? $user->company_id;
             if ($targetCompanyId) {
                 $projectQuery->where('company_id', $targetCompanyId);
             }
             $allowedProjectIds = $projectQuery->pluck('id')->all();
             $user->projects()->sync($allowedProjectIds);
         } else {
+            // No projects selected (all checkboxes unchecked) - clear all project assignments
+            // This allows user to have access to all projects in their company (per getAccessibleProjectIds logic)
             $user->projects()->sync([]);
         }
 

@@ -37,13 +37,9 @@ use App\Http\Controllers\Admin\MaterialCalculatorController;
 
 Route::get('/', function () {
     if (Auth::check()) {
-        $user = Auth::user();
-        // Redirect to dashboard if user is admin or super_admin
-        if ($user->isAdmin()) {
-            return redirect()->route('admin.dashboard');
-        }
-        // Regular users might have a different dashboard or be redirected to login
-        return redirect()->route('admin.login')->with('error', 'You do not have access to the admin panel.');
+        // Redirect all authenticated users to dashboard
+        // Access control will be handled by middleware and controllers
+        return redirect()->route('admin.dashboard');
     }
     return redirect()->route('admin.login');
 });

@@ -30,19 +30,14 @@ class LoginController extends Controller
         $credentials = $request->only('email', 'password');
         $remember = $request->filled('remember');
 
-        // Check if user exists and is admin
+        // Allow all authenticated users to login
+        // Access control will be handled by middleware based on user role
         if (Auth::attempt($credentials, $remember)) {
             $user = Auth::user();
+            $request->session()->regenerate();
             
-            if ($user->is_admin) {
-                $request->session()->regenerate();
-                return redirect()->intended(route('admin.dashboard'))->with('success', 'Welcome back, ' . $user->name . '!');
-            } else {
-                Auth::logout();
-                throw ValidationException::withMessages([
-                    'email' => ['You do not have admin access.'],
-                ]);
-            }
+            // Redirect to dashboard - middleware will control access based on role
+            return redirect()->intended(route('admin.dashboard'))->with('success', 'Welcome back, ' . $user->name . '!');
         }
 
         throw ValidationException::withMessages([

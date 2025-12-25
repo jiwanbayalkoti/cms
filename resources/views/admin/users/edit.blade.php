@@ -61,6 +61,8 @@
       <div id="project-checkboxes" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-auto border rounded p-3 @error('project_ids') border-red-500 @enderror">
         <!-- populated by script -->
       </div>
+      <!-- Hidden input to ensure project_ids field is always sent, even if no checkboxes are checked -->
+      <input type="hidden" name="project_ids_sent" value="1">
       <div class="field-error text-red-600 text-sm mt-1" data-field="project_ids" style="display: none;"></div>
       @error('project_ids')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
       @error('project_ids.*')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
@@ -134,7 +136,9 @@
       @endphp
       const projects = @json($projectOptions);
 
-      const selected = new Set(@json(old('project_ids', $selectedProjectIds ?? [])));
+      // Convert to strings for Set comparison
+      const selectedProjectIds = @json(old('project_ids', $selectedProjectIds ?? []));
+      const selected = new Set(selectedProjectIds.map(id => String(id)));
       const projectContainer = document.getElementById('project-checkboxes');
       const companySelect = document.getElementById('company_id') || document.querySelector('select[name="company_id"]');
 
@@ -149,8 +153,17 @@
           projectContainer.innerHTML = '<p class="text-xs text-gray-500">Select a company to load its projects.</p>';
           return;
         }
+        // When company changes, only clear selections that don't belong to the new company
         if (clearSelection) {
-          selected.clear();
+          // Remove selections that don't belong to the new company
+          const filteredProjectIds = projects
+            .filter(p => String(p.company_id) === String(companyId))
+            .map(p => String(p.id));
+          selected.forEach(id => {
+            if (!filteredProjectIds.includes(id)) {
+              selected.delete(id);
+            }
+          });
         }
         const filtered = projects.filter(p => String(p.company_id) === String(companyId));
         if (!filtered.length) {
@@ -161,10 +174,27 @@
           const id = `project_${p.id}`;
           const wrapper = document.createElement('label');
           wrapper.className = 'flex items-center space-x-2 text-sm bg-gray-50 hover:bg-gray-100 rounded px-2 py-1';
-          wrapper.innerHTML = `
-            <input type="checkbox" name="project_ids[]" value="${p.id}" id="${id}" ${selected.has(String(p.id)) ? 'checked' : ''} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-            <span>${p.name}${p.company_name ? ` (${p.company_name})` : ''}</span>
-          `;
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.name = 'project_ids[]';
+          checkbox.value = p.id;
+          checkbox.id = id;
+          checkbox.className = 'rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
+          if (selected.has(String(p.id))) {
+            checkbox.checked = true;
+          }
+          // Track changes to update the selected Set
+          checkbox.addEventListener('change', function() {
+            if (this.checked) {
+              selected.add(String(p.id));
+            } else {
+              selected.delete(String(p.id));
+            }
+          });
+          const span = document.createElement('span');
+          span.textContent = p.name + (p.company_name ? ` (${p.company_name})` : '');
+          wrapper.appendChild(checkbox);
+          wrapper.appendChild(span);
           projectContainer.appendChild(wrapper);
         });
       }
