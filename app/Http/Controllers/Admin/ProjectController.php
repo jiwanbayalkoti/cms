@@ -53,10 +53,14 @@ class ProjectController extends Controller
             if ($user->company_id) {
                 $query->where('company_id', $user->company_id);
                 // Apply project access restrictions
+                // If user has specific project assignments, filter by them
+                // If user has no assignments (null), they see all projects in their company
                 $accessibleProjectIds = $user->getAccessibleProjectIds();
-                if ($accessibleProjectIds !== null) {
+                if ($accessibleProjectIds !== null && !empty($accessibleProjectIds)) {
+                    // User has specific project assignments - filter to only those
                     $query->whereIn('id', $accessibleProjectIds);
                 }
+                // If $accessibleProjectIds is null, user has access to all projects in their company (no filter needed)
             } else {
                 // User has no company, return empty
                 return view('admin.projects.index', [

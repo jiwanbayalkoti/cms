@@ -126,9 +126,9 @@ class User extends Authenticatable
 
     /**
      * Get accessible project IDs for this user
-     * Returns null if user has access to all projects (super admin only)
-     * Returns array of project IDs if user has specific project assignments
-     * Returns empty array if user has no project assignments (no access to any records)
+     * Returns null if user has access to all projects (super admin or admin with no restrictions)
+     * Returns array of project IDs if user has specific project assignments (restricted access)
+     * Returns empty array if user has no project assignments (no access to any records) - for regular users only
      */
     public function getAccessibleProjectIds(): ?array
     {
@@ -140,12 +140,18 @@ class User extends Authenticatable
         // Get assigned projects
         $assignedProjectIds = $this->projects()->pluck('projects.id')->all();
 
-        // If user has no project assignments, return empty array (no access to any records)
+        // For admins: if no project assignments, they have access to all projects in their company (return null)
+        // For regular users: if no assignments, they have no access (return empty array)
         if (empty($assignedProjectIds)) {
+            // Admin users have access to all projects in their company by default
+            if ($this->isAdmin()) {
+                return null; // No restrictions - access to all in company
+            }
+            // Regular users have no access if no assignments
             return [];
         }
 
-        // User has specific project assignments
+        // User has specific project assignments - return them (restricted access)
         return $assignedProjectIds;
     }
 
