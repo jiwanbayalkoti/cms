@@ -427,18 +427,22 @@
                         $accountingOpen = $accountingOpen ?? (request()->routeIs('admin.chart-of-accounts.*') || request()->routeIs('admin.journal-entries.*') || request()->routeIs('admin.bank-accounts.*') || request()->routeIs('admin.purchase-invoices.*') || request()->routeIs('admin.sales-invoices.*') || request()->routeIs('admin.customers.*'));
                         $vehicleRentOpen = $vehicleRentOpen ?? request()->routeIs('admin.vehicle-rents.*');
                     @endphp
+                    @if(Auth::user()->isAdmin())
                     <a href="{{ route('admin.dashboard') }}" data-tooltip="Dashboard" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                         </svg>
                         <span class="nav-item-text">Admin Dashboard</span>
                     </a>
+                    @endif
+                    @if(Auth::user()->isAdmin())
                     <a href="{{ route('admin.companies.profile') }}" data-tooltip="Company Profile" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.profile*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                         </svg>
                         <span class="nav-item-text">Company Profile</span>
                     </a>
+                    @endif
                     @if(Auth::user()->role === 'super_admin')
                     <a href="{{ route('admin.companies.index') }}" data-tooltip="Companies" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.index') || request()->routeIs('admin.companies.create') || request()->routeIs('admin.companies.edit') || request()->routeIs('admin.companies.show') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -463,6 +467,7 @@
                             <span class="text-sm">All Projects</span>
                         </a>
                     </div>
+                    @if(Auth::user()->role !== 'site_engineer')
                     <button type="button" data-tooltip="Materials & Procurement" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle" data-target="materials-menu" aria-expanded="{{ $materialsOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -504,6 +509,8 @@
                         </a>
                        
                     </div>
+                    @endif
+                    @if(Auth::user()->isAdmin())
                     <button type="button" data-tooltip="Billing & Estimates" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="billing-menu" aria-expanded="{{ $billingOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -529,6 +536,8 @@
                             <span class="text-sm">Bill Subcategories</span>
                         </a>
                     </div>
+                    @endif
+                    @if(Auth::user()->isAdmin())
                     <button type="button" data-tooltip="Staff & Users" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="staff-menu" aria-expanded="{{ $staffOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -547,12 +556,12 @@
                         <a href="{{ route('admin.positions.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.positions.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Positions</span>
                         </a>
-                        @if(Auth::user()->role === 'super_admin')
                         <a href="{{ route('admin.users.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.users.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Users</span>
                         </a>
-                        @endif
                     </div>
+                    @endif
+                    @if(Auth::user()->role !== 'site_engineer')
                     <button type="button" data-tooltip="Finance & Reports" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="finance-menu" aria-expanded="{{ $financeOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -565,15 +574,19 @@
                         </svg>
                     </button>
                     <div id="finance-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $financeOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                        @if(Auth::user()->isAdmin())
                         <a href="{{ route('admin.incomes.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.incomes.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Income</span>
                         </a>
+                        @endif
                         <a href="{{ route('admin.expenses.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.expenses.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Expenses</span>
                         </a>
+                        @if(Auth::user()->isAdmin())
                         <a href="{{ route('admin.reports.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.reports.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Reports</span>
                         </a>
+                        @endif
                         <a href="{{ route('admin.categories.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.categories.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Categories</span>
                         </a>
@@ -586,10 +599,13 @@
 <a href="{{ route('admin.payment-types.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.payment-types.*') ? 'bg-gray-700 text-white' : '' }}">
     <span class="text-sm">Payment Types</span>
 </a>
+                        @if(Auth::user()->isAdmin())
 <a href="{{ route('admin.salary-payments.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.salary-payments.*') ? 'bg-gray-700 text-white' : '' }}">
     <span class="text-sm">Salary Payments</span>
 </a>
+                        @endif
                     </div>
+                    @endif
                     <!-- <button type="button" data-tooltip="Accounting System" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="accounting-menu" aria-expanded="{{ $accountingOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -621,18 +637,22 @@
                             <span class="text-sm">Customers</span>
                         </a>
                     </div> -->
+                    @if(Auth::user()->role !== 'site_engineer')
                     <a href="{{ route('admin.vehicle-rents.index') }}" data-tooltip="Vehicle Rent" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.vehicle-rents.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
                         </svg>
                         <span class="nav-item-text">Vehicle Rent</span>
                     </a>
+                    @endif
+                    @if(Auth::user()->isAdmin())
                     <a href="{{ route('admin.advance-payments.index') }}" data-tooltip="Advance Payments" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.advance-payments.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         <span class="nav-item-text">Advance Payments</span>
                     </a>
+                    @endif
                     <!-- <a href="{{ route('admin.material-calculator.index') }}" class="flex items-center px-4 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition duration-200 {{ request()->routeIs('admin.material-calculator.*') ? 'bg-gray-700 text-white' : '' }}">
                         <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6M9 16h3m4 5H8a2 2 0 01-2-2V5a2 2 0 012-2h6l4 4v12a2 2 0 01-2 2z"></path>

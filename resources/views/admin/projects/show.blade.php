@@ -21,9 +21,11 @@
         <h1 class="text-3xl font-bold text-gray-900">{{ $project->name }}</h1>
         <p class="text-gray-600">{{ $project->client_name ?? 'Internal project' }}</p>
     </div>
+    @if(Auth::user()->isAdmin())
     <a href="{{ route('admin.projects.edit', $project) }}" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200">
         Edit Project
     </a>
+    @endif
 </div>
 
 <div class="bg-white shadow-lg rounded-lg p-6 space-y-6">
@@ -107,11 +109,13 @@
 
     <div class="flex items-center justify-between">
         <a href="{{ route('admin.projects.index') }}" class="text-indigo-600 hover:text-indigo-900">Back to list</a>
+        @if(Auth::user()->isAdmin())
         <form action="{{ route('admin.projects.destroy', $project) }}" method="POST" onsubmit="return confirm('Delete this project?');">
             @csrf
             @method('DELETE')
             <button type="submit" class="text-red-600 hover:text-red-900">Delete Project</button>
         </form>
+        @endif
     </div>
 </div>
 @endsection

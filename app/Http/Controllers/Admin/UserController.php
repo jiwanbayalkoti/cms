@@ -18,7 +18,9 @@ class UserController extends Controller
     
     public function __construct()
     {
-        $this->middleware(['admin', 'super_admin']);
+        // Allow both admin and super_admin to access user management
+        // Route-level middleware (admin_only) already restricts to admin/super_admin
+        $this->middleware('admin');
     }
     
     /**
@@ -40,7 +42,7 @@ class UserController extends Controller
             'password' => $passwordRule,
             'password_confirmation' => $user ? 'nullable|string' : 'required|string',
             'company_id' => 'nullable|exists:companies,id',
-            'role' => 'required|in:super_admin,admin,user',
+            'role' => 'required|in:super_admin,admin,user,site_engineer',
             'is_admin' => 'nullable|boolean',
             'project_ids' => 'nullable|array',
             'project_ids.*' => 'integer|exists:projects,id',
@@ -52,20 +54,26 @@ class UserController extends Controller
     public function index()
     {
         $currentUser = auth()->user();
-        $companyId = CompanyContext::getActiveCompanyId();
         $query = User::with('company')->orderBy('name');
 
         // Super admin can see all users
-        // Regular admin can only see users from their company
+        // Regular admin can only see users from their company (excluding super_admin users)
         if (!$currentUser->isSuperAdmin()) {
-            if ((int) $companyId !== 1) {
-                $query->where(function($q) use ($companyId) {
-                    $q->whereNull('company_id')->orWhere('company_id', $companyId);
-                });
+            // Filter by admin's company
+            if ($currentUser->company_id) {
+                $query->where('company_id', $currentUser->company_id);
+            } else {
+                // Admin has no company, return empty
+                $users = collect()->paginate(20);
+                return view('admin.users.index', compact('users'));
             }
+            
+            // Exclude super_admin users for regular admins
+            $query->where('role', '!=', 'super_admin');
         } else {
-            // Super admin can filter by company
-            if ((int) $companyId !== 1) {
+            // Super admin can filter by company context if set
+            $companyId = CompanyContext::getActiveCompanyId();
+            if ($companyId && (int) $companyId !== 1) {
                 $query->where(function($q) use ($companyId) {
                     $q->whereNull('company_id')->orWhere('company_id', $companyId);
                 });
@@ -105,7 +113,7 @@ class UserController extends Controller
             'email' => 'required|email|max:255|unique:users,email',
             'password' => ['required', 'string', 'min:8', 'confirmed', new StrongPassword()],
             'company_id' => 'nullable|exists:companies,id',
-            'role' => 'required|in:super_admin,admin,user',
+            'role' => 'required|in:super_admin,admin,user,site_engineer',
             'is_admin' => 'nullable|boolean',
             'project_ids' => 'nullable|array',
             'project_ids.*' => 'integer|exists:projects,id',
@@ -127,7 +135,7 @@ class UserController extends Controller
             // Force company_id to active company for regular admins
             $companyId = $activeCompanyId;
             
-            // Regular admin cannot create super_admin or other admins (only regular users)
+            // Regular admin cannot create super_admin or other admins (only regular users and site engineers)
             if (in_array($validated['role'], ['super_admin', 'admin'])) {
                 return back()->withInput()->with('error', 'You do not have permission to create admin users.');
             }
@@ -257,7 +265,7 @@ class UserController extends Controller
         // Build validation rules - password only required if provided
         $rules = [
             'company_id' => 'nullable|exists:companies,id',
-            'role' => 'required|in:super_admin,admin,user',
+            'role' => 'required|in:super_admin,admin,user,site_engineer',
             'is_admin' => 'nullable|boolean',
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
@@ -280,9 +288,15 @@ class UserController extends Controller
         }
 
         // Regular admin cannot change user to admin or super_admin
+        // Also cannot change existing admin/super_admin users
         if (!$currentUser->isSuperAdmin()) {
+            // Prevent changing to admin roles
             if (in_array($validated['role'], ['super_admin', 'admin'])) {
                 return back()->withInput()->with('error', 'You do not have permission to assign admin roles.');
+            }
+            // Prevent changing existing admin/super_admin users
+            if (in_array($user->role, ['super_admin', 'admin'])) {
+                return back()->withInput()->with('error', 'You do not have permission to modify admin or super admin users.');
             }
             
             // Regular admin can only change company to their own

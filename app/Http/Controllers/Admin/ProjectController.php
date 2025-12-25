@@ -100,6 +100,10 @@ class ProjectController extends Controller
 
     public function create()
     {
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Only administrators can create projects.');
+        }
+        
         return view('admin.projects.create', [
             'statuses' => Project::statusOptions(),
         ]);
@@ -107,6 +111,10 @@ class ProjectController extends Controller
 
     public function store(Request $request)
     {
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Only administrators can create projects.');
+        }
+        
         $validated = $this->validateProject($request);
         
         // Get company_id and validate it exists
@@ -152,6 +160,11 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
+        // Site engineers cannot access project details, only galleries
+        if (auth()->user()->role === 'site_engineer') {
+            abort(403, 'You only have access to project galleries.');
+        }
+        
         $this->authorizeCompanyAccess($project);
 
         return view('admin.projects.show', [
@@ -172,9 +185,7 @@ class ProjectController extends Controller
     {
         $this->authorizeCompanyAccess($project);
         
-        if (!auth()->user()->isAdmin()) {
-            return response()->json(['error' => 'Only administrators can add albums.'], 403);
-        }
+        // Allow all authenticated users to add albums
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -410,6 +421,10 @@ class ProjectController extends Controller
     public function edit(Project $project)
     {
         $this->authorizeCompanyAccess($project);
+        
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Only administrators can edit projects.');
+        }
 
         return view('admin.projects.edit', [
             'project' => $project->load('company'),
@@ -457,6 +472,10 @@ class ProjectController extends Controller
     public function destroy(Project $project)
     {
         $this->authorizeCompanyAccess($project);
+        
+        if (!auth()->user()->isAdmin()) {
+            abort(403, 'Only administrators can delete projects.');
+        }
         
         // Delete all photos from storage before deleting the project
         if ($project->photos && is_array($project->photos)) {

@@ -10,6 +10,8 @@
 
     $activeCompanyId = CompanyContext::getActiveCompanyId();
     $isAdmin = auth()->user()->isAdmin();
+    // Allow all users to add albums
+    $canAddAlbum = true;
 @endphp
 <div class="mb-6 flex items-center justify-between">
     <div>
@@ -17,20 +19,22 @@
         <p class="text-gray-600 mt-2">{{ $project->client_name ?? 'Project Gallery' }}</p>
     </div>
     <div class="flex items-center gap-3">
+        @if(Auth::user()->role !== 'site_engineer')
         <a href="{{ route('admin.projects.show', $project) }}" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200">
             View Project Details
         </a>
+        @endif
+        @if($isAdmin)
         <a href="{{ route('admin.projects.edit', $project) }}" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200">
             Edit Project
         </a>
-        @if($isAdmin)
+        @endif
         <button type="button" onclick="showAddAlbumModal()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200">
             <svg class="h-5 w-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
             </svg>
             Add Album
         </button>
-        @endif
     </div>
 </div>
 
@@ -46,7 +50,6 @@
             </svg>
             <h3 class="mt-4 text-lg font-medium text-gray-900">No photos found</h3>
             <p class="mt-2 text-sm text-gray-500">This project doesn't have any photo albums yet.</p>
-            @if($isAdmin)
             <div class="mt-6">
                 <button onclick="showAddAlbumModal()" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200">
                     <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,13 +58,11 @@
                     Add Photo Album
                 </button>
             </div>
-            @endif
         </div>
     @endif
 </div>
 
 <!-- Add Album Modal -->
-@if($isAdmin)
 <div id="addAlbumModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between mb-4">
@@ -95,7 +96,6 @@
         </form>
     </div>
 </div>
-@endif
 
 <!-- Lightbox Modal -->
 <div id="lightbox" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4" onclick="closeLightbox()">

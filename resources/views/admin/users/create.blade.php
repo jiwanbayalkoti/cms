@@ -72,10 +72,10 @@
     <select name="role" class="w-full border rounded px-3 py-2 @error('role') border-red-500 @enderror">
       @php
         $currentUser = auth()->user();
-        $roles = ['super_admin' => 'Super Admin', 'admin' => 'Admin', 'user' => 'User'];
-        // Regular admin can only create regular users
+        $roles = ['super_admin' => 'Super Admin', 'admin' => 'Admin', 'user' => 'User', 'site_engineer' => 'Site Engineer'];
+        // Regular admin can only create regular users and site engineers
         if (!$currentUser->isSuperAdmin()) {
-            $roles = ['user' => 'User'];
+            $roles = ['user' => 'User', 'site_engineer' => 'Site Engineer'];
         }
       @endphp
       @foreach($roles as $value => $label)

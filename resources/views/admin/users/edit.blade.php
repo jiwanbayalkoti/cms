@@ -80,28 +80,41 @@
       <input type="text" value="{{ ucfirst(str_replace('_', ' ', $user->role)) }}" class="w-full border rounded px-3 py-2 bg-gray-100" readonly>
       <p class="text-gray-500 text-xs mt-1">You cannot change your own role.</p>
     @else
-      <select name="role" class="w-full border rounded px-3 py-2 @error('role') border-red-500 @enderror" 
-              {{ $user->isSuperAdmin() && !$currentUser->isSuperAdmin() ? 'disabled' : '' }}>
-        @php
-          $roles = ['super_admin' => 'Super Admin', 'admin' => 'Admin', 'user' => 'User'];
-          // Regular admin cannot change roles to admin or super_admin
-          if (!$currentUser->isSuperAdmin()) {
-              $roles = ['user' => 'User'];
-          }
-          // If editing a super_admin as regular admin, show current role but disabled
-          if ($user->isSuperAdmin() && !$currentUser->isSuperAdmin()) {
-              $roles = ['super_admin' => 'Super Admin'];
-          }
-        @endphp
-        @foreach($roles as $value => $label)
-          <option value="{{ $value }}" {{ (old('role', $user->role) == $value) ? 'selected' : '' }}>{{ $label }}</option>
-        @endforeach
-      </select>
-      @if($user->isSuperAdmin() && !$currentUser->isSuperAdmin())
-        <input type="hidden" name="role" value="super_admin">
-        <p class="text-gray-500 text-xs mt-1">You cannot change the role of a super admin user.</p>
-      @elseif(!$currentUser->isSuperAdmin())
-        <p class="text-gray-500 text-xs mt-1">You can only assign regular user role.</p>
+      @php
+        // Regular admin can only assign "user" or "site_engineer" role
+        if (!$currentUser->isSuperAdmin()) {
+            // Regular admin can only change role to "user" or "site_engineer"
+            $roles = ['user' => 'User', 'site_engineer' => 'Site Engineer'];
+            $canChangeRole = true;
+        } else {
+            // Super admin can assign any role
+            $roles = ['super_admin' => 'Super Admin', 'admin' => 'Admin', 'user' => 'User', 'site_engineer' => 'Site Engineer'];
+            $canChangeRole = true;
+        }
+      @endphp
+      
+      @if(!$currentUser->isSuperAdmin() && in_array($user->role, ['admin', 'super_admin']))
+        {{-- Regular admin editing an admin/super_admin user - show current role as readonly --}}
+        <input type="hidden" name="role" value="{{ $user->role }}">
+        <input type="text" value="{{ ucfirst(str_replace('_', ' ', $user->role)) }}" class="w-full border rounded px-3 py-2 bg-gray-100" readonly>
+        <p class="text-gray-500 text-xs mt-1">You cannot change the role of admin or super admin users. Only super admins can modify admin roles.</p>
+      @elseif(!$currentUser->isSuperAdmin() && $user->role === 'site_engineer')
+        {{-- Regular admin editing a site engineer - can change to user or site_engineer --}}
+        <select name="role" class="w-full border rounded px-3 py-2 @error('role') border-red-500 @enderror">
+          @foreach($roles as $value => $label)
+            <option value="{{ $value }}" {{ (old('role', $user->role) == $value) ? 'selected' : '' }}>{{ $label }}</option>
+          @endforeach
+        </select>
+        <p class="text-gray-500 text-xs mt-1">You can assign user or site engineer role.</p>
+      @else
+        <select name="role" class="w-full border rounded px-3 py-2 @error('role') border-red-500 @enderror">
+          @foreach($roles as $value => $label)
+            <option value="{{ $value }}" {{ (old('role', $user->role) == $value) ? 'selected' : '' }}>{{ $label }}</option>
+          @endforeach
+        </select>
+        @if(!$currentUser->isSuperAdmin())
+          <p class="text-gray-500 text-xs mt-1">You can only assign regular user role.</p>
+        @endif
       @endif
     @endif
     <div class="field-error text-red-600 text-sm mt-1" data-field="role" style="display: none;"></div>

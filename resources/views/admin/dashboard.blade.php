@@ -26,8 +26,34 @@
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-    <!-- Stats Card 1 - Total Projects -->
+<!-- First Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+    @if(Auth::user()->isSuperAdmin())
+    <!-- Stats Card - All Projects (Super Admin Only) -->
+    <a href="{{ route('admin.projects.index') }}" class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-200 cursor-pointer group border-2 border-transparent hover:border-purple-500">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-purple-500 group-hover:text-purple-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">All Projects</dt>
+                        <dd class="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">{{ $totalAllProjects ?? 0 }}</dd>
+                    </dl>
+                </div>
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-gray-400 group-hover:text-purple-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </a>
+    @else
+    <!-- Stats Card - Total Projects (Regular Admin) -->
     <a href="{{ route('admin.projects.index') }}" class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-200 cursor-pointer group border-2 border-transparent hover:border-indigo-500">
         <div class="p-5">
             <div class="flex items-center">
@@ -50,8 +76,9 @@
             </div>
         </div>
     </a>
+    @endif
 
-    <!-- Stats Card 2 - Total Staff -->
+    <!-- Stats Card - Total Staff -->
     <div class="bg-white overflow-hidden shadow-lg rounded-lg">
         <div class="p-5">
             <div class="flex items-center">
@@ -70,7 +97,32 @@
         </div>
     </div>
 
-    <!-- Stats Card 3 -->
+    @if(Auth::user()->isSuperAdmin())
+    <!-- Stats Card - Total Companies (Super Admin Only) -->
+    <a href="{{ route('admin.companies.index') }}" class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-200 cursor-pointer group border-2 border-transparent hover:border-purple-500">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-purple-500 group-hover:text-purple-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Total Companies</dt>
+                        <dd class="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">{{ $totalCompanies ?? 0 }}</dd>
+                    </dl>
+                </div>
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-gray-400 group-hover:text-purple-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </a>
+    @else
+    <!-- Stats Card - Total Income (Regular Admin) -->
     <div class="bg-white overflow-hidden shadow-lg rounded-lg">
         <div class="p-5">
             <div class="flex items-center">
@@ -95,8 +147,40 @@
             </div>
         </div>
     </div>
+    @endif
+</div>
 
-    <!-- Stats Card 4 -->
+<!-- Second Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    @if(Auth::user()->isSuperAdmin())
+    <!-- Stats Card - Total Income (Super Admin) -->
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            Total Income
+                            @if($period === '1_month')
+                                (This Month)
+                            @else
+                                ({{ $startDateFormatted }} - {{ $endDateFormatted }})
+                            @endif
+                        </dt>
+                        <dd class="text-lg font-semibold text-green-600">${{ number_format($totalIncome, 2) }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Stats Card - Total Expenses -->
     <div class="bg-white overflow-hidden shadow-lg rounded-lg">
         <div class="p-5">
             <div class="flex items-center">
@@ -122,7 +206,7 @@
         </div>
     </div>
 
-    <!-- Stats Card 5 -->
+    <!-- Stats Card - Net Balance -->
     <div class="bg-white overflow-hidden shadow-lg rounded-lg">
         <div class="p-5">
             <div class="flex items-center">

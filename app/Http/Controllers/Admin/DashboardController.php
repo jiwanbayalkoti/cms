@@ -59,6 +59,14 @@ class DashboardController extends Controller
         $this->filterByAccessibleProjects($projectsQuery, 'id');
         $totalProjects = $projectsQuery->count();
         
+        // For super admin, also get total projects across all companies and total companies
+        $totalAllProjects = null;
+        $totalCompanies = null;
+        if (auth()->user()->isSuperAdmin()) {
+            $totalAllProjects = Project::count();
+            $totalCompanies = Company::count();
+        }
+        
         // Recent transactions (last 5 regardless of period) - filter by accessible projects
         $recentIncomesQuery = Income::with(['category'])
             ->where('company_id', $companyId)
@@ -90,6 +98,8 @@ class DashboardController extends Controller
             'balance',
             'totalStaff',
             'totalProjects',
+            'totalAllProjects',
+            'totalCompanies',
             'recentIncomes',
             'recentExpenses',
             'monthlyData',

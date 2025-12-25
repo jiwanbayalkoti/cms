@@ -37,9 +37,13 @@ use App\Http\Controllers\Admin\MaterialCalculatorController;
 
 Route::get('/', function () {
     if (Auth::check()) {
-        // Redirect all authenticated users to dashboard
-        // Access control will be handled by middleware and controllers
-        return redirect()->route('admin.dashboard');
+        $user = Auth::user();
+        // Redirect admin/super_admin to dashboard, others to projects
+        if ($user->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        } else {
+            return redirect()->route('admin.projects.index');
+        }
     }
     return redirect()->route('admin.login');
 });
@@ -56,8 +60,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::match(['get', 'post'], '/logout', [LoginController::class, 'logout'])->name('logout');
     
     // Protected Admin Routes
-    Route::middleware(['admin'])->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::middleware(['admin', 'site_engineer'])->group(function () {
+        // Dashboard (Admin only - not accessible to regular users)
+        Route::middleware(['admin_only'])->group(function () {
+            Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        });
         
         // Super Admin Dashboard
         Route::middleware(['super_admin'])->group(function () {
@@ -73,18 +80,31 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('subcategories', SubcategoryController::class);
         Route::post('subcategories/validate', [SubcategoryController::class, 'validateSubcategory'])->name('subcategories.validate');
         
-        // Staff CRUD
-        Route::resource('staff', StaffController::class);
-        Route::post('staff/validate', [StaffController::class, 'validateStaff'])->name('staff.validate');
-        Route::post('staff/{staff}/validate', [StaffController::class, 'validateStaff'])->name('staff.validate.edit');
-        Route::get('staff/{staff}/details', [StaffController::class, 'getDetails'])->name('staff.details');
+        // Staff CRUD (Admin only - not accessible to regular users)
+        Route::middleware(['admin_only'])->group(function () {
+            Route::resource('staff', StaffController::class);
+            Route::post('staff/validate', [StaffController::class, 'validateStaff'])->name('staff.validate');
+            Route::post('staff/{staff}/validate', [StaffController::class, 'validateStaff'])->name('staff.validate.edit');
+            Route::get('staff/{staff}/details', [StaffController::class, 'getDetails'])->name('staff.details');
+            
+            // Positions CRUD
+            Route::resource('positions', PositionController::class);
+        });
         
-        // Positions CRUD
-        Route::resource('positions', PositionController::class);
-        
-        // Projects CRUD
-        Route::resource('projects', ProjectController::class);
+        // Projects - View and Gallery (accessible to all authenticated users)
+        Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
+        Route::get('projects/{project}', [ProjectController::class, 'show'])->name('projects.show');
         Route::get('projects/{project}/gallery', [ProjectController::class, 'gallery'])->name('projects.gallery');
+        
+        // Projects - Create, Edit, Delete (Admin only)
+        Route::middleware(['admin_only'])->group(function () {
+            Route::get('projects/create', [ProjectController::class, 'create'])->name('projects.create');
+            Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
+            Route::get('projects/{project}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
+            Route::put('projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
+            Route::patch('projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
+            Route::delete('projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
+        });
         Route::post('projects/{project}/gallery/album', [ProjectController::class, 'addAlbum'])->name('projects.gallery.album.add');
         Route::put('projects/{project}/gallery/album/{albumIndex}', [ProjectController::class, 'updateAlbum'])->name('projects.gallery.album.update');
         Route::delete('projects/{project}/gallery/album/{albumIndex}', [ProjectController::class, 'deleteAlbum'])->name('projects.gallery.album.delete');
@@ -108,9 +128,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('payment-modes', \App\Http\Controllers\Admin\PaymentModeController::class)->except(['show']);
         Route::resource('purchased-bies', \App\Http\Controllers\Admin\PurchasedByController::class)->except(['show']);
         
-        // Income CRUD
-        Route::resource('incomes', IncomeController::class);
-        Route::post('incomes/validate', [IncomeController::class, 'validateIncome'])->name('incomes.validate');
+        // Income CRUD (Admin only - not accessible to regular users)
+        Route::middleware(['admin_only'])->group(function () {
+            Route::resource('incomes', IncomeController::class);
+            Route::post('incomes/validate', [IncomeController::class, 'validateIncome'])->name('incomes.validate');
+        });
         
         // Expenses CRUD
         Route::resource('expenses', ExpenseController::class);
@@ -118,21 +140,23 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('expenses/{expense}/clone', [ExpenseController::class, 'clone'])->name('expenses.clone');
         Route::resource('expense-types', ExpenseTypeController::class);
         
-        // Bill Modules (Construction Final Bill / Estimate)
-        Route::resource('bill-modules', BillModuleController::class);
-        Route::resource('bill-categories', \App\Http\Controllers\Admin\BillCategoryController::class);
-        Route::resource('bill-subcategories', \App\Http\Controllers\Admin\BillSubcategoryController::class);
-        
-        // Completed Works
-        Route::resource('completed-works', \App\Http\Controllers\Admin\CompletedWorkController::class);
-        Route::get('completed-works/generate/bill', [\App\Http\Controllers\Admin\CompletedWorkController::class, 'generateBillForm'])->name('completed-works.generate-bill');
-        Route::post('completed-works/generate/bill', [\App\Http\Controllers\Admin\CompletedWorkController::class, 'generateBill'])->name('completed-works.generate-bill.store');
-        Route::post('bill-modules/{bill_module}/submit', [BillModuleController::class, 'submit'])->name('bill-modules.submit');
-        Route::post('bill-modules/{bill_module}/approve', [BillModuleController::class, 'approve'])->name('bill-modules.approve');
-        Route::get('bill-modules/{bill_module}/export/excel', [BillModuleController::class, 'exportExcel'])->name('bill-modules.export.excel');
-        Route::get('bill-modules/{bill_module}/export/pdf', [BillModuleController::class, 'exportPdf'])->name('bill-modules.export.pdf');
-        Route::get('bill-modules/{bill_module}/report', [BillModuleController::class, 'report'])->name('bill-modules.report');
-        Route::get('bill-modules/{bill_module}/items', [BillModuleController::class, 'getItems'])->name('bill-modules.items');
+        // Bill Modules (Construction Final Bill / Estimate) (Admin only - not accessible to regular users)
+        Route::middleware(['admin_only'])->group(function () {
+            Route::resource('bill-modules', BillModuleController::class);
+            Route::resource('bill-categories', \App\Http\Controllers\Admin\BillCategoryController::class);
+            Route::resource('bill-subcategories', \App\Http\Controllers\Admin\BillSubcategoryController::class);
+            
+            // Completed Works
+            Route::resource('completed-works', \App\Http\Controllers\Admin\CompletedWorkController::class);
+            Route::get('completed-works/generate/bill', [\App\Http\Controllers\Admin\CompletedWorkController::class, 'generateBillForm'])->name('completed-works.generate-bill');
+            Route::post('completed-works/generate/bill', [\App\Http\Controllers\Admin\CompletedWorkController::class, 'generateBill'])->name('completed-works.generate-bill.store');
+            Route::post('bill-modules/{bill_module}/submit', [BillModuleController::class, 'submit'])->name('bill-modules.submit');
+            Route::post('bill-modules/{bill_module}/approve', [BillModuleController::class, 'approve'])->name('bill-modules.approve');
+            Route::get('bill-modules/{bill_module}/export/excel', [BillModuleController::class, 'exportExcel'])->name('bill-modules.export.excel');
+            Route::get('bill-modules/{bill_module}/export/pdf', [BillModuleController::class, 'exportPdf'])->name('bill-modules.export.pdf');
+            Route::get('bill-modules/{bill_module}/report', [BillModuleController::class, 'report'])->name('bill-modules.report');
+            Route::get('bill-modules/{bill_module}/items', [BillModuleController::class, 'getItems'])->name('bill-modules.items');
+        });
 
         // Material calculator
         Route::get('material-calculator', [MaterialCalculatorController::class, 'index'])->name('material-calculator.index');
@@ -163,43 +187,53 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('vehicle-rents/validate', [\App\Http\Controllers\Admin\VehicleRentController::class, 'validateVehicleRent'])->name('vehicle-rents.validate');
         Route::get('vehicle-rents/export/excel', [\App\Http\Controllers\Admin\VehicleRentController::class, 'export'])->name('vehicle-rents.export');
         
-        // Advance Payments
-        Route::resource('advance-payments', \App\Http\Controllers\Admin\AdvancePaymentController::class);
-        Route::post('advance-payments/validate', [\App\Http\Controllers\Admin\AdvancePaymentController::class, 'validateAdvancePayment'])->name('advance-payments.validate');
+        // Advance Payments (Admin only - not accessible to regular users)
+        Route::middleware(['admin_only'])->group(function () {
+            Route::resource('advance-payments', \App\Http\Controllers\Admin\AdvancePaymentController::class);
+            Route::post('advance-payments/validate', [\App\Http\Controllers\Admin\AdvancePaymentController::class, 'validateAdvancePayment'])->name('advance-payments.validate');
+        });
         Route::resource('payment-types', PaymentTypeController::class);
 
-        // Salary Payments
-        Route::resource('salary-payments', \App\Http\Controllers\Admin\SalaryPaymentController::class);
-        Route::post('salary-payments/validate', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'validateSalaryPayment'])->name('salary-payments.validate');
-        Route::post('salary-payments/{salaryPayment}/validate', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'validateSalaryPayment'])->name('salary-payments.validate.edit');
-        Route::post('salary-payments/{salaryPayment}/record-payment', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'recordPayment'])->name('salary-payments.record-payment');
-        Route::post('salary-payments/check-existing', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'checkExisting'])->name('salary-payments.check-existing');
+        // Salary Payments (Admin only - not accessible to regular users)
+        Route::middleware(['admin_only'])->group(function () {
+            Route::resource('salary-payments', \App\Http\Controllers\Admin\SalaryPaymentController::class);
+            Route::post('salary-payments/validate', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'validateSalaryPayment'])->name('salary-payments.validate');
+            Route::post('salary-payments/{salaryPayment}/validate', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'validateSalaryPayment'])->name('salary-payments.validate.edit');
+            Route::post('salary-payments/{salaryPayment}/record-payment', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'recordPayment'])->name('salary-payments.record-payment');
+            Route::post('salary-payments/check-existing', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'checkExisting'])->name('salary-payments.check-existing');
+        });
 
-        // Reports
-        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-        Route::get('/reports/financial-summary', [ReportController::class, 'financialSummary'])->name('reports.financial-summary');
-        Route::get('/reports/income', [ReportController::class, 'incomeReport'])->name('reports.income');
-        Route::get('/reports/expense', [ReportController::class, 'expenseReport'])->name('reports.expense');
-        Route::get('/reports/project-materials', [ReportController::class, 'projectMaterialsReport'])->name('reports.project-materials');
-        Route::get('/reports/project-materials/export', [ReportController::class, 'projectMaterialsExport'])->name('reports.project-materials.export');
-        Route::get('/reports/staff-payment', [ReportController::class, 'staffPaymentReport'])->name('reports.staff-payment');
-        Route::get('/reports/balance-sheet', [ReportController::class, 'balanceSheet'])->name('reports.balance-sheet');
-        Route::get('/reports/trial-balance', [ReportController::class, 'trialBalance'])->name('reports.trial-balance');
-        Route::get('/reports/general-ledger', [ReportController::class, 'generalLedger'])->name('reports.general-ledger');
+        // Reports (Admin only - not accessible to regular users)
+        Route::middleware(['admin_only'])->group(function () {
+            Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+            Route::get('/reports/financial-summary', [ReportController::class, 'financialSummary'])->name('reports.financial-summary');
+            Route::get('/reports/income', [ReportController::class, 'incomeReport'])->name('reports.income');
+            Route::get('/reports/expense', [ReportController::class, 'expenseReport'])->name('reports.expense');
+            Route::get('/reports/project-materials', [ReportController::class, 'projectMaterialsReport'])->name('reports.project-materials');
+            Route::get('/reports/project-materials/export', [ReportController::class, 'projectMaterialsExport'])->name('reports.project-materials.export');
+            Route::get('/reports/staff-payment', [ReportController::class, 'staffPaymentReport'])->name('reports.staff-payment');
+            Route::get('/reports/balance-sheet', [ReportController::class, 'balanceSheet'])->name('reports.balance-sheet');
+            Route::get('/reports/trial-balance', [ReportController::class, 'trialBalance'])->name('reports.trial-balance');
+            Route::get('/reports/general-ledger', [ReportController::class, 'generalLedger'])->name('reports.general-ledger');
+        });
 
-        // Company Profile (accessible to all authenticated users for their own company)
-        Route::get('/company/profile', [CompanyController::class, 'profile'])->name('companies.profile');
-        Route::put('/company/profile', [CompanyController::class, 'profileUpdate'])->name('companies.profile.update');
+        // Company Profile (Admin only - not accessible to regular users)
+        Route::middleware(['admin_only'])->group(function () {
+            Route::get('/company/profile', [CompanyController::class, 'profile'])->name('companies.profile');
+            Route::put('/company/profile', [CompanyController::class, 'profileUpdate'])->name('companies.profile.update');
+        });
+
+        // Users management (Admin and Super Admin can access)
+        Route::middleware(['admin_only'])->group(function () {
+            Route::resource('users', UserController::class)->except(['show']);
+            Route::post('users/validate', [UserController::class, 'validateUser'])->name('users.validate');
+            Route::post('users/{user}/validate', [UserController::class, 'validateUser'])->name('users.validate.edit');
+        });
 
         // Companies CRUD (super admin only)
         Route::middleware(['super_admin'])->group(function () {
             Route::resource('companies', CompanyController::class);
             Route::post('/companies/switch', [CompanyController::class, 'switch'])->name('companies.switch');
-
-            // Users management (company-wise), super admin only
-            Route::resource('users', UserController::class)->except(['show']);
-            Route::post('users/validate', [UserController::class, 'validateUser'])->name('users.validate');
-            Route::post('users/{user}/validate', [UserController::class, 'validateUser'])->name('users.validate.edit');
         });
     });
 });

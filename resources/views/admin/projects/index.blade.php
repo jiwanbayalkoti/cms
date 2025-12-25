@@ -21,9 +21,11 @@
         <h1 class="text-3xl font-bold text-gray-900">Projects</h1>
         <p class="text-gray-600">Track initiatives across your company</p>
     </div>
+    @if(Auth::user()->isAdmin())
     <a href="{{ route('admin.projects.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition duration-200">
         Add New Project
     </a>
+    @endif
 </div>
 
 @if($companiesWithProjects->count() > 0)
@@ -61,6 +63,17 @@
 
                         <!-- Card Footer - Actions -->
                         <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                            @if(Auth::user()->role === 'site_engineer')
+                            <div class="mb-2">
+                                <a href="{{ route('admin.projects.gallery', $project) }}" 
+                                   class="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition duration-200 flex items-center justify-center">
+                                    <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                    Gallery
+                                </a>
+                            </div>
+                            @else
                             <div class="grid grid-cols-2 gap-2 mb-2">
                                 <a href="{{ route('admin.projects.show', $project) }}" 
                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition duration-200 flex items-center justify-center">
@@ -78,6 +91,8 @@
                                     Gallery
                                 </a>
                             </div>
+                            @endif
+                            @if(Auth::user()->isAdmin())
                             <div class="flex items-center justify-between gap-2">
                                 <a href="{{ route('admin.projects.edit', $project) }}" 
                                    class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium text-center transition duration-200 flex items-center justify-center">
@@ -101,6 +116,7 @@
                                     </button>
                                 </form>
                             </div>
+                            @endif
                         </div>
                     </div>
                 @endforeach

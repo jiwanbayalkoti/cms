@@ -36,8 +36,16 @@ class LoginController extends Controller
             $user = Auth::user();
             $request->session()->regenerate();
             
-            // Redirect to dashboard - middleware will control access based on role
-            return redirect()->intended(route('admin.dashboard'))->with('success', 'Welcome back, ' . $user->name . '!');
+            // Redirect based on user role
+            if ($user->isAdmin()) {
+                return redirect()->intended(route('admin.dashboard'))->with('success', 'Welcome back, ' . $user->name . '!');
+            } elseif ($user->role === 'site_engineer') {
+                // Site engineers go directly to projects list (galleries only)
+                return redirect()->intended(route('admin.projects.index'))->with('success', 'Welcome back, ' . $user->name . '!');
+            } else {
+                // Regular users go directly to projects list
+                return redirect()->intended(route('admin.projects.index'))->with('success', 'Welcome back, ' . $user->name . '!');
+            }
         }
 
         throw ValidationException::withMessages([

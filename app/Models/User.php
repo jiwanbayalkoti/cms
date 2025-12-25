@@ -141,13 +141,13 @@ class User extends Authenticatable
         $assignedProjectIds = $this->projects()->pluck('projects.id')->all();
 
         // For admins: if no project assignments, they have access to all projects in their company (return null)
-        // For regular users: if no assignments, they have no access (return empty array)
+        // For regular users and site engineers: if no assignments, they have no access (return empty array)
         if (empty($assignedProjectIds)) {
             // Admin users have access to all projects in their company by default
             if ($this->isAdmin()) {
                 return null; // No restrictions - access to all in company
             }
-            // Regular users have no access if no assignments
+            // Regular users and site engineers have no access if no assignments
             return [];
         }
 
