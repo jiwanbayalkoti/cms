@@ -180,6 +180,60 @@
     </div>
     @endif
 
+    @if(Auth::user()->isSuperAdmin())
+    <!-- Stats Card - Email API Usage (Super Admin Only) -->
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg border-2 {{ ($emailApiUsageCount ?? 0) >= ($emailApiUsageLimit ?? 100) ? 'border-red-500' : (($emailApiUsageCount ?? 0) >= (($emailApiUsageLimit ?? 100) * 0.8) ? 'border-yellow-500' : 'border-transparent') }}">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 {{ ($emailApiUsageCount ?? 0) >= ($emailApiUsageLimit ?? 100) ? 'text-red-500' : (($emailApiUsageCount ?? 0) >= (($emailApiUsageLimit ?? 100) * 0.8) ? 'text-yellow-500' : 'text-blue-500') }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Email Validation API</dt>
+                        <dd class="text-lg font-semibold {{ ($emailApiUsageCount ?? 0) >= ($emailApiUsageLimit ?? 100) ? 'text-red-600' : (($emailApiUsageCount ?? 0) >= (($emailApiUsageLimit ?? 100) * 0.8) ? 'text-yellow-600' : 'text-blue-600') }}">
+                            {{ $emailApiUsageCount ?? 0 }} / {{ $emailApiUsageLimit ?? 100 }}
+                        </dd>
+                        <dd class="text-xs text-gray-500 mt-1">
+                            @if(($emailApiUsageCount ?? 0) >= ($emailApiUsageLimit ?? 100))
+                                Limit Reached
+                            @else
+                                {{ ($emailApiUsageLimit ?? 100) - ($emailApiUsageCount ?? 0) }} remaining this month
+                            @endif
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Card - Email Notifications Sent (Super Admin Only) -->
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg border-2 border-transparent">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Email Notifications Sent</dt>
+                        <dd class="text-lg font-semibold text-green-600">
+                            {{ $emailNotificationCount ?? 0 }}
+                        </dd>
+                        <dd class="text-xs text-gray-500 mt-1">
+                            This month (Account Created + Password Changed)
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- Stats Card - Total Expenses -->
     <div class="bg-white overflow-hidden shadow-lg rounded-lg">
         <div class="p-5">

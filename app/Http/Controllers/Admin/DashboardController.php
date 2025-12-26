@@ -59,12 +59,22 @@ class DashboardController extends Controller
         $this->filterByAccessibleProjects($projectsQuery, 'id');
         $totalProjects = $projectsQuery->count();
         
-        // For super admin, also get total projects across all companies and total companies
+        // For super admin only: get total projects across all companies, total companies, and email statistics
         $totalAllProjects = null;
         $totalCompanies = null;
+        $emailApiUsageCount = null;
+        $emailApiUsageLimit = null;
+        $emailNotificationCount = null;
+        
+        // Only super admin can see email check and email send counts
         if (auth()->user()->isSuperAdmin()) {
             $totalAllProjects = Project::count();
             $totalCompanies = Company::count();
+            // Get email validation API usage count (only for super admin)
+            $emailApiUsageCount = \App\Rules\ValidEmailDomain::getApiUsageCount();
+            $emailApiUsageLimit = \App\Rules\ValidEmailDomain::getApiUsageLimit();
+            // Get email notification count (user account created + password changed) - only for super admin
+            $emailNotificationCount = \App\Mail\UserAccountCreated::getEmailCount() + \App\Mail\PasswordChanged::getEmailCount();
         }
         
         // Recent transactions (last 5 regardless of period) - filter by accessible projects
@@ -100,6 +110,9 @@ class DashboardController extends Controller
             'totalProjects',
             'totalAllProjects',
             'totalCompanies',
+            'emailApiUsageCount',
+            'emailApiUsageLimit',
+            'emailNotificationCount',
             'recentIncomes',
             'recentExpenses',
             'monthlyData',

@@ -11,6 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Support\CompanyContext;
 use App\Rules\StrongPassword;
+use App\Rules\ValidEmailDomain;
+use App\Mail\UserAccountCreated;
+use App\Mail\PasswordChanged;
+use Illuminate\Support\Facades\Mail;
 
 class UserController extends Controller
 {
@@ -29,8 +33,8 @@ class UserController extends Controller
     public function validateUser(Request $request, User $user = null)
     {
         $emailRule = $user
-            ? 'required|email|max:255|unique:users,email,' . $user->id
-            : 'required|email|max:255|unique:users,email';
+            ? ['required', 'email', 'max:255', 'unique:users,email,' . $user->id, new ValidEmailDomain()]
+            : ['required', 'email', 'max:255', 'unique:users,email', new ValidEmailDomain()];
         
         $passwordRule = $user
             ? ['nullable', 'string', 'min:8', 'confirmed', new StrongPassword()]
@@ -110,7 +114,7 @@ class UserController extends Controller
         
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email',
+            'email' => ['required', 'email', 'max:255', 'unique:users,email', new ValidEmailDomain()],
             'password' => ['required', 'string', 'min:8', 'confirmed', new StrongPassword()],
             'company_id' => 'nullable|exists:companies,id',
             'role' => 'required|in:super_admin,admin,user,site_engineer',
@@ -150,6 +154,19 @@ class UserController extends Controller
         // Sync is_admin with role for backward compatibility
         $user->is_admin = in_array($validated['role'], ['admin', 'super_admin']);
         $user->save();
+        
+        // Send email notification to the new user
+        try {
+            Mail::to($user->email)->send(new UserAccountCreated($user, $validated['password']));
+            // Track email notification sent
+            UserAccountCreated::incrementEmailCount();
+        } catch (\Exception $e) {
+            // Log error but don't fail user creation if email fails
+            \Log::error('Failed to send user account creation email: ' . $e->getMessage(), [
+                'user_id' => $user->id,
+                'email' => $user->email
+            ]);
+        }
 
         // Sync project access - always update if project_ids is in request
         // Filter out empty strings and invalid values from project_ids array
@@ -224,8 +241,10 @@ class UserController extends Controller
             // Users cannot change their own role or company
             $rules = [
                 'name' => 'sometimes|string|max:255',
-                'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
             ];
+            
+            // Email validation - always validate email when updating own profile
+            $rules['email'] = ['required', 'email', 'max:255', 'unique:users,email,' . $user->id, new ValidEmailDomain()];
             
             // Only validate password if it's provided (not empty)
             if ($request->filled('password')) {
@@ -241,10 +260,33 @@ class UserController extends Controller
             if (array_key_exists('email', $validated)) {
                 $user->email = $validated['email'];
             }
+            
+            // Track if password was changed
+            $passwordChanged = false;
+            $newPassword = null;
+            
             if (!empty($validated['password'] ?? null)) {
+                $passwordChanged = true;
+                $newPassword = $validated['password'];
                 $user->password = Hash::make($validated['password']);
             }
+            
             $user->save();
+            
+            // Send password change notification email
+            if ($passwordChanged) {
+                try {
+                    Mail::to($user->email)->send(new PasswordChanged($user, $newPassword, false));
+                    // Track email notification sent
+                    PasswordChanged::incrementEmailCount();
+                } catch (\Exception $e) {
+                    // Log error but don't fail update if email fails
+                    \Log::error('Failed to send password change email: ' . $e->getMessage(), [
+                        'user_id' => $user->id,
+                        'email' => $user->email
+                    ]);
+                }
+            }
             
             return redirect()->route('admin.users.index')->with('success', 'Your profile updated successfully.');
         }
@@ -268,10 +310,12 @@ class UserController extends Controller
             'role' => 'required|in:super_admin,admin,user,site_engineer',
             'is_admin' => 'nullable|boolean',
             'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|max:255|unique:users,email,' . $user->id,
             'project_ids' => 'nullable|array',
             'project_ids.*' => 'integer|exists:projects,id',
         ];
+        
+        // Email validation - always validate email when updating
+        $rules['email'] = ['required', 'email', 'max:255', 'unique:users,email,' . $user->id, new ValidEmailDomain()];
         
         // Only validate password if it's provided (not empty)
         if ($request->filled('password')) {
@@ -314,14 +358,37 @@ class UserController extends Controller
         if (array_key_exists('email', $validated)) {
             $user->email = $validated['email'];
         }
+        
+        // Track if password was changed
+        $passwordChanged = false;
+        $newPassword = null;
+        
         if (!empty($validated['password'] ?? null)) {
+            $passwordChanged = true;
+            $newPassword = $validated['password'];
             $user->password = Hash::make($validated['password']);
         }
+        
         $user->company_id = $validated['company_id'] ?? $user->company_id;
         $user->role = $validated['role'];
         // Sync is_admin with role for backward compatibility
         $user->is_admin = in_array($validated['role'], ['admin', 'super_admin']);
         $user->save();
+        
+        // Send password change notification email (if changed by admin)
+        if ($passwordChanged) {
+            try {
+                Mail::to($user->email)->send(new PasswordChanged($user, $newPassword, true));
+                // Track email notification sent
+                PasswordChanged::incrementEmailCount();
+            } catch (\Exception $e) {
+                // Log error but don't fail update if email fails
+                \Log::error('Failed to send password change email: ' . $e->getMessage(), [
+                    'user_id' => $user->id,
+                    'email' => $user->email
+                ]);
+            }
+        }
 
         // Sync project access - always update if project_ids is in request
         // Filter out empty strings and invalid values from project_ids array
