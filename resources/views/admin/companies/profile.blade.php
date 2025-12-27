@@ -3,8 +3,8 @@
 @section('title', 'Company Profile')
 
 @section('content')
-<div class="mb-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="mb-4 mb-md-12">
+    <div class="d-flex justify-content-between align-items-center mb-4 mb-md-12">
         <h2 class="h4 mb-0">Company Profile</h2>
         <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left me-1"></i> Back to Dashboard

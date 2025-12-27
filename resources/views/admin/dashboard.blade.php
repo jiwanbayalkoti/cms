@@ -27,7 +27,7 @@
 </div>
 
 <!-- First Row -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
     @if(Auth::user()->isSuperAdmin())
     <!-- Stats Card - All Projects (Super Admin Only) -->
     <a href="{{ route('admin.projects.index') }}" class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-200 cursor-pointer group border-2 border-transparent hover:border-purple-500">

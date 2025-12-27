@@ -2,7 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title', 'Admin Panel') - {{ config('app.name', 'Laravel') }}</title>
@@ -27,8 +27,64 @@
     <style>
         [x-cloak] { display: none !important; }
         
+        /* =========================
+           GLOBAL FIXES - REMOVE ALL TOP SPACING
+        ========================= */
+        * {
+            margin-top: 0;
+        }
         
-        /* Sidebar Styles */
+        html {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100%;
+        }
+        
+        body {
+            width: 100%;
+            overflow-x: hidden;
+            margin: 0 !important;
+            padding: 0 !important;
+            position: relative;
+            height: 100%;
+        }
+        
+        @media (max-width: 768px) {
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+                min-height: 100vh;
+            }
+        }
+        
+        /* =========================
+           SIDEBAR OVERLAY
+        ========================= */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(2px);
+            display: none;
+        }
+
+        .sidebar-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+            display: block;
+        }
+        
+        /* =========================
+           SIDEBAR BASE
+        ========================= */
         .sidebar {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s ease;
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
@@ -235,64 +291,83 @@
             position: relative;
         }
 
-        /* Mobile sidebar overlay */
-        .sidebar-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.45);
-            z-index: 40;
-            display: none;
-        }
-
-        .sidebar-overlay.active {
-            display: block;
-        }
-        
+        /* =========================
+           MOBILE FIX (IMPORTANT)
+        ========================= */
         @media (max-width: 768px) {
+            /* CRITICAL: Layout wrapper should NOT take full height on mobile */
+            .layout-wrapper {
+                flex-direction: row !important; /* Keep row to prevent sidebar stacking */
+                min-height: auto !important;
+                height: auto !important;
+                position: relative;
+                top: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            /* Sidebar should NOT take any space in flex layout on mobile */
+            .layout-wrapper > .sidebar {
+                width: 0 !important;
+                min-width: 0 !important;
+                flex: 0 0 0 !important;
+                overflow: hidden;
+            }
+
+            /* Sidebar is fixed and hidden - takes NO space in layout flow */
             .sidebar {
-                position: fixed;
-                left: 0;
+                position: fixed !important;
                 top: 0;
-                z-index: 50;
+                left: -100% !important;
                 height: 100vh;
-                width: 256px !important;
+                z-index: 50;
+                width: 260px !important;
                 max-width: 85vw;
-                transform: translateX(-110%);
-                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 box-shadow: 2px 0 20px rgba(0, 0, 0, 0.3);
+                /* Sidebar doesn't take space when hidden - removed from flow */
+                margin: 0 !important;
+                padding: 0 !important;
+                /* CRITICAL: Remove from document flow so it doesn't push content */
+                visibility: hidden;
+                /* Remove from flex layout - takes zero width in flex */
+                flex: 0 0 0 !important;
+                min-width: 0 !important;
             }
             
+            /* When mobile-open, sidebar should be visible and positioned */
             .sidebar.mobile-open {
-                transform: translateX(0);
-            }
-            
-            /* Keep main content full width on mobile */
-            .flex-1.flex.flex-col {
-                width: 100%;
+                left: 0 !important;
+                visibility: visible !important;
+                width: 260px !important;
+                max-width: 85vw !important;
+                /* Override flex width when open */
+                flex: 0 0 260px !important;
+                min-width: 260px !important;
             }
             
             .sidebar.collapsed,
             .sidebar.expanded {
-                width: 256px !important;
-                max-width: 85vw;
+                width: 0 !important; /* Hidden on mobile - takes no space */
+                max-width: 0 !important;
+            }
+
+            /* Main content starts at TOP - no space above, takes full width */
+            .main-content {
+                width: 100% !important;
+                max-width: 100vw !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                position: relative;
+                top: 0 !important;
+                min-height: auto !important;
+                flex: 1 1 100% !important;
+                /* Ensure it's not pushed by sidebar */
+                margin-left: 0 !important;
             }
             
             .sidebar-toggle-btn {
                 display: none !important;
-            }
-            
-            .sidebar-overlay {
-                display: none;
-                position: fixed;
-                inset: 0;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: 40;
-                transition: opacity 0.3s ease;
-                backdrop-filter: blur(2px);
-            }
-            
-            .sidebar-overlay.active {
-                display: block;
             }
             
             /* Ensure sidebar content is always visible on mobile */
@@ -305,8 +380,19 @@
                 display: block !important;
             }
             
+            /* Allow submenus to be toggled on mobile - respect hidden class */
             .sidebar .submenu {
-                display: block !important;
+                /* Don't force display - allow toggle functionality */
+            }
+            
+            /* Ensure submenus respect hidden class on mobile */
+            .sidebar .submenu.hidden {
+                display: none !important;
+            }
+            
+            /* Show submenus that are not hidden */
+            .sidebar .submenu:not(.hidden) {
+                display: block;
             }
             
             /* Prevent body scroll when sidebar is open */
@@ -326,6 +412,346 @@
             /* Ensure main content doesn't shift on mobile */
             .flex-1.flex.flex-col {
                 width: 100%;
+                max-width: 100vw;
+            }
+            
+            /* Prevent horizontal overflow */
+            .min-h-screen {
+                overflow-x: hidden;
+            }
+            
+            /* CRITICAL FIX: Remove full height on mobile to prevent blank space */
+            .layout-wrapper {
+                min-height: auto !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                position: relative !important;
+                top: 0 !important;
+            }
+            
+            body {
+                min-height: auto !important;
+                height: auto !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow-x: hidden;
+                position: relative !important;
+            }
+            
+            html {
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow-x: hidden;
+                height: auto !important;
+            }
+            
+            /* Ensure sidebar overlay doesn't create space */
+            .sidebar-overlay {
+                top: 0 !important;
+                left: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: none !important;
+            }
+            
+            .sidebar-overlay.active {
+                display: block !important;
+            }
+            
+            /* CRITICAL: Main content must start at absolute top on mobile */
+            .main-content {
+                position: relative !important;
+                top: 0 !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+                min-height: auto !important;
+            }
+            
+            /* Navigation bar at top */
+            .main-content > nav {
+                position: relative !important;
+                top: 0 !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+            
+            /* Main content area */
+            .main-content > main {
+                position: relative !important;
+                top: 0 !important;
+                margin-top: 0 !important;
+                padding-top: 0.5rem !important;
+            }
+            
+            /* Reduce padding on mobile for main content */
+            main.flex-1 {
+                padding-top: 0.5rem !important;
+                padding-bottom: 1rem !important;
+                margin-top: 0 !important;
+            }
+            
+            /* Remove top padding from main content wrapper */
+            main.flex-1 > div {
+                padding-top: 0 !important;
+            }
+            
+            /* Remove extra margin from content on mobile */
+            .mb-12 {
+                margin-bottom: 1.5rem !important;
+            }
+            
+            /* Ensure main content starts at top on mobile */
+            .main-content {
+                min-height: auto !important;
+            }
+            
+            /* Fix top navigation spacing on mobile */
+            nav.bg-white {
+                position: relative;
+                z-index: 10;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+            
+            /* Remove any top margin/padding that might push content down */
+            .main-content {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+            
+            .main-content > main {
+                margin-top: 0 !important;
+                padding-top: 0.5rem !important;
+            }
+            
+            /* Ensure no extra space at top */
+            .layout-wrapper {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+            
+            /* Ensure main content starts immediately after nav */
+            .main-content {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+            
+            /* Fix navigation bar positioning */
+            nav.bg-white.shadow-lg {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+                position: relative;
+                top: 0 !important;
+            }
+            
+            /* Ensure nav bar doesn't create space */
+            nav.bg-white.shadow-lg > div {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+            
+            /* Remove any default browser spacing */
+            * {
+                box-sizing: border-box;
+            }
+            
+            /* Table scrolling on mobile */
+            table {
+                width: 100%;
+                display: table;
+            }
+            
+            /* Ensure tables can scroll horizontally on mobile */
+            .overflow-x-auto {
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+            }
+            
+            /* Table container for mobile scrolling */
+            .table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                width: 100%;
+            }
+            
+            /* Mobile table styling */
+            @media (max-width: 768px) {
+                table {
+                    min-width: 600px; /* Minimum width to enable scrolling */
+                }
+                
+                /* Ensure table cells don't break */
+                table td,
+                table th {
+                    white-space: nowrap;
+                }
+                
+                /* Allow some cells to wrap if needed */
+                table td.text-wrap,
+                table th.text-wrap {
+                    white-space: normal;
+                }
+            }
+            
+            /* Button sizing fix for all views - icon only */
+            .btn-sm {
+                font-size: 0.75rem !important;
+                padding: 0.5rem !important;
+                line-height: 1 !important;
+                min-width: 38px !important;
+                width: 38px !important;
+                height: 38px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            
+            /* Hide text in all btn-sm buttons, show only icons */
+            .btn-sm {
+                font-size: 0 !important; /* Hide all text nodes */
+                line-height: 0 !important;
+            }
+            
+            .btn-sm .bi,
+            .btn-sm i {
+                font-size: 1rem !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: inline-block !important;
+                line-height: 1 !important;
+                vertical-align: middle;
+            }
+            
+            /* Restore color for icons */
+            .btn-sm .bi,
+            .btn-sm i {
+                color: inherit;
+            }
+            
+            /* Hide any text or spans after icons */
+            .btn-sm .bi + *,
+            .btn-sm i + *,
+            .btn-sm span:not(.bi):not(i),
+            .btn-sm .bi ~ span,
+            .btn-sm i ~ span,
+            .btn-sm .bi ~ *:not(.bi):not(i) {
+                display: none !important;
+                font-size: 0 !important;
+            }
+            
+            /* Ensure buttons in tables are icon-only */
+            table .btn-sm {
+                padding: 0.5rem !important;
+                min-width: 38px !important;
+                width: 38px !important;
+                height: 38px !important;
+            }
+            
+            table .btn-sm .bi,
+            table .btn-sm i {
+                font-size: 1rem !important;
+                margin: 0 !important;
+            }
+            
+            /* Mobile button optimization - show icons only or smaller text */
+            @media (max-width: 768px) {
+                /* Hide text in small buttons, show only icons */
+                .btn-sm .bi + *,
+                .btn-sm span:not(.bi),
+                .btn-sm:not(:has(.bi)) {
+                    display: none !important;
+                }
+                
+                /* Show icons in buttons */
+                .btn-sm .bi {
+                    margin: 0 !important;
+                    font-size: 1rem;
+                }
+                
+                /* Make buttons more compact - icon only */
+                .btn-sm {
+                    padding: 0.375rem !important;
+                    min-width: 36px;
+                    width: 36px;
+                    height: 36px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                
+                /* Hide text after icons in small buttons */
+                .btn-sm i + span,
+                .btn-sm .bi ~ span {
+                    display: none !important;
+                }
+                
+                /* Primary action buttons - show icon + short text or icon only */
+                a[href*="create"] span.mobile\:hidden,
+                a[href*="add"] span.mobile\:hidden {
+                    display: none !important;
+                }
+                
+                a[href*="create"] span.mobile\:inline,
+                a[href*="add"] span.mobile\:inline {
+                    display: inline !important;
+                }
+                
+                /* Reduce font size for primary buttons */
+                a[href*="create"],
+                a[href*="add"] {
+                    font-size: 0.75rem !important;
+                    padding: 0.5rem 0.75rem !important;
+                }
+                
+                /* Table action buttons - icon only */
+                table .btn-sm {
+                    padding: 0.25rem 0.375rem !important;
+                    min-width: 32px;
+                    width: 32px;
+                    height: 32px;
+                }
+                
+                table .btn-sm .bi {
+                    font-size: 0.875rem;
+                }
+            }
+            
+            /* Force content to start at very top */
+            .main-content {
+                position: relative;
+                top: 0 !important;
+            }
+            
+            .main-content > nav {
+                margin: 0 !important;
+                padding: 0 !important;
+                position: relative;
+                top: 0 !important;
+            }
+            
+            .main-content > nav > div {
+                margin: 0 !important;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+            }
+            
+            .main-content > nav > div > div {
+                margin: 0 !important;
+                padding-top: 0 !important;
+                height: 64px !important;
+            }
+            
+            /* Remove any space before main content */
+            .main-content::before {
+                display: none !important;
+                content: none !important;
+            }
+            
+            /* Ensure layout wrapper starts at top */
+            .layout-wrapper::before {
+                display: none !important;
+                content: none !important;
             }
         }
         
@@ -337,16 +763,20 @@
             #sidebarToggleMobile {
                 display: none !important;
             }
+            
+            .layout-wrapper {
+                flex-direction: row;
+            }
         }
     </style>
 </head>
-<body class="antialiased bg-gray-100">
-    <div class="min-h-screen flex">
+    <body class="antialiased bg-gray-100" style="margin: 0 !important; padding: 0 !important;">
+    <div class="flex layout-wrapper" style="margin: 0 !important; padding: 0 !important; position: relative; top: 0 !important;">
         <!-- Sidebar Overlay (Mobile) -->
-        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <div class="sidebar-overlay" id="sidebarOverlay" style="display: none !important;"></div>
         
         <!-- Sidebar -->
-        <aside class="sidebar expanded bg-gradient-to-b from-gray-800 via-gray-800 to-gray-900 min-h-screen relative" id="sidebar">
+        <aside class="sidebar expanded bg-gradient-to-b from-gray-800 via-gray-800 to-gray-900 relative" id="sidebar">
             <div class="p-4 h-full flex flex-col">
                 @php
                     $activeCompanyId = session('active_company_id') ?: Auth::user()->company_id;
@@ -665,7 +1095,7 @@
         </aside>
 
         <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col">
+        <div class="flex-1 flex flex-col main-content">
             <!-- Top Navigation -->
             <nav class="bg-white shadow-lg">
                 <div class="px-2 sm:px-4 lg:px-8">
@@ -750,7 +1180,7 @@
             </nav>
 
             <!-- Main Content -->
-            <main class="flex-1 py-6">
+            <main class="flex-1 py-6 mobile:py-2">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 @if(session('success'))
                     <div class="alert-message mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative pr-10" role="alert">
@@ -885,16 +1315,32 @@
                 document.body.classList.remove('sidebar-open');
             }
             
+            // Close sidebar on initial load for mobile
+            if (isMobile()) {
+                closeSidebarMobile();
+            }
+            
             // Handle submenu toggles
             document.querySelectorAll('#sidebar-nav .group-toggle').forEach(function (button) {
-                button.addEventListener('click', function () {
+                button.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
                     const targetId = button.getAttribute('data-target');
                     const panel = document.getElementById(targetId);
                     const expanded = button.getAttribute('aria-expanded') === 'true';
 
                     if (panel) {
-                        panel.classList.toggle('hidden');
-                        button.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+                        // Toggle hidden class
+                        if (panel.classList.contains('hidden')) {
+                            panel.classList.remove('hidden');
+                            button.setAttribute('aria-expanded', 'true');
+                        } else {
+                            panel.classList.add('hidden');
+                            button.setAttribute('aria-expanded', 'false');
+                        }
+                        
+                        // Toggle chevron icon rotation
                         const icon = button.querySelector('[data-icon="chevron"]');
                         if (icon) {
                             icon.classList.toggle('rotate-180', !expanded);
@@ -951,6 +1397,35 @@
                 }, 300);
             }
         }
+        
+        // Remove text from action buttons, keep only icons
+        document.addEventListener('DOMContentLoaded', function() {
+            // Remove text nodes from all btn-sm buttons, keep only icons
+            document.querySelectorAll('.btn-sm').forEach(function(button) {
+                // Get all child nodes
+                const childNodes = Array.from(button.childNodes);
+                
+                childNodes.forEach(function(node) {
+                    // If it's a text node (not an element), remove it
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const text = node.textContent.trim();
+                        // Only remove if it's not empty and not just whitespace
+                        if (text && text.length > 0) {
+                            node.remove();
+                        }
+                    }
+                    // If it's an element but not an icon (i or .bi), remove it
+                    else if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (!node.classList.contains('bi') && 
+                            node.tagName !== 'I' && 
+                            !node.querySelector('.bi') && 
+                            !node.querySelector('i')) {
+                            node.remove();
+                        }
+                    }
+                });
+            });
+        });
         
         // Auto-dismiss alerts after 5 seconds
         document.addEventListener('DOMContentLoaded', function() {

@@ -721,23 +721,23 @@ class ProjectController extends Controller
             $user = auth()->user();
             // Only process deletions if user is admin or super_admin
             if ($user && $user->isAdmin()) {
-                foreach ($deletePhotos as $photoKey) {
-                    // Format: album_index-photo_index
-                    $parts = explode('-', $photoKey);
-                    if (count($parts) === 2) {
-                        $formAlbumIndex = (int) $parts[0];
-                        $photoIndex = (int) $parts[1];
-                        
-                        // Find the existing album index for this form album
-                        $existingAlbumIndex = $existingAlbumIndices[$formAlbumIndex] ?? null;
-                        if ($existingAlbumIndex !== null && isset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex])) {
-                            $photoPath = $existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]['path'] ?? null;
+            foreach ($deletePhotos as $photoKey) {
+                // Format: album_index-photo_index
+                $parts = explode('-', $photoKey);
+                if (count($parts) === 2) {
+                    $formAlbumIndex = (int) $parts[0];
+                    $photoIndex = (int) $parts[1];
+                    
+                    // Find the existing album index for this form album
+                    $existingAlbumIndex = $existingAlbumIndices[$formAlbumIndex] ?? null;
+                    if ($existingAlbumIndex !== null && isset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex])) {
+                        $photoPath = $existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]['path'] ?? null;
                             if ($photoPath) {
                                 // Delete from storage/app/public (root storage directory)
                                 $this->deletePhotoFile($photoPath);
-                            }
-                            unset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]);
-                            $existingAlbums[$existingAlbumIndex]['photos'] = array_values($existingAlbums[$existingAlbumIndex]['photos']);
+                        }
+                        unset($existingAlbums[$existingAlbumIndex]['photos'][$photoIndex]);
+                        $existingAlbums[$existingAlbumIndex]['photos'] = array_values($existingAlbums[$existingAlbumIndex]['photos']);
                         }
                     }
                 }
@@ -771,13 +771,13 @@ class ProjectController extends Controller
                         // Compress and resize image before storing
                         $compressedPath = $this->compressAndStoreImage($photo, 'projects/photos');
                         if ($compressedPath) {
-                            $album['photos'][] = [
+                        $album['photos'][] = [
                                 'path' => $compressedPath,
-                                'original_name' => $photo->getClientOriginalName(),
+                            'original_name' => $photo->getClientOriginalName(),
                                 'size' => \Storage::disk('public')->size($compressedPath),
                                 'mime_type' => 'image/jpeg', // Compressed images are saved as JPEG
-                                'uploaded_at' => now()->toDateTimeString(),
-                            ];
+                            'uploaded_at' => now()->toDateTimeString(),
+                        ];
                         }
                     }
                 }

@@ -5,8 +5,10 @@
 @section('content')
 <div class="mb-6 flex justify-between items-center">
     <h1 class="text-3xl font-bold text-gray-900">Income Records</h1>
-    <a href="{{ route('admin.incomes.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition duration-200">
-        Add New Income
+    <a href="{{ route('admin.incomes.create') }}" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2">
+        <i class="bi bi-plus-circle"></i>
+        <span class="mobile:hidden">Add New Income</span>
+        <span class="hidden mobile:inline">Add</span>
     </a>
 </div>
 
@@ -30,7 +32,9 @@
 @endif
 
 <div class="bg-white shadow-lg rounded-lg overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
+    <div class="overflow-x-auto -mx-4 sm:mx-0">
+        <div class="inline-block min-w-full align-middle">
+            <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
             <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -96,6 +100,8 @@
             @endforelse
         </tbody>
     </table>
+        </div>
+    </div>
 </div>
 
 <x-pagination :paginator="$incomes" wrapper-class="mt-4" />
