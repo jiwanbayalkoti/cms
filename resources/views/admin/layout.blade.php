@@ -1165,11 +1165,11 @@
                             </button>
                             <h2 class="text-base sm:text-lg font-semibold text-gray-800 truncate">@yield('title', 'Admin Panel')</h2>
                         </div>
-                        <div class="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+                        <div class="flex items-center space-x-1 sm:space-x-4 flex-shrink-0">
                             @if(Auth::user()->role === 'super_admin' && Auth::user()->company_id == 1)
-                                <form method="POST" action="{{ route('admin.companies.switch') }}" class="hidden sm:flex items-center space-x-2">
+                                <form method="POST" action="{{ route('admin.companies.switch') }}" class="flex items-center space-x-1 sm:space-x-2">
                                     @csrf
-                                    <select name="company_id" onchange="this.form.submit()" class="border rounded px-2 py-1 text-sm">
+                                    <select name="company_id" onchange="this.form.submit()" class="border rounded px-1 sm:px-2 py-1 text-xs sm:text-sm max-w-[80px] sm:max-w-none">
                                         @php
                                             $activeCompanyId = session('active_company_id') ?: Auth::user()->company_id;
                                         @endphp
@@ -1179,7 +1179,7 @@
                                     </select>
                                 </form>
                             @elseif(Auth::user()->role !== 'super_admin')
-                                <span class="hidden sm:inline text-gray-700 text-sm">{{ optional(Auth::user()->company)->name }}</span>
+                                <span class="inline text-gray-700 text-xs sm:text-sm truncate max-w-[60px] sm:max-w-none">{{ optional(Auth::user()->company)->name }}</span>
                             @endif
                             
                             @php
@@ -1210,9 +1210,9 @@
                             @endphp
                             
                             @if(isset($headerProjects) && $headerProjects instanceof \Illuminate\Support\Collection && $headerProjects->count() > 0)
-                                <form method="POST" action="{{ route('admin.projects.switch') }}" class="hidden sm:flex items-center space-x-2">
+                                <form method="POST" action="{{ route('admin.projects.switch') }}" class="flex items-center space-x-1 sm:space-x-2">
                                     @csrf
-                                    <select name="project_id" onchange="this.form.submit()" class="border rounded px-2 py-1 text-sm">
+                                    <select name="project_id" onchange="this.form.submit()" class="border rounded px-1 sm:px-2 py-1 text-xs sm:text-sm max-w-[80px] sm:max-w-none">
                                         <option value="">All Projects</option>
                                         @foreach($headerProjects as $project)
                                             <option value="{{ $project->id }}" {{ $activeProjectId == $project->id ? 'selected' : '' }}>{{ $project->name }}</option>
@@ -1221,7 +1221,7 @@
                                 </form>
                             @endif
                             
-                            <span class="hidden sm:inline text-gray-700 text-sm truncate max-w-[100px]">{{ Auth::user()->name }}</span>
+                            <span class="inline text-gray-700 text-xs sm:text-sm truncate max-w-[60px] sm:max-w-[100px]">{{ Auth::user()->name }}</span>
                             <form method="POST" action="{{ route('admin.logout') }}">
                                 @csrf
                                 <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg transition duration-200 text-sm sm:text-base">
