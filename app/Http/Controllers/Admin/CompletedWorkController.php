@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Models\CompletedWork;
 use App\Models\Project;
 use App\Models\BillCategory;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\DB;
 
 class CompletedWorkController extends Controller
 {
+    use HasProjectAccess;
+    
     public function __construct()
     {
         $this->middleware('admin');

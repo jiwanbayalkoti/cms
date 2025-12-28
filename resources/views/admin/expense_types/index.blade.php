@@ -8,22 +8,34 @@
 @if(session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
-<table class="table table-bordered">
-    <thead><tr><th>Name</th><th>Actions</th></tr></thead>
-    <tbody>
-    @foreach($expenseTypes as $type)
-        <tr>
-            <td>{{ $type->name }}</td>
-            <td>
-                <a href="{{ route('admin.expense-types.edit', $type) }}" class="btn btn-sm btn-warning">Edit</a>
-                <form action="{{ route('admin.expense-types.destroy', $type) }}" method="POST" style="display:inline">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this expense type?')">Delete</button>
-                </form>
-            </td>
-        </tr>
-    @endforeach
-    </tbody>
-</table>
+<div class="card">
+    <div class="card-body p-0">
+        <div class="overflow-x-auto">
+            <table class="table table-bordered mb-0">
+                <thead><tr><th>Name</th><th class="text-nowrap">Actions</th></tr></thead>
+                <tbody>
+                @foreach($expenseTypes as $type)
+                    <tr>
+                        <td>{{ $type->name }}</td>
+                        <td>
+                            <div class="d-flex gap-1 text-nowrap">
+                                <a href="{{ route('admin.expense-types.edit', $type) }}" class="btn btn-sm btn-warning">
+                                    <i class="bi bi-pencil me-1"></i> Edit
+                                </a>
+                                <form action="{{ route('admin.expense-types.destroy', $type) }}" method="POST" style="display:inline">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this expense type?')">
+                                        <i class="bi bi-trash me-1"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 @endsection
 

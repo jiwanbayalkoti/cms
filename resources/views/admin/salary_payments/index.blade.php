@@ -66,86 +66,96 @@
 </div>
 
 <div class="bg-white shadow-lg rounded-lg overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-            <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Salary</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Amount</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tax Amount</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Amount</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-            @forelse($salaryPayments as $payment)
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
                 <tr>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">{{ $payment->staff->name }}</div>
-                        @if($payment->project)
-                            <div class="text-sm text-gray-500">{{ $payment->project->name }}</div>
-                        @endif
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {{ $payment->payment_month_name }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        Rs. {{ number_format($payment->base_salary, 2) }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        Rs. {{ number_format($payment->gross_amount, 2) }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-orange-600 font-medium">
-                        Rs. {{ number_format($payment->tax_amount ?? 0, 2) }}
-                        @if($payment->tax_amount > 0)
-                            <div class="text-xs text-gray-500 mt-1">
-                                {{ ucfirst($payment->assessment_type ?? 'single') }}
-                            </div>
-                        @endif
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        Rs. {{ number_format($payment->net_amount, 2) }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs font-semibold rounded-full
-                            @if($payment->status === 'paid') bg-green-100 text-green-800
-                            @elseif($payment->status === 'partial') bg-blue-100 text-blue-800
-                            @elseif($payment->status === 'pending') bg-yellow-100 text-yellow-800
-                            @else bg-red-100 text-red-800
-                            @endif">
-                            {{ ucfirst($payment->status) }}
-                        </span>
-                        @if($payment->status === 'partial')
-                            <div class="text-xs text-gray-500 mt-1">
-                                Paid: Rs. {{ number_format($payment->paid_amount, 2) }}
-                            </div>
-                        @endif
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {{ $payment->payment_date->format('M d, Y') }}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        <a href="{{ route('admin.salary-payments.show', $payment) }}" class="text-indigo-600 hover:text-indigo-900">View</a>
-                        <a href="{{ route('admin.salary-payments.edit', $payment) }}" class="text-blue-600 hover:text-blue-900">Edit</a>
-                        <form method="POST" action="{{ route('admin.salary-payments.destroy', $payment) }}" class="inline" onsubmit="return confirm('Are you sure you want to delete this salary payment?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                        </form>
-                    </td>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Salary</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Amount</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tax Amount</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Amount</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-nowrap">Actions</th>
                 </tr>
-            @empty
-                <tr>
-                    <td colspan="9" class="px-6 py-4 text-center text-gray-500">
-                        No salary payments found.
-                    </td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                @forelse($salaryPayments as $payment)
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ $payment->staff->name }}</div>
+                            @if($payment->project)
+                                <div class="text-sm text-gray-500">{{ $payment->project->name }}</div>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ $payment->payment_month_name }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            Rs. {{ number_format($payment->base_salary, 2) }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            Rs. {{ number_format($payment->gross_amount, 2) }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-orange-600 font-medium">
+                            Rs. {{ number_format($payment->tax_amount ?? 0, 2) }}
+                            @if($payment->tax_amount > 0)
+                                <div class="text-xs text-gray-500 mt-1">
+                                    {{ ucfirst($payment->assessment_type ?? 'single') }}
+                                </div>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            Rs. {{ number_format($payment->net_amount, 2) }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full
+                                @if($payment->status === 'paid') bg-green-100 text-green-800
+                                @elseif($payment->status === 'partial') bg-blue-100 text-blue-800
+                                @elseif($payment->status === 'pending') bg-yellow-100 text-yellow-800
+                                @else bg-red-100 text-red-800
+                                @endif">
+                                {{ ucfirst($payment->status) }}
+                            </span>
+                            @if($payment->status === 'partial')
+                                <div class="text-xs text-gray-500 mt-1">
+                                    Paid: Rs. {{ number_format($payment->paid_amount, 2) }}
+                                </div>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ $payment->payment_date->format('M d, Y') }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="d-flex gap-1 text-nowrap">
+                                <a href="{{ route('admin.salary-payments.show', $payment) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i> View
+                                </a>
+                                <a href="{{ route('admin.salary-payments.edit', $payment) }}" class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-pencil me-1"></i> Edit
+                                </a>
+                                <form method="POST" action="{{ route('admin.salary-payments.destroy', $payment) }}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this salary payment?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash me-1"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="9" class="px-6 py-4 text-center text-gray-500">
+                            No salary payments found.
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
     
     @if($salaryPayments->hasPages())
         <div class="px-6 py-4 border-t border-gray-200">
