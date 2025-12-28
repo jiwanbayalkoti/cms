@@ -136,8 +136,19 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>
         </button>
+        <button id="lightbox-prev" onclick="event.stopPropagation(); navigateLightbox(-1)" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-3 hover:bg-opacity-70 transition">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </button>
+        <button id="lightbox-next" onclick="event.stopPropagation(); navigateLightbox(1)" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-3 hover:bg-opacity-70 transition">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+        </button>
         <img id="lightbox-image" src="" alt="" class="max-w-full max-h-screen mx-auto rounded-lg">
         <p id="lightbox-caption" class="text-white text-center mt-4 text-lg"></p>
+        <p id="lightbox-counter" class="text-white text-center mt-2 text-sm opacity-75"></p>
     </div>
 </div>
 
@@ -404,23 +415,81 @@ function deletePhoto(albumIndex, photoIndex) {
     });
 }
 
-function openLightbox(imageSrc, caption) {
-    document.getElementById('lightbox-image').src = imageSrc;
-    document.getElementById('lightbox-caption').textContent = caption;
+// Lightbox photo collection and navigation
+let allPhotos = [];
+let currentPhotoIndex = -1;
+
+// Initialize photos collection on page load
+function initializePhotoCollection() {
+    allPhotos = [];
+    const photos = document.querySelectorAll('img[data-photo-url]');
+    photos.forEach(photo => {
+        const src = photo.getAttribute('data-photo-url');
+        const caption = photo.getAttribute('data-photo-caption') || 'Photo';
+        const albumIndex = parseInt(photo.closest('[data-album-index]')?.getAttribute('data-album-index') || 0);
+        if (src) {
+            allPhotos.push({
+                src: src,
+                caption: caption,
+                albumIndex: albumIndex
+            });
+        }
+    });
+}
+
+function openLightbox(imageSrc, caption, albumIndex, photoIndex) {
+    // Initialize collection if not done
+    if (allPhotos.length === 0) {
+        initializePhotoCollection();
+    }
+    
+    // Find current photo index
+    currentPhotoIndex = allPhotos.findIndex(photo => photo.src === imageSrc);
+    if (currentPhotoIndex === -1) {
+        currentPhotoIndex = 0;
+    }
+    
+    updateLightboxDisplay();
     document.getElementById('lightbox').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+}
+
+function updateLightboxDisplay() {
+    if (currentPhotoIndex >= 0 && currentPhotoIndex < allPhotos.length) {
+        const photo = allPhotos[currentPhotoIndex];
+        document.getElementById('lightbox-image').src = photo.src;
+        document.getElementById('lightbox-caption').textContent = photo.caption;
+        document.getElementById('lightbox-counter').textContent = `${currentPhotoIndex + 1} / ${allPhotos.length}`;
+        
+        // Show/hide navigation buttons
+        document.getElementById('lightbox-prev').style.display = currentPhotoIndex > 0 ? 'block' : 'none';
+        document.getElementById('lightbox-next').style.display = currentPhotoIndex < allPhotos.length - 1 ? 'block' : 'none';
+    }
+}
+
+function navigateLightbox(direction) {
+    const newIndex = currentPhotoIndex + direction;
+    if (newIndex >= 0 && newIndex < allPhotos.length) {
+        currentPhotoIndex = newIndex;
+        updateLightboxDisplay();
+    }
 }
 
 function closeLightbox() {
     document.getElementById('lightbox').classList.add('hidden');
     document.body.style.overflow = 'auto';
+    currentPhotoIndex = -1;
 }
 
-// Close modals on Escape key
+// Close modals on Escape key, navigate with arrow keys
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeLightbox();
         closeAddAlbumModal();
+    } else if (e.key === 'ArrowLeft' && !document.getElementById('lightbox').classList.contains('hidden')) {
+        navigateLightbox(-1);
+    } else if (e.key === 'ArrowRight' && !document.getElementById('lightbox').classList.contains('hidden')) {
+        navigateLightbox(1);
     }
 });
 

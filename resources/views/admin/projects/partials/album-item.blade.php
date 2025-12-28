@@ -101,7 +101,9 @@
                                     class="w-full h-full cursor-pointer"
                                     style="width: 100%; height: 160px; object-fit: cover; display: block;"
                                     loading="lazy"
-                                    onclick="openLightbox('{{ $photoUrl }}', '{{ $photoName }}')"
+                                    data-photo-url="{{ $photoUrl }}"
+                                    data-photo-caption="{{ $photoName }}"
+                                    onclick="openLightbox('{{ $photoUrl }}', '{{ $photoName }}', {{ $albumIndex }}, {{ $photoIndex }})"
                                     onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27200%27 height=%27160%27%3E%3Crect width=%27200%27 height=%27160%27 fill=%27%23e5e7eb%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 text-anchor=%27middle%27 dy=%27.3em%27 fill=%27%239ca3af%27 font-size=%2712%27%3ENot Found%3C/text%3E%3C/svg%3E';">
                             </div>
                             
