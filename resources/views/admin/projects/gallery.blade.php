@@ -41,7 +41,13 @@
 <div id="albums-container" class="space-y-4">
     @if($project->photos && is_array($project->photos) && count($project->photos) > 0)
         @foreach($project->photos as $albumIndex => $album)
-            @include('admin.projects.partials.album-item', ['album' => $album, 'albumIndex' => $albumIndex, 'project' => $project, 'isAdmin' => $isAdmin])
+            @include('admin.projects.partials.album-item', [
+                'album' => $album, 
+                'albumIndex' => $albumIndex, 
+                'project' => $project, 
+                'isAdmin' => $isAdmin,
+                'isSiteEngineer' => Auth::user()->role === 'site_engineer'
+            ])
         @endforeach
     @else
         <div class="bg-white shadow-lg rounded-lg p-12 text-center">
@@ -193,23 +199,39 @@ function editAlbumName(albumIndex) {
         const formData = new FormData();
         formData.append('name', newName);
         formData.append('_token', csrfToken);
+        formData.append('_method', 'PUT');
 
         fetch(`/admin/projects/${projectId}/gallery/album/${albumIndex}`, {
-            method: 'PUT',
+            method: 'POST',
             body: formData,
-            headers: defaultHeaders
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json'
+            }
         })
-        .then(response => response.json())
+        .then(response => {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            } else {
+                return response.text().then(html => {
+                    console.error('Received HTML instead of JSON:', html.substring(0, 500));
+                    throw new Error('Server returned HTML instead of JSON');
+                });
+            }
+        })
         .then(data => {
             if (data.success) {
                 albumHeader.textContent = newName;
+                alert('Album name updated successfully');
             } else {
                 alert(data.error || 'Failed to update album name');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred while updating the album');
+            alert('An error occurred while updating the album: ' + (error.message || error));
         });
     }
 }
@@ -383,6 +405,227 @@ document.addEventListener('DOMContentLoaded', function() {
     if (firstIcon) {
         firstIcon.classList.add('rotate-180');
     }
+});
+
+// Photo Approval Functions
+function approvePhoto(albumIndex, photoIndex) {
+    console.log('approvePhoto called', { albumIndex, photoIndex, projectId });
+    
+    const formData = new FormData();
+    formData.append('_token', csrfToken);
+    formData.append('_method', 'POST');
+
+    const url = `/admin/projects/${projectId}/gallery/album/${albumIndex}/photo/${photoIndex}/approve`;
+    console.log('Request URL:', url);
+
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        const contentType = response.headers.get('content-type');
+        console.log('Content-Type:', contentType);
+        
+        if (!response.ok) {
+            // Try to get JSON error
+            if (contentType && contentType.includes('application/json')) {
+                return response.json().then(data => Promise.reject(data));
+            } else {
+                // HTML response - get text and show error
+                return response.text().then(html => {
+                    console.error('Received HTML instead of JSON:', html.substring(0, 500));
+                    throw new Error('Server returned HTML instead of JSON. Status: ' + response.status);
+                });
+            }
+        }
+        
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        } else {
+            return response.text().then(html => {
+                console.error('Received HTML instead of JSON:', html.substring(0, 500));
+                throw new Error('Server returned HTML instead of JSON');
+            });
+        }
+    })
+    .then(data => {
+        console.log('Success response:', data);
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Failed to approve photo');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const errorMsg = error.error || error.message || (typeof error === 'string' ? error : 'An error occurred while approving the photo');
+        alert(errorMsg);
+    });
+}
+
+function disapprovePhoto(albumIndex, photoIndex) {
+    console.log('disapprovePhoto called', { albumIndex, photoIndex, projectId });
+    
+    const formData = new FormData();
+    formData.append('_token', csrfToken);
+    formData.append('_method', 'POST');
+
+    const url = `/admin/projects/${projectId}/gallery/album/${albumIndex}/photo/${photoIndex}/disapprove`;
+    console.log('Request URL:', url);
+
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        const contentType = response.headers.get('content-type');
+        console.log('Content-Type:', contentType);
+        
+        if (!response.ok) {
+            if (contentType && contentType.includes('application/json')) {
+                return response.json().then(data => Promise.reject(data));
+            } else {
+                return response.text().then(html => {
+                    console.error('Received HTML instead of JSON:', html.substring(0, 500));
+                    throw new Error('Server returned HTML instead of JSON. Status: ' + response.status);
+                });
+            }
+        }
+        
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        } else {
+            return response.text().then(html => {
+                console.error('Received HTML instead of JSON:', html.substring(0, 500));
+                throw new Error('Server returned HTML instead of JSON');
+            });
+        }
+    })
+    .then(data => {
+        console.log('Success response:', data);
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || 'Failed to disapprove photo');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const errorMsg = error.error || error.message || (typeof error === 'string' ? error : 'An error occurred while disapproving the photo');
+        alert(errorMsg);
+    });
+}
+
+// Bulk Approval Functions
+function toggleSelectAll(albumIndex) {
+    const selectAll = document.getElementById('select-all-' + albumIndex);
+    const checkboxes = document.querySelectorAll(`[data-album-index="${albumIndex}"].photo-checkbox`);
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+    });
+    
+    updateBulkButtons(albumIndex);
+}
+
+function updateBulkButtons(albumIndex) {
+    const checkboxes = document.querySelectorAll(`[data-album-index="${albumIndex}"].photo-checkbox:checked`);
+    const bulkButtons = document.querySelectorAll(`[onclick*="bulkApprovePhotos(${albumIndex}"]`);
+    
+    // Enable/disable bulk buttons based on selection
+    bulkButtons.forEach(button => {
+        button.disabled = checkboxes.length === 0;
+        button.style.opacity = checkboxes.length === 0 ? '0.5' : '1';
+        button.style.cursor = checkboxes.length === 0 ? 'not-allowed' : 'pointer';
+    });
+}
+
+function bulkApprovePhotos(albumIndex, action) {
+    const checkboxes = document.querySelectorAll(`[data-album-index="${albumIndex}"].photo-checkbox:checked`);
+    
+    if (checkboxes.length === 0) {
+        alert('Please select at least one photo');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to ${action} ${checkboxes.length} photo(s)?`)) {
+        return;
+    }
+    
+    const photoIndices = Array.from(checkboxes).map(cb => parseInt(cb.getAttribute('data-photo-index')));
+    
+    const formData = new FormData();
+    formData.append('_token', csrfToken);
+    formData.append('action', action);
+    photoIndices.forEach(index => {
+        formData.append('photo_indices[]', index);
+    });
+
+    const submitBtn = event.target;
+    submitBtn.disabled = true;
+    submitBtn.textContent = action === 'approve' ? 'Approving...' : 'Disapproving...';
+
+    fetch(`/admin/projects/${projectId}/gallery/album/${albumIndex}/photos/bulk-approve`, {
+        method: 'POST',
+        body: formData,
+        headers: defaultHeaders
+    })
+    .then(response => {
+        // Check if response is HTML (redirect) or JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        } else {
+            // If we get HTML, it means there was a redirect (likely validation error)
+            return response.text().then(html => {
+                console.error('Received HTML instead of JSON:', html);
+                throw new Error('Server returned HTML instead of JSON. This usually means a validation error or authentication issue.');
+            });
+        }
+    })
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.error || `Failed to ${action} photos`);
+            submitBtn.disabled = false;
+            submitBtn.textContent = action === 'approve' ? 'Approve Selected' : 'Disapprove Selected';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const errorMsg = error.message || `An error occurred while ${action}ing photos`;
+        alert(errorMsg);
+        submitBtn.disabled = false;
+        submitBtn.textContent = action === 'approve' ? 'Approve Selected' : 'Disapprove Selected';
+    });
+}
+
+// Initialize bulk button states on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Update bulk buttons for all albums
+    const albums = document.querySelectorAll('[data-album-index]');
+    albums.forEach(album => {
+        const albumIndex = album.getAttribute('data-album-index');
+        updateBulkButtons(albumIndex);
+    });
 });
 </script>
 @endpush

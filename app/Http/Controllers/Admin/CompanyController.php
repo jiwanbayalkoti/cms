@@ -135,15 +135,28 @@ class CompanyController extends Controller
      */
     public function profile()
     {
-        $companyId = CompanyContext::getActiveCompanyId();
-        
-        if (!$companyId) {
-            return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
-        }
+        try {
+            $companyId = CompanyContext::getActiveCompanyId();
+            
+            if (!$companyId) {
+                return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
+            }
 
-        $company = Company::findOrFail($companyId);
-        
-        return view('admin.companies.profile', compact('company'));
+            $company = Company::find($companyId);
+            
+            if (!$company) {
+                return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
+            }
+            
+            return view('admin.companies.profile', compact('company'));
+        } catch (\Exception $e) {
+            \Log::error('Error loading company profile: ' . $e->getMessage(), [
+                'user_id' => auth()->id(),
+                'company_id' => $companyId ?? null,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return redirect()->route('admin.dashboard')->with('error', 'An error occurred while loading the company profile.');
+        }
     }
 
     /**

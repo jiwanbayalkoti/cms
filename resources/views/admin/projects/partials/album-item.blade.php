@@ -1,5 +1,6 @@
 @php
     use App\Helpers\StorageHelper;
+    use App\Models\User;
 @endphp
 <div class="bg-white shadow-lg rounded-lg overflow-hidden" data-album-index="{{ $albumIndex }}">
     <!-- Album Header -->
@@ -44,6 +45,29 @@
     <!-- Album Content - Collapsible -->
     <div id="album-content-{{ $albumIndex }}" class="px-6 pb-6 {{ $albumIndex === 0 ? '' : 'hidden' }}">
         @if(isset($album['photos']) && is_array($album['photos']) && count($album['photos']) > 0)
+            @if(isset($isSiteEngineer) && $isSiteEngineer)
+            <!-- Bulk Approval Controls for Site Engineers -->
+            <div class="mb-4 flex items-center justify-between bg-blue-50 p-3 rounded-lg">
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="select-all-{{ $albumIndex }}" onchange="toggleSelectAll({{ $albumIndex }})" class="rounded border-gray-300">
+                    <label for="select-all-{{ $albumIndex }}" class="text-sm font-medium text-gray-700">Select All</label>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="bulkApprovePhotos({{ $albumIndex }}, 'approve')" class="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition">
+                        <svg class="h-4 w-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Approve Selected
+                    </button>
+                    <button onclick="bulkApprovePhotos({{ $albumIndex }}, 'disapprove')" class="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition">
+                        <svg class="h-4 w-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                        Disapprove Selected
+                    </button>
+                </div>
+            </div>
+            @endif
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 @foreach($album['photos'] as $photoIndex => $photo)
                     @php
@@ -51,18 +75,77 @@
                         $photoName = $photo['original_name'] ?? 'Photo';
                         $photoUrl = StorageHelper::url($photoPath);
                         $fileExists = $photoPath ? StorageHelper::exists($photoPath) : false;
+                        $approvalStatus = $photo['approval_status'] ?? 'pending';
+                        $approvedBy = $photo['approved_by'] ?? null;
+                        $approvedAt = $photo['approved_at'] ?? null;
+                        $approverName = null;
+                        if ($approvedBy) {
+                            $approver = User::find($approvedBy);
+                            $approverName = $approver ? $approver->name : 'Unknown';
+                        }
                     @endphp
                     @if($photoUrl)
-                        <div class="relative group bg-white rounded-lg overflow-hidden shadow-md border border-gray-200 hover:shadow-lg transition-shadow" style="height: 160px;" data-photo-index="{{ $photoIndex }}">
-                            <img
-                                src="{{ $photoUrl }}"
-                                alt="{{ $photoName }}"
-                                class="w-full h-full cursor-pointer"
-                                style="width: 100%; height: 160px; object-fit: cover; display: block;"
-                                loading="lazy"
-                                onclick="openLightbox('{{ $photoUrl }}', '{{ $photoName }}')"
-                                onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27200%27 height=%27160%27%3E%3Crect width=%27200%27 height=%27160%27 fill=%27%23e5e7eb%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 text-anchor=%27middle%27 dy=%27.3em%27 fill=%27%239ca3af%27 font-size=%2712%27%3ENot Found%3C/text%3E%3C/svg%3E';">
-                            @if($isAdmin)
+                        <div class="relative group bg-white rounded-lg overflow-hidden shadow-md border border-gray-200 hover:shadow-lg transition-shadow" data-photo-index="{{ $photoIndex }}">
+                            @if(isset($isSiteEngineer) && $isSiteEngineer && $approvalStatus === 'pending')
+                            <!-- Checkbox for bulk selection (only for pending photos) -->
+                            <input type="checkbox" 
+                                   class="photo-checkbox absolute top-2 left-2 z-20 rounded border-gray-300 bg-white shadow-lg" 
+                                   data-album-index="{{ $albumIndex }}" 
+                                   data-photo-index="{{ $photoIndex }}"
+                                   onchange="updateBulkButtons({{ $albumIndex }})">
+                            @endif
+                            <div class="relative" style="height: 160px;">
+                                <img
+                                    src="{{ $photoUrl }}"
+                                    alt="{{ $photoName }}"
+                                    class="w-full h-full cursor-pointer"
+                                    style="width: 100%; height: 160px; object-fit: cover; display: block;"
+                                    loading="lazy"
+                                    onclick="openLightbox('{{ $photoUrl }}', '{{ $photoName }}')"
+                                    onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27200%27 height=%27160%27%3E%3Crect width=%27200%27 height=%27160%27 fill=%27%23e5e7eb%27/%3E%3Ctext x=%2750%25%27 y=%2750%25%27 text-anchor=%27middle%27 dy=%27.3em%27 fill=%27%239ca3af%27 font-size=%2712%27%3ENot Found%3C/text%3E%3C/svg%3E';">
+                            </div>
+                            
+                            <!-- Status and Approver Info (below image) -->
+                            <div class="p-2 bg-gray-50 border-t border-gray-200">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-xs font-medium text-gray-700">Status:</span>
+                                    @if($approvalStatus === 'approved')
+                                        <span class="bg-green-600 text-white text-xs px-2 py-0.5 rounded">Approved</span>
+                                    @elseif($approvalStatus === 'disapproved')
+                                        <span class="bg-red-600 text-white text-xs px-2 py-0.5 rounded">Disapproved</span>
+                                    @else
+                                        <span class="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded">Pending</span>
+                                    @endif
+                                </div>
+                                @if($approverName && $approvedAt)
+                                    <div class="text-xs text-gray-600 mt-1">
+                                        <span class="font-medium">By:</span> {{ $approverName }}
+                                        <span class="text-gray-400 ml-1">({{ \Carbon\Carbon::parse($approvedAt)->format('M d, Y') }})</span>
+                                    </div>
+                                @endif
+                            </div>
+                            
+                            @if(isset($isSiteEngineer) && $isSiteEngineer && $approvalStatus === 'pending')
+                            <!-- Approval buttons for site engineers (only for pending photos) -->
+                            <div class="absolute bottom-2 left-2 right-2 flex gap-1 z-10" style="bottom: 2px;">
+                                <button onclick="event.stopPropagation(); approvePhoto({{ $albumIndex }}, {{ $photoIndex }})" 
+                                        class="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs py-1.5 px-2 rounded shadow-lg opacity-90 hover:opacity-100 transition-opacity" 
+                                        title="Approve">
+                                    <svg class="h-3 w-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </button>
+                                <button onclick="event.stopPropagation(); disapprovePhoto({{ $albumIndex }}, {{ $photoIndex }})" 
+                                        class="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs py-1.5 px-2 rounded shadow-lg opacity-90 hover:opacity-100 transition-opacity" 
+                                        title="Disapprove">
+                                    <svg class="h-3 w-3 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            @endif
+                            
+                            @if($isAdmin && $approvalStatus !== 'approved')
                             <button onclick="deletePhoto({{ $albumIndex }}, {{ $photoIndex }})" 
                                     class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-1.5 shadow-lg opacity-90 hover:opacity-100 transition-opacity z-10" 
                                     title="Delete this photo">

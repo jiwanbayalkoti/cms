@@ -37,6 +37,9 @@ class SiteEngineerMiddleware
                 'admin.projects.gallery.photos.add',
                 'admin.projects.gallery.photo.delete',
                 'admin.projects.gallery.photo.delete.post',
+                'admin.projects.gallery.photo.approve',
+                'admin.projects.gallery.photo.disapprove',
+                'admin.projects.gallery.photos.bulk-approve',
                 'admin.logout',
                 null, // Allow routes without names (like root redirect)
             ];

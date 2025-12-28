@@ -108,7 +108,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('projects/{project}/gallery/album', [ProjectController::class, 'addAlbum'])->name('projects.gallery.album.add');
         Route::put('projects/{project}/gallery/album/{albumIndex}', [ProjectController::class, 'updateAlbum'])->name('projects.gallery.album.update');
         Route::delete('projects/{project}/gallery/album/{albumIndex}', [ProjectController::class, 'deleteAlbum'])->name('projects.gallery.album.delete');
+        // Approval routes must come before general routes (more specific first)
+        Route::post('projects/{project}/gallery/album/{albumIndex}/photos/bulk-approve', [ProjectController::class, 'bulkApprovePhotos'])->name('projects.gallery.photos.bulk-approve');
+        Route::post('projects/{projectId}/gallery/album/{albumIndex}/photo/{photoIndex}/approve', [ProjectController::class, 'approvePhoto'])->name('projects.gallery.photo.approve');
+        Route::post('projects/{projectId}/gallery/album/{albumIndex}/photo/{photoIndex}/disapprove', [ProjectController::class, 'disapprovePhoto'])->name('projects.gallery.photo.disapprove');
+        // General routes come after specific routes
         Route::post('projects/{project}/gallery/album/{albumIndex}/photos', [ProjectController::class, 'addPhotos'])->name('projects.gallery.photos.add');
+        // Delete routes come after approval routes
         Route::delete('projects/{project}/gallery/album/{albumIndex}/photo/{photoIndex}', [ProjectController::class, 'deletePhoto'])->name('projects.gallery.photo.delete');
         Route::post('projects/{project}/gallery/album/{albumIndex}/photo/{photoIndex}', [ProjectController::class, 'deletePhoto'])->name('projects.gallery.photo.delete.post');
         Route::post('projects/validate', [ProjectController::class, 'validateProjectForm'])->name('projects.validate');

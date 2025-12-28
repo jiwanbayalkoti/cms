@@ -89,6 +89,8 @@
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s ease;
             box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
             z-index: 50;
+            height: 100vh;
+            min-height: 100vh;
         }
         
         .sidebar.collapsed {
@@ -766,6 +768,13 @@
             
             .layout-wrapper {
                 flex-direction: row;
+                height: 100vh;
+                min-height: 100vh;
+            }
+            
+            .sidebar {
+                height: 100vh;
+                min-height: 100vh;
             }
         }
     </style>

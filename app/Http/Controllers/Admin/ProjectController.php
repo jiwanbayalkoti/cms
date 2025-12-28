@@ -9,6 +9,7 @@ use App\Models\Project;
 use App\Support\CompanyContext;
 use App\Support\ProjectContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProjectController extends Controller
 {
@@ -17,6 +18,15 @@ class ProjectController extends Controller
     public function __construct()
     {
         $this->middleware('admin');
+        // Exclude approval methods from admin middleware redirects - handle in method itself
+        $this->middleware(function ($request, $next) {
+            // For approval routes, ensure JSON response
+            if ($request->is('*/gallery/*/approve') || $request->is('*/gallery/*/disapprove') || $request->is('*/gallery/*/bulk-approve')) {
+                $request->headers->set('Accept', 'application/json');
+                $request->headers->set('X-Requested-With', 'XMLHttpRequest');
+            }
+            return $next($request);
+        });
     }
     
     /**
@@ -211,6 +221,9 @@ class ProjectController extends Controller
                             'size' => \Storage::disk('public')->size($compressedPath),
                             'mime_type' => 'image/jpeg',
                             'uploaded_at' => now()->toDateTimeString(),
+                            'approval_status' => 'pending', // Default status
+                            'approved_by' => null,
+                            'approved_at' => null,
                         ];
                     }
                 }
@@ -251,8 +264,14 @@ class ProjectController extends Controller
         $album = $photos[$albumIndex];
 
         // Update album name
-        if ($request->has('name')) {
-            $album['name'] = $request->input('name');
+        if ($request->filled('name')) {
+            $album['name'] = trim($request->input('name'));
+            Log::info('Updating album name', [
+                'project_id' => $project->id,
+                'album_index' => $albumIndex,
+                'old_name' => $photos[$albumIndex]['name'] ?? 'N/A',
+                'new_name' => $album['name']
+            ]);
         }
 
         // Delete photos
@@ -282,6 +301,9 @@ class ProjectController extends Controller
                             'size' => \Storage::disk('public')->size($compressedPath),
                             'mime_type' => 'image/jpeg',
                             'uploaded_at' => now()->toDateTimeString(),
+                            'approval_status' => 'pending', // Default status
+                            'approved_by' => null,
+                            'approved_at' => null,
                         ];
                     }
                 }
@@ -289,7 +311,21 @@ class ProjectController extends Controller
         }
 
         $photos[$albumIndex] = $album;
-        $project->update(['photos' => $photos]);
+        
+        // Save to database
+        $project->photos = $photos;
+        $saved = $project->save();
+        
+        // Refresh to ensure data is persisted
+        $project->refresh();
+        
+        Log::info('Album update saved', [
+            'project_id' => $project->id,
+            'album_index' => $albumIndex,
+            'saved' => $saved,
+            'album_name' => $album['name'] ?? 'N/A',
+            'photos_count' => count($project->photos ?? [])
+        ]);
 
         return response()->json([
             'success' => true,
@@ -365,6 +401,9 @@ class ProjectController extends Controller
                             'size' => \Storage::disk('public')->size($compressedPath),
                             'mime_type' => 'image/jpeg',
                             'uploaded_at' => now()->toDateTimeString(),
+                            'approval_status' => 'pending', // Default status
+                            'approved_by' => null,
+                            'approved_at' => null,
                         ];
                         $album['photos'][] = $newPhoto;
                         $newPhotos[] = $newPhoto;
@@ -416,6 +455,263 @@ class ProjectController extends Controller
             'success' => true,
             'message' => 'Photo deleted successfully.',
         ]);
+    }
+
+    public function approvePhoto(Request $request, $projectId, int $albumIndex, int $photoIndex)
+    {
+        // Log immediately to see if method is called
+        Log::info('=== approvePhoto METHOD CALLED ===', [
+            'project_id_param' => $projectId,
+            'album_index' => $albumIndex,
+            'photo_index' => $photoIndex,
+            'request_url' => $request->fullUrl(),
+            'request_method' => $request->method(),
+            'all_params' => $request->all(),
+        ]);
+        
+        // Get project manually to avoid route model binding issues
+        $project = Project::find($projectId);
+        if (!$project) {
+            Log::error('Project not found', ['project_id' => $projectId]);
+            return response()->json(['error' => 'Project not found.'], 404);
+        }
+        
+        // Log the request for debugging
+        Log::info('approvePhoto processing', [
+            'project_id' => $project->id,
+            'album_index' => $albumIndex,
+            'photo_index' => $photoIndex,
+            'user_id' => auth()->id(),
+            'user_role' => auth()->user()->role ?? null,
+            'is_ajax' => request()->ajax(),
+            'expects_json' => request()->expectsJson(),
+            'accept_header' => request()->header('Accept'),
+        ]);
+        
+        // Force JSON response for AJAX requests
+        request()->headers->set('Accept', 'application/json');
+        request()->headers->set('X-Requested-With', 'XMLHttpRequest');
+        
+        try {
+            // Check authorization - if it returns a response, return it
+            $authResponse = $this->authorizeCompanyAccess($project);
+            if ($authResponse) {
+                return $authResponse;
+            }
+            
+            // Only site engineers can approve photos
+            if (auth()->user()->role !== 'site_engineer') {
+                return response()->json(['error' => 'Only site engineers can approve photos.'], 403);
+            }
+
+            $photos = $project->photos ?? [];
+            if (!is_array($photos) || !isset($photos[$albumIndex])) {
+                return response()->json(['error' => 'Album not found.'], 404);
+            }
+
+            $album = $photos[$albumIndex];
+            if (!isset($album['photos']) || !is_array($album['photos']) || !isset($album['photos'][$photoIndex])) {
+                return response()->json(['error' => 'Photo not found.'], 404);
+            }
+
+            // Update approval status
+            $album['photos'][$photoIndex]['approval_status'] = 'approved';
+            $album['photos'][$photoIndex]['approved_by'] = auth()->user()->id;
+            $album['photos'][$photoIndex]['approved_at'] = now()->toDateTimeString();
+
+            $photos[$albumIndex] = $album;
+            
+            // Update photos array
+            $project->photos = $photos;
+            $project->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Photo approved successfully.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error approving photo: ' . $e->getMessage(), [
+                'project_id' => $project->id,
+                'album_index' => $albumIndex,
+                'photo_index' => $photoIndex,
+                'user_id' => auth()->id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'An error occurred while approving the photo: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function disapprovePhoto(Request $request, $projectId, int $albumIndex, int $photoIndex)
+    {
+        // Log immediately to see if method is called
+        Log::info('=== disapprovePhoto METHOD CALLED ===', [
+            'project_id_param' => $projectId,
+            'album_index' => $albumIndex,
+            'photo_index' => $photoIndex,
+            'request_url' => $request->fullUrl(),
+            'request_method' => $request->method(),
+            'all_params' => $request->all(),
+        ]);
+        
+        // Get project manually to avoid route model binding issues
+        $project = Project::find($projectId);
+        if (!$project) {
+            Log::error('Project not found', ['project_id' => $projectId]);
+            return response()->json(['error' => 'Project not found.'], 404);
+        }
+        
+        // Log the request for debugging
+        Log::info('disapprovePhoto processing', [
+            'project_id' => $project->id,
+            'album_index' => $albumIndex,
+            'photo_index' => $photoIndex,
+            'user_id' => auth()->id(),
+            'user_role' => auth()->user()->role ?? null,
+            'is_ajax' => $request->ajax(),
+            'expects_json' => $request->expectsJson(),
+            'accept_header' => $request->header('Accept'),
+        ]);
+        
+        // Force JSON response for AJAX requests
+        $request->headers->set('Accept', 'application/json');
+        $request->headers->set('X-Requested-With', 'XMLHttpRequest');
+        
+        try {
+            // Check authorization - if it returns a response, return it
+            $authResponse = $this->authorizeCompanyAccess($project);
+            if ($authResponse) {
+                return $authResponse;
+            }
+            
+            // Only site engineers can disapprove photos
+            if (auth()->user()->role !== 'site_engineer') {
+                return response()->json(['error' => 'Only site engineers can disapprove photos.'], 403);
+            }
+
+            $photos = $project->photos ?? [];
+            if (!is_array($photos) || !isset($photos[$albumIndex])) {
+                return response()->json(['error' => 'Album not found.'], 404);
+            }
+
+            $album = $photos[$albumIndex];
+            if (!isset($album['photos']) || !is_array($album['photos']) || !isset($album['photos'][$photoIndex])) {
+                return response()->json(['error' => 'Photo not found.'], 404);
+            }
+
+            // Update approval status
+            $album['photos'][$photoIndex]['approval_status'] = 'disapproved';
+            $album['photos'][$photoIndex]['approved_by'] = auth()->user()->id;
+            $album['photos'][$photoIndex]['approved_at'] = now()->toDateTimeString();
+
+            $photos[$albumIndex] = $album;
+            
+            // Update photos array
+            $project->photos = $photos;
+            $project->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Photo disapproved successfully.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error disapproving photo: ' . $e->getMessage(), [
+                'project_id' => $project->id,
+                'album_index' => $albumIndex,
+                'photo_index' => $photoIndex,
+                'user_id' => auth()->id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'An error occurred while disapproving the photo: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function bulkApprovePhotos(Request $request, Project $project, int $albumIndex)
+    {
+        // Force JSON response for AJAX requests - set multiple ways to ensure detection
+        $request->headers->set('Accept', 'application/json');
+        $request->headers->set('X-Requested-With', 'XMLHttpRequest');
+        
+        try {
+            // Check authorization - if it returns a response, return it
+            $authResponse = $this->authorizeCompanyAccess($project);
+            if ($authResponse) {
+                return $authResponse;
+            }
+            
+            // Only site engineers can approve photos
+            if (auth()->user()->role !== 'site_engineer') {
+                return response()->json(['error' => 'Only site engineers can approve photos.'], 403);
+            }
+
+            // Validate request - catch validation exceptions and return JSON
+            try {
+                $validated = $request->validate([
+                    'photo_indices' => 'required|array|min:1',
+                    'photo_indices.*' => 'integer',
+                    'action' => 'required|in:approve,disapprove',
+                ]);
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                return response()->json([
+                    'error' => 'Validation failed',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+
+            $photos = $project->photos ?? [];
+            if (!is_array($photos) || !isset($photos[$albumIndex])) {
+                return response()->json(['error' => 'Album not found.'], 404);
+            }
+
+            $album = $photos[$albumIndex];
+            if (!isset($album['photos']) || !is_array($album['photos'])) {
+                return response()->json(['error' => 'Album has no photos.'], 404);
+            }
+
+            $action = $request->input('action');
+            $status = $action === 'approve' ? 'approved' : 'disapproved';
+            $updatedCount = 0;
+
+            foreach ($request->input('photo_indices') as $photoIndex) {
+                $photoIndex = (int) $photoIndex;
+                if (isset($album['photos'][$photoIndex])) {
+                    $album['photos'][$photoIndex]['approval_status'] = $status;
+                    $album['photos'][$photoIndex]['approved_by'] = auth()->user()->id;
+                    $album['photos'][$photoIndex]['approved_at'] = now()->toDateTimeString();
+                    $updatedCount++;
+                }
+            }
+
+            if ($updatedCount === 0) {
+                return response()->json(['error' => 'No photos were updated.'], 400);
+            }
+
+            $photos[$albumIndex] = $album;
+            $project->photos = $photos;
+            $project->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$updatedCount} photo(s) {$action}d successfully.",
+                'updated_count' => $updatedCount,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error bulk approving photos: ' . $e->getMessage(), [
+                'project_id' => $project->id,
+                'album_index' => $albumIndex,
+                'user_id' => auth()->id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'An error occurred while updating photos: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function edit(Project $project)
@@ -571,25 +867,43 @@ class ProjectController extends Controller
         return back()->with('success', $projectId ? 'Active project switched.' : 'Project filter cleared.');
     }
 
-    protected function authorizeCompanyAccess(Project $project): void
+    /**
+     * Authorize company access for a project
+     * Returns a JSON response for AJAX requests if access is denied, otherwise aborts
+     * 
+     * @param Project $project
+     * @return \Illuminate\Http\JsonResponse|null Returns JSON response for AJAX if denied, null if allowed
+     */
+    protected function authorizeCompanyAccess(Project $project)
     {
         $user = auth()->user();
+        $request = request();
         
         // Super admins have access to all projects
         if ($user->isSuperAdmin()) {
-            return;
+            return null;
         }
 
         // Check company access
         $activeCompanyId = CompanyContext::getActiveCompanyId();
         if ($activeCompanyId && (int) $activeCompanyId !== 1 && $project->company_id !== $activeCompanyId) {
+            // For AJAX/JSON requests, return JSON response directly
+            if ($request->expectsJson() || $request->ajax() || $request->wantsJson() || $request->header('Accept') === 'application/json' || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+                return response()->json(['error' => 'You do not have access to this project.'], 403);
+            }
             abort(403, 'You do not have access to this project.');
         }
 
         // Check project-specific access using the helper method
         if (!$user->hasProjectAccess($project->id)) {
+            // For AJAX/JSON requests, return JSON response directly
+            if ($request->expectsJson() || $request->ajax() || $request->wantsJson() || $request->header('Accept') === 'application/json' || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+                return response()->json(['error' => 'You do not have access to this project.'], 403);
+            }
             abort(403, 'You do not have access to this project.');
         }
+        
+        return null; // Access granted
     }
 
     /**
