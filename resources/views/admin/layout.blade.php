@@ -577,10 +577,12 @@
                 width: 100%;
             }
             
-            /* Mobile table styling */
+            /* Mobile table styling - ensure all tables are scrollable */
             @media (max-width: 768px) {
+                /* Wrap all tables in scrollable containers */
                 table {
                     min-width: 600px; /* Minimum width to enable scrolling */
+                    display: table;
                 }
                 
                 /* Ensure table cells don't break */
@@ -593,6 +595,52 @@
                 table td.text-wrap,
                 table th.text-wrap {
                     white-space: normal;
+                }
+                
+                /* Force horizontal scroll for common table containers on mobile */
+                .card-body,
+                .card,
+                .bg-white.rounded,
+                .bg-white.shadow-lg,
+                .bg-white.rounded.shadow {
+                    overflow-x: auto !important;
+                    -webkit-overflow-scrolling: touch;
+                    scrollbar-width: thin;
+                }
+                
+                /* Ensure table containers show scrollbar */
+                .card-body::-webkit-scrollbar,
+                .card::-webkit-scrollbar,
+                .bg-white.rounded::-webkit-scrollbar,
+                .bg-white.shadow-lg::-webkit-scrollbar,
+                .bg-white.rounded.shadow::-webkit-scrollbar {
+                    height: 8px;
+                }
+                
+                .card-body::-webkit-scrollbar-track,
+                .card::-webkit-scrollbar-track,
+                .bg-white.rounded::-webkit-scrollbar-track,
+                .bg-white.shadow-lg::-webkit-scrollbar-track,
+                .bg-white.rounded.shadow::-webkit-scrollbar-track {
+                    background: #f1f1f1;
+                    border-radius: 4px;
+                }
+                
+                .card-body::-webkit-scrollbar-thumb,
+                .card::-webkit-scrollbar-thumb,
+                .bg-white.rounded::-webkit-scrollbar-thumb,
+                .bg-white.shadow-lg::-webkit-scrollbar-thumb,
+                .bg-white.rounded.shadow::-webkit-scrollbar-thumb {
+                    background: #888;
+                    border-radius: 4px;
+                }
+                
+                .card-body::-webkit-scrollbar-thumb:hover,
+                .card::-webkit-scrollbar-thumb:hover,
+                .bg-white.rounded::-webkit-scrollbar-thumb:hover,
+                .bg-white.shadow-lg::-webkit-scrollbar-thumb:hover,
+                .bg-white.rounded.shadow::-webkit-scrollbar-thumb:hover {
+                    background: #555;
                 }
             }
             
@@ -1434,6 +1482,42 @@
                     }
                 });
             });
+        });
+        
+        // Auto-wrap tables in scrollable containers on mobile
+        function wrapTablesForMobile() {
+            if (window.innerWidth <= 768) {
+                const tables = document.querySelectorAll('table');
+                tables.forEach(table => {
+                    // Check if table is already wrapped in overflow-x-auto
+                    const parent = table.parentElement;
+                    if (parent && !parent.classList.contains('overflow-x-auto') && 
+                        !parent.classList.contains('table-responsive') &&
+                        !parent.style.overflowX) {
+                        // Check if parent already has overflow-x-auto in its class list or inline style
+                        const hasOverflow = window.getComputedStyle(parent).overflowX === 'auto' ||
+                                          window.getComputedStyle(parent).overflowX === 'scroll';
+                        
+                        if (!hasOverflow) {
+                            // Create wrapper if needed
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'overflow-x-auto';
+                            wrapper.style.webkitOverflowScrolling = 'touch';
+                            table.parentNode.insertBefore(wrapper, table);
+                            wrapper.appendChild(table);
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Run on page load and resize
+        document.addEventListener('DOMContentLoaded', function() {
+            wrapTablesForMobile();
+        });
+        
+        window.addEventListener('resize', function() {
+            wrapTablesForMobile();
         });
         
         // Auto-dismiss alerts after 5 seconds
