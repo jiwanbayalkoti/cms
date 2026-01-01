@@ -81,7 +81,17 @@ class StaffController extends Controller
             ->where('status', '!=', 'cancelled')
             ->orderBy('name')
             ->get();
-        return view('admin.staff.create', compact('positions', 'projects'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'positions' => $positions,
+                'projects' => $projects,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.staff.index');
     }
 
     /**
@@ -105,7 +115,26 @@ class StaffController extends Controller
         $validated['is_active'] = $request->has('is_active');
         $validated['company_id'] = CompanyContext::getActiveCompanyId();
 
-        Staff::create($validated);
+        $staff = Staff::create($validated);
+        $staff->load(['position', 'project']);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Staff member created successfully.',
+                'staff' => [
+                    'id' => $staff->id,
+                    'name' => $staff->name,
+                    'email' => $staff->email,
+                    'phone' => $staff->phone,
+                    'project_name' => $staff->project ? $staff->project->name : null,
+                    'position_name' => $staff->position ? $staff->position->name : null,
+                    'join_date' => $staff->join_date ? $staff->join_date->format('M d, Y') : null,
+                    'is_active' => $staff->is_active,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.staff.index')
             ->with('success', 'Staff member created successfully.');
@@ -117,7 +146,30 @@ class StaffController extends Controller
     public function show(Staff $staff)
     {
         $staff->load(['position', 'project']);
-        return view('admin.staff.show', compact('staff'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'staff' => [
+                    'id' => $staff->id,
+                    'name' => $staff->name,
+                    'email' => $staff->email,
+                    'phone' => $staff->phone,
+                    'address' => $staff->address,
+                    'salary' => $staff->salary,
+                    'marriage_status' => $staff->marriage_status,
+                    'join_date' => $staff->join_date ? $staff->join_date->format('M d, Y') : null,
+                    'is_active' => $staff->is_active,
+                    'position_name' => $staff->position ? $staff->position->name : null,
+                    'project_name' => $staff->project ? $staff->project->name : null,
+                    'created_at' => $staff->created_at->format('M d, Y H:i'),
+                    'updated_at' => $staff->updated_at->format('M d, Y H:i'),
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.staff.index');
     }
 
     /**
@@ -131,7 +183,30 @@ class StaffController extends Controller
             ->where('status', '!=', 'cancelled')
             ->orderBy('name')
             ->get();
-        return view('admin.staff.edit', compact('staff', 'positions', 'projects'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'staff' => [
+                    'id' => $staff->id,
+                    'name' => $staff->name,
+                    'email' => $staff->email,
+                    'phone' => $staff->phone,
+                    'address' => $staff->address,
+                    'salary' => $staff->salary,
+                    'marriage_status' => $staff->marriage_status,
+                    'join_date' => $staff->join_date ? $staff->join_date->format('Y-m-d') : null,
+                    'is_active' => $staff->is_active,
+                    'position_id' => $staff->position_id,
+                    'project_id' => $staff->project_id,
+                ],
+                'positions' => $positions,
+                'projects' => $projects,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.staff.index');
     }
 
     /**
@@ -155,6 +230,25 @@ class StaffController extends Controller
         $validated['is_active'] = $request->has('is_active');
 
         $staff->update($validated);
+        $staff->load(['position', 'project']);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Staff member updated successfully.',
+                'staff' => [
+                    'id' => $staff->id,
+                    'name' => $staff->name,
+                    'email' => $staff->email,
+                    'phone' => $staff->phone,
+                    'project_name' => $staff->project ? $staff->project->name : null,
+                    'position_name' => $staff->position ? $staff->position->name : null,
+                    'join_date' => $staff->join_date ? $staff->join_date->format('M d, Y') : null,
+                    'is_active' => $staff->is_active,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.staff.index')
             ->with('success', 'Staff member updated successfully.');
@@ -163,9 +257,17 @@ class StaffController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Staff $staff)
+    public function destroy(Request $request, Staff $staff)
     {
         $staff->delete();
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Staff member deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.staff.index')
             ->with('success', 'Staff member deleted successfully.');

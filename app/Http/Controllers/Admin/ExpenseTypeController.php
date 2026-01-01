@@ -15,19 +15,49 @@ class ExpenseTypeController extends Controller
     }
     public function create()
     {
-        return view('admin.expense_types.create');
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.expense-types.index');
     }
     public function store(Request $request)
     {
         $data = $request->validate([
             'name' => 'required|string|max:255|unique:expense_types,name',
         ]);
-        ExpenseType::create($data);
+        $expenseType = ExpenseType::create($data);
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Expense type added.',
+                'expenseType' => [
+                    'id' => $expenseType->id,
+                    'name' => $expenseType->name,
+                ],
+            ]);
+        }
+        
         return redirect()->route('admin.expense-types.index')->with('success', 'Expense type added.');
     }
     public function edit(ExpenseType $expenseType)
     {
-        return view('admin.expense_types.edit', compact('expenseType'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'expenseType' => [
+                    'id' => $expenseType->id,
+                    'name' => $expenseType->name,
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.expense-types.index');
     }
     public function update(Request $request, ExpenseType $expenseType)
     {
@@ -35,11 +65,33 @@ class ExpenseTypeController extends Controller
             'name' => 'required|string|max:255|unique:expense_types,name,' . $expenseType->id,
         ]);
         $expenseType->update($data);
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Expense type updated.',
+                'expenseType' => [
+                    'id' => $expenseType->id,
+                    'name' => $expenseType->name,
+                ],
+            ]);
+        }
+        
         return redirect()->route('admin.expense-types.index')->with('success', 'Expense type updated.');
     }
-    public function destroy(ExpenseType $expenseType)
+    public function destroy(Request $request, ExpenseType $expenseType)
     {
         $expenseType->delete();
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Expense type deleted.',
+            ]);
+        }
+        
         return redirect()->route('admin.expense-types.index')->with('success', 'Expense type deleted.');
     }
 }

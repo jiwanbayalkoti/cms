@@ -11,17 +11,20 @@
         </div>
         <div class="flex items-center gap-3">
             <label for="period_filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">Filter Period:</label>
-            <form method="GET" action="{{ route('admin.dashboard') }}" id="periodFilterForm" class="inline-block">
+            <div class="inline-block relative">
                 <select name="period" id="period_filter" 
                         class="block w-full sm:w-48 px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 hover:border-gray-400"
-                        onchange="document.getElementById('periodFilterForm').submit();">
+                        onchange="filterDashboardByPeriod(this.value);">
                     <option value="1_month" {{ $period === '1_month' ? 'selected' : '' }}>Last 1 Month</option>
                     <option value="3_months" {{ $period === '3_months' ? 'selected' : '' }}>Last 3 Months</option>
                     <option value="6_months" {{ $period === '6_months' ? 'selected' : '' }}>Last 6 Months</option>
                     <option value="1_year" {{ $period === '1_year' ? 'selected' : '' }}>Last 1 Year</option>
                     <option value="all_time" {{ $period === 'all_time' ? 'selected' : '' }}>All Time</option>
                 </select>
-            </form>
+                <div id="dashboard-filter-loading" class="hidden absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -435,11 +438,34 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+// Store chart instances globally to destroy them before recreating
+window.dashboardCharts = window.dashboardCharts || {};
+
+window.destroyChart = function(chartId) {
+    if (window.dashboardCharts[chartId]) {
+        try {
+            window.dashboardCharts[chartId].destroy();
+        } catch (e) {
+            console.warn('Error destroying chart:', e);
+        }
+        window.dashboardCharts[chartId] = null;
+    }
+};
+
+window.initDashboardCharts = function() {
+    // Check if Chart.js is loaded
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded');
+        return;
+    }
+
     // Income vs Expenses Line Chart
     const incomeExpenseCtx = document.getElementById('incomeExpenseChart');
     if (incomeExpenseCtx) {
-        new Chart(incomeExpenseCtx, {
+        // Destroy existing chart if it exists
+        window.destroyChart('incomeExpenseChart');
+        
+        window.dashboardCharts.incomeExpenseChart = new Chart(incomeExpenseCtx, {
             type: 'line',
             data: {
                 labels: @json($monthlyData['labels']),
@@ -502,10 +528,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Income by Category Pie Chart
     const incomeCategoryCtx = document.getElementById('incomeCategoryChart');
     if (incomeCategoryCtx && @json(count($incomeByCategory) > 0)) {
+        // Destroy existing chart if it exists
+        window.destroyChart('incomeCategoryChart');
+        
         const incomeData = @json($incomeByCategory);
         const colors = generateColors(incomeData.length);
         
-        new Chart(incomeCategoryCtx, {
+        window.dashboardCharts.incomeCategoryChart = new Chart(incomeCategoryCtx, {
             type: 'doughnut',
             data: {
                 labels: incomeData.map(item => item.label),
@@ -545,10 +574,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Expense by Category Pie Chart
     const expenseCategoryCtx = document.getElementById('expenseCategoryChart');
     if (expenseCategoryCtx && @json(count($expenseByCategory) > 0)) {
+        // Destroy existing chart if it exists
+        window.destroyChart('expenseCategoryChart');
+        
         const expenseData = @json($expenseByCategory);
         const colors = generateColors(expenseData.length);
         
-        new Chart(expenseCategoryCtx, {
+        window.dashboardCharts.expenseCategoryChart = new Chart(expenseCategoryCtx, {
             type: 'doughnut',
             data: {
                 labels: expenseData.map(item => item.label),
@@ -603,7 +635,114 @@ document.addEventListener('DOMContentLoaded', function() {
         
         return { background, border };
     }
-});
+};
+
+// Initialize charts when DOM is ready
+window.initializeDashboard = function() {
+    // Wait for Chart.js to be loaded
+    if (typeof Chart === 'undefined') {
+        // Retry after a short delay
+        setTimeout(window.initializeDashboard, 100);
+        return;
+    }
+    
+    // Check if we're on the dashboard page
+    const dashboardContent = document.getElementById('page-content');
+    if (dashboardContent && dashboardContent.querySelector('#incomeExpenseChart')) {
+        window.initDashboardCharts();
+    }
+};
+
+// Dashboard Period Filter Function
+window.filterDashboardByPeriod = function(period) {
+    // Show loading indicator
+    const loadingIndicator = document.getElementById('dashboard-filter-loading');
+    const periodSelect = document.getElementById('period_filter');
+    
+    if (loadingIndicator) {
+        loadingIndicator.classList.remove('hidden');
+    }
+    if (periodSelect) {
+        periodSelect.disabled = true;
+        periodSelect.style.opacity = '0.6';
+        periodSelect.style.cursor = 'not-allowed';
+    }
+    
+    // Build the URL with period parameter
+    const baseUrl = '{{ route("admin.dashboard") }}';
+    const url = baseUrl + '?period=' + encodeURIComponent(period);
+    
+    // Destroy all existing charts before loading new content
+    Object.keys(window.dashboardCharts || {}).forEach(chartId => {
+        window.destroyChart(chartId);
+    });
+    
+    // Use loadPageViaAjax if available, otherwise fallback to direct navigation
+    if (typeof window.loadPageViaAjax === 'function') {
+        // Clear cache for this URL to ensure fresh data
+        if (window.requestCache && typeof window.requestCache.delete === 'function') {
+            window.requestCache.delete('page_' + url);
+        }
+        
+        // Load page via AJAX
+        window.loadPageViaAjax(url);
+        
+        // Update browser URL without page refresh
+        if (typeof window.history !== 'undefined' && window.history.pushState) {
+            window.history.pushState({path: url}, '', url);
+        }
+    } else {
+        // Fallback to page navigation if loadPageViaAjax is not available
+        window.location.href = url;
+    }
+};
+
+// Initialize on DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', window.initializeDashboard);
+} else {
+    // DOM is already ready
+    window.initializeDashboard();
+}
+
+// Also initialize if content is loaded via AJAX (for loadPageViaAjax)
+if (typeof window.loadPageViaAjax !== 'undefined') {
+    const originalLoadPageViaAjax = window.loadPageViaAjax;
+    window.loadPageViaAjax = function(url, pushState) {
+        // Destroy all existing charts before loading new content (only for dashboard)
+        if (url.includes('dashboard')) {
+            Object.keys(window.dashboardCharts || {}).forEach(chartId => {
+                window.destroyChart(chartId);
+            });
+        }
+        
+        // Call original function
+        const result = originalLoadPageViaAjax.call(this, url, pushState);
+        
+        // Initialize charts after content is loaded (if it's the dashboard)
+        setTimeout(function() {
+            if (url.includes('dashboard') || document.getElementById('incomeExpenseChart')) {
+                window.initializeDashboard();
+            }
+            
+            // Hide loading indicator if it exists (for dashboard filter)
+            if (url.includes('dashboard')) {
+                const loadingIndicator = document.getElementById('dashboard-filter-loading');
+                if (loadingIndicator) {
+                    loadingIndicator.classList.add('hidden');
+                }
+                const periodSelect = document.getElementById('period_filter');
+                if (periodSelect) {
+                    periodSelect.disabled = false;
+                    periodSelect.style.opacity = '1';
+                    periodSelect.style.cursor = 'pointer';
+                }
+            }
+        }, 300);
+        
+        return result;
+    };
+};
 </script>
 @endpush
 @endsection

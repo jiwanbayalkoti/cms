@@ -60,7 +60,9 @@
     <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <strong>Bill Items</strong>
-            <button type="button" class="btn btn-sm btn-primary" onclick="addItemRow()">+ Add Item</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="addItemRow()">
+                <i class="bi bi-plus-circle me-1"></i> Add Item
+            </button>
         </div>
         <div class="card-body">
             <div class="table-responsive">

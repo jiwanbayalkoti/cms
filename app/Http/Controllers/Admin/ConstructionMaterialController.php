@@ -193,6 +193,33 @@ class ConstructionMaterialController extends Controller
         $projects = $this->getAccessibleProjects();
         $purchasedBies = PurchasedBy::where('is_active', true)->orderBy('name')->get();
 
+        // Return JSON for AJAX requests
+        if ($request->ajax()) {
+            $netBalanceValue = $netBalance ?? $totalCost;
+            $tableHtml = view('admin.construction_materials.partials.table', [
+                'materials' => $materials,
+                'totalCost' => $totalCost,
+                'totalAdvancePayments' => $totalAdvancePayments ?? 0,
+                'netBalance' => $netBalanceValue
+            ])->render();
+            $paginationHtml = view('admin.construction_materials.partials.pagination', compact('materials'))->render();
+            $summaryHtml = view('admin.construction_materials.partials.summary', [
+                'totalCost' => $totalCost,
+                'totalAdvancePayments' => $totalAdvancePayments ?? 0,
+                'netBalance' => $netBalanceValue
+            ])->render();
+            
+            return response()->json([
+                'html' => $tableHtml,
+                'pagination' => $paginationHtml,
+                'summary' => $summaryHtml,
+                'materials' => $materials,
+                'totalCost' => $totalCost,
+                'totalAdvancePayments' => $totalAdvancePayments ?? 0,
+                'netBalance' => $netBalanceValue
+            ]);
+        }
+
         return view('admin.construction_materials.index', compact('materials', 'materialNames', 'suppliers', 'projects', 'purchasedBies', 'totalCost', 'totalQuantityReceived', 'totalQuantityUsed', 'totalQuantityRemaining', 'totalAdvancePayments', 'netBalance'));
     }
 
@@ -210,7 +237,22 @@ class ConstructionMaterialController extends Controller
         $paymentModes = PaymentMode::orderBy('name')->get();
         $purchasedBies = PurchasedBy::where('is_active', true)->orderBy('name')->get();
 
-        return view('admin.construction_materials.create', compact('categories', 'units', 'suppliers', 'workTypes', 'projects', 'materialNames', 'paymentModes', 'purchasedBies'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'categories' => $categories,
+                'units' => $units,
+                'suppliers' => $suppliers,
+                'workTypes' => $workTypes,
+                'projects' => $projects,
+                'materialNames' => $materialNames,
+                'paymentModes' => $paymentModes,
+                'purchasedBies' => $purchasedBies,
+            ]);
+        }
+
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.construction-materials.index');
     }
 
     public function store(StoreConstructionMaterialRequest $request)
@@ -237,6 +279,28 @@ class ConstructionMaterialController extends Controller
         // Auto-create expense entry if payment status is 'Paid'
         $this->createExpenseFromMaterial($material);
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $material->load('project');
+            return response()->json([
+                'success' => true,
+                'message' => 'Construction material record created successfully.',
+                'material' => [
+                    'id' => $material->id,
+                    'material_name' => $material->material_name,
+                    'material_category' => $material->material_category,
+                    'project_name' => $material->project ? $material->project->name : ($material->project_name ?? ''),
+                    'supplier_name' => $material->supplier_name,
+                    'quantity_received' => $material->quantity_received,
+                    'quantity_used' => $material->quantity_used,
+                    'quantity_remaining' => $material->quantity_remaining,
+                    'unit' => $material->unit,
+                    'total_cost' => $material->total_cost,
+                    'status' => $material->status,
+                ],
+            ]);
+        }
+
         return redirect()->route('admin.construction-materials.index')
             ->with('success', 'Construction material record created successfully.');
     }
@@ -244,9 +308,49 @@ class ConstructionMaterialController extends Controller
     public function show(ConstructionMaterial $construction_material)
     {
         $construction_material->load('expense', 'project', 'purchasedBy');
-        return view('admin.construction_materials.show', [
-            'material' => $construction_material,
-        ]);
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'material' => [
+                    'id' => $construction_material->id,
+                    'material_name' => $construction_material->material_name,
+                    'material_category' => $construction_material->material_category,
+                    'unit' => $construction_material->unit,
+                    'project_name' => $construction_material->project ? $construction_material->project->name : ($construction_material->project_name ?? ''),
+                    'work_type' => $construction_material->work_type,
+                    'delivery_site' => $construction_material->delivery_site,
+                    'delivered_by' => $construction_material->delivered_by,
+                    'received_by' => $construction_material->received_by,
+                    'quantity_received' => $construction_material->quantity_received,
+                    'quantity_used' => $construction_material->quantity_used,
+                    'quantity_remaining' => $construction_material->quantity_remaining,
+                    'wastage_quantity' => $construction_material->wastage_quantity,
+                    'status' => $construction_material->status,
+                    'delivery_date' => $construction_material->delivery_date ? $construction_material->delivery_date->format('Y-m-d') : null,
+                    'approved_by' => $construction_material->approved_by,
+                    'approval_date' => $construction_material->approval_date ? $construction_material->approval_date->format('Y-m-d') : null,
+                    'usage_purpose' => $construction_material->usage_purpose,
+                    'rate_per_unit' => $construction_material->rate_per_unit,
+                    'total_cost' => $construction_material->total_cost,
+                    'bill_number' => $construction_material->bill_number,
+                    'bill_date' => $construction_material->bill_date ? $construction_material->bill_date->format('Y-m-d') : null,
+                    'payment_status' => $construction_material->payment_status,
+                    'payment_mode' => $construction_material->payment_mode,
+                    'supplier_name' => $construction_material->supplier_name,
+                    'supplier_contact' => $construction_material->supplier_contact,
+                    'bill_attachment' => $construction_material->bill_attachment,
+                    'delivery_photo' => $construction_material->delivery_photo,
+                    'expense' => $construction_material->expense ? [
+                        'id' => $construction_material->expense->id,
+                        'created_at' => $construction_material->expense->created_at->format('Y-m-d H:i'),
+                    ] : null,
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.construction-materials.index');
     }
 
     public function edit(ConstructionMaterial $construction_material)
@@ -263,17 +367,23 @@ class ConstructionMaterialController extends Controller
         $paymentModes = PaymentMode::orderBy('name')->get();
         $purchasedBies = PurchasedBy::where('is_active', true)->orderBy('name')->get();
 
-        return view('admin.construction_materials.edit', [
-            'material' => $construction_material,
-            'categories' => $categories,
-            'units' => $units,
-            'suppliers' => $suppliers,
-            'workTypes' => $workTypes,
-            'projects' => $projects,
-            'materialNames' => $materialNames,
-            'paymentModes' => $paymentModes,
-            'purchasedBies' => $purchasedBies,
-        ]);
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'material' => $construction_material,
+                'categories' => $categories,
+                'units' => $units,
+                'suppliers' => $suppliers,
+                'workTypes' => $workTypes,
+                'projects' => $projects,
+                'materialNames' => $materialNames,
+                'paymentModes' => $paymentModes,
+                'purchasedBies' => $purchasedBies,
+            ]);
+        }
+
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.construction-materials.index');
     }
 
     public function update(UpdateConstructionMaterialRequest $request, ConstructionMaterial $construction_material)
@@ -314,6 +424,28 @@ class ConstructionMaterialController extends Controller
             $this->createExpenseFromMaterial($construction_material);
         }
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $construction_material->load('project');
+            return response()->json([
+                'success' => true,
+                'message' => 'Construction material record updated successfully.',
+                'material' => [
+                    'id' => $construction_material->id,
+                    'material_name' => $construction_material->material_name,
+                    'material_category' => $construction_material->material_category,
+                    'project_name' => $construction_material->project ? $construction_material->project->name : ($construction_material->project_name ?? ''),
+                    'supplier_name' => $construction_material->supplier_name,
+                    'quantity_received' => $construction_material->quantity_received,
+                    'quantity_used' => $construction_material->quantity_used,
+                    'quantity_remaining' => $construction_material->quantity_remaining,
+                    'unit' => $construction_material->unit,
+                    'total_cost' => $construction_material->total_cost,
+                    'status' => $construction_material->status,
+                ],
+            ]);
+        }
+
         // Update existing expense if payment status changed and expense exists
         if ($construction_material->expense) {
             $expense = $construction_material->expense;
@@ -332,7 +464,7 @@ class ConstructionMaterialController extends Controller
             ->with('success', 'Construction material record updated successfully.');
     }
 
-    public function destroy(ConstructionMaterial $construction_material)
+    public function destroy(Request $request, ConstructionMaterial $construction_material)
     {
         if ($construction_material->bill_attachment) {
             Storage::disk('public')->delete($construction_material->bill_attachment);
@@ -343,6 +475,14 @@ class ConstructionMaterialController extends Controller
         }
 
         $construction_material->delete();
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Construction material record deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.construction-materials.index')
             ->with('success', 'Construction material record deleted successfully.');

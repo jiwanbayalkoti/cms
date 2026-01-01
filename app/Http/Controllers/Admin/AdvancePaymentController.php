@@ -117,6 +117,9 @@ class AdvancePaymentController extends Controller
             $projectId = (int) $request->project_id;
             // Verify user has access to this project
             if (!$this->canAccessProject($projectId)) {
+                if ($request->ajax()) {
+                    return response()->json(['error' => 'You do not have access to this project.'], 403);
+                }
                 abort(403, 'You do not have access to this project.');
             }
             $query->where('project_id', $projectId);
@@ -152,8 +155,59 @@ class AdvancePaymentController extends Controller
             ->orderBy('name')
             ->get();
         
-        // Calculate totals
-        $totalAmount = $query->sum('amount');
+        // Calculate totals (need to recalculate after pagination)
+        $totalAmountQuery = AdvancePayment::where('company_id', $companyId);
+        $this->filterByAccessibleProjects($totalAmountQuery, 'project_id');
+        
+        if ($request->filled('project_id')) {
+            $projectId = (int) $request->project_id;
+            if ($this->canAccessProject($projectId)) {
+                $totalAmountQuery->where('project_id', $projectId);
+            }
+        }
+        if ($request->filled('payment_type')) {
+            $totalAmountQuery->where('payment_type', $request->payment_type);
+        }
+        if ($request->filled('supplier_id')) {
+            $totalAmountQuery->where('supplier_id', $request->supplier_id);
+        }
+        if ($request->filled('start_date')) {
+            $totalAmountQuery->where('payment_date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $totalAmountQuery->where('payment_date', '<=', $request->end_date);
+        }
+        
+        $totalAmount = $totalAmountQuery->sum('amount');
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $advancePaymentsData = $advancePayments->map(function($payment) {
+                return [
+                    'id' => $payment->id,
+                    'payment_date' => $payment->payment_date->format('Y-m-d'),
+                    'payment_type' => ucfirst(str_replace('_', ' ', $payment->payment_type)),
+                    'reference' => 'N/A',
+                    'project_name' => $payment->project ? $payment->project->name : 'N/A',
+                    'supplier_name' => $payment->supplier ? $payment->supplier->name : 'N/A',
+                    'amount' => number_format($payment->amount, 2),
+                    'payment_method' => ucfirst(str_replace('_', ' ', $payment->payment_method ?? 'N/A')),
+                ];
+            });
+            
+            $summaryData = null;
+            if ($advancePayments->count() > 0) {
+                $summaryData = [
+                    'totalAmount' => number_format($totalAmount, 2),
+                ];
+            }
+            
+            return response()->json([
+                'advancePayments' => $advancePaymentsData,
+                'pagination' => $advancePayments->links()->render(),
+                'summary' => $summaryData,
+            ]);
+        }
         
         return view('admin.advance_payments.index', compact('advancePayments', 'projects', 'suppliers', 'totalAmount'));
     }
@@ -179,7 +233,18 @@ class AdvancePaymentController extends Controller
             ->get();
         
         $paymentTypes = \App\Models\PaymentType::orderBy('name')->get();
-        return view('admin.advance_payments.create', compact('projects', 'suppliers', 'bankAccounts', 'paymentTypes'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax()) {
+            return response()->json([
+                'projects' => $projects,
+                'suppliers' => $suppliers,
+                'bankAccounts' => $bankAccounts,
+                'paymentTypes' => $paymentTypes
+            ]);
+        }
+        
+        return redirect()->route('admin.advance-payments.index');
     }
 
     /**
@@ -217,6 +282,18 @@ class AdvancePaymentController extends Controller
         // Auto-create expense entry
         $this->createExpenseFromAdvancePayment($advancePayment);
         
+        // Load relations for JSON response
+        $advancePayment->load(['project', 'supplier', 'bankAccount']);
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Advance payment recorded successfully.',
+                'advancePayment' => $advancePayment
+            ]);
+        }
+        
         return redirect()->route('admin.advance-payments.index')
             ->with('success', 'Advance payment recorded successfully.');
     }
@@ -227,7 +304,35 @@ class AdvancePaymentController extends Controller
     public function show(AdvancePayment $advancePayment)
     {
         $advancePayment->load(['project', 'supplier', 'bankAccount', 'creator', 'updater', 'expense']);
-        return view('admin.advance_payments.show', compact('advancePayment'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax()) {
+            return response()->json([
+                'advancePayment' => [
+                    'id' => $advancePayment->id,
+                    'payment_date' => $advancePayment->payment_date->format('F d, Y'),
+                    'payment_type' => ucfirst(str_replace('_', ' ', $advancePayment->payment_type)),
+                    'payment_type_raw' => $advancePayment->payment_type,
+                    'project' => $advancePayment->project ? $advancePayment->project->name : 'N/A',
+                    'supplier' => $advancePayment->supplier ? $advancePayment->supplier->name : 'N/A',
+                    'amount' => number_format($advancePayment->amount, 2),
+                    'payment_method' => ucfirst(str_replace('_', ' ', $advancePayment->payment_method ?? 'N/A')),
+                    'bank_account' => $advancePayment->bankAccount ? $advancePayment->bankAccount->account_name : 'N/A',
+                    'transaction_reference' => $advancePayment->transaction_reference ?? 'N/A',
+                    'notes' => $advancePayment->notes ?? '',
+                    'expense' => $advancePayment->expense ? [
+                        'id' => $advancePayment->expense->id,
+                        'created_at' => $advancePayment->expense->created_at->format('Y-m-d H:i')
+                    ] : null,
+                    'creator' => $advancePayment->creator ? $advancePayment->creator->name : 'N/A',
+                    'created_at' => $advancePayment->created_at->format('Y-m-d H:i'),
+                    'updater' => $advancePayment->updater ? $advancePayment->updater->name : null,
+                    'updated_at' => $advancePayment->updated_at->format('Y-m-d H:i')
+                ]
+            ]);
+        }
+        
+        return redirect()->route('admin.advance-payments.index');
     }
 
     /**
@@ -251,7 +356,19 @@ class AdvancePaymentController extends Controller
             ->get();
         
         $paymentTypes = \App\Models\PaymentType::orderBy('name')->get();
-        return view('admin.advance_payments.edit', compact('advancePayment', 'projects', 'suppliers', 'bankAccounts', 'paymentTypes'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax()) {
+            return response()->json([
+                'advancePayment' => $advancePayment,
+                'projects' => $projects,
+                'suppliers' => $suppliers,
+                'bankAccounts' => $bankAccounts,
+                'paymentTypes' => $paymentTypes
+            ]);
+        }
+        
+        return redirect()->route('admin.advance-payments.index');
     }
 
     /**
@@ -308,6 +425,18 @@ class AdvancePaymentController extends Controller
             ]);
         }
         
+        // Load relations for JSON response
+        $advancePayment->load(['project', 'supplier', 'bankAccount']);
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Advance payment updated successfully.',
+                'advancePayment' => $advancePayment
+            ]);
+        }
+        
         return redirect()->route('admin.advance-payments.index')
             ->with('success', 'Advance payment updated successfully.');
     }
@@ -317,8 +446,15 @@ class AdvancePaymentController extends Controller
      */
     public function destroy(AdvancePayment $advancePayment)
     {
-        
         $advancePayment->delete();
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Advance payment deleted successfully.'
+            ]);
+        }
         
         return redirect()->route('admin.advance-payments.index')
             ->with('success', 'Advance payment deleted successfully.');

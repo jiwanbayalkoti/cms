@@ -12,6 +12,7 @@ use App\Models\Staff;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use App\Support\CompanyContext;
 
 class ExpenseController extends Controller
@@ -79,6 +80,50 @@ class ExpenseController extends Controller
                 ->get();
         }
         
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $expensesData = $expenses->map(function($expense) {
+                $typeName = '';
+                $typeClass = 'bg-gray-100 text-gray-800';
+                
+                if ($expense->constructionMaterial) {
+                    $typeName = 'Purchase';
+                    $typeClass = 'bg-blue-100 text-blue-800';
+                } elseif ($expense->advancePayment) {
+                    $typeName = 'Advance';
+                    $typeClass = 'bg-yellow-100 text-yellow-800';
+                } elseif ($expense->vehicleRent) {
+                    $typeName = 'Vehicle rent';
+                    $typeClass = 'bg-purple-100 text-purple-800';
+                } elseif ($expense->expenseType) {
+                    $typeName = $expense->expenseType->name;
+                    $typeClass = 'bg-gray-100 text-gray-800';
+                } else {
+                    $typeName = 'N/A';
+                }
+                
+                return [
+                    'id' => $expense->id,
+                    'date' => $expense->date->format('M d, Y'),
+                    'type_name' => $typeName,
+                    'type_class' => $typeClass,
+                    'item_name' => $expense->item_name ?? ($expense->description ? Str::limit($expense->description, 30) : 'N/A'),
+                    'project_name' => $expense->project ? $expense->project->name : 'N/A',
+                    'category_name' => $expense->category->name,
+                    'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
+                    'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
+                    'amount' => number_format($expense->amount, 2),
+                    'has_construction_material' => $expense->constructionMaterial ? true : false,
+                    'has_advance_payment' => $expense->advancePayment ? true : false,
+                ];
+            });
+            
+            return response()->json([
+                'expenses' => $expensesData,
+                'pagination' => $expenses->links()->render(),
+            ]);
+        }
+        
         return view('admin.expenses.index', compact('expenses', 'projects', 'expenseTypes', 'categories', 'subcategories'));
     }
 
@@ -93,12 +138,23 @@ class ExpenseController extends Controller
             $q->where('type', 'expense')->where('is_active', true);
         })->where('is_active', true)->orderBy('name')->get();
         $staff = Staff::where('is_active', true)->orderBy('name')->get();
-        $projects = Project::where('company_id', $companyId)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('name')
-            ->get();
+        // Get only accessible projects
+        $projects = $this->getAccessibleProjects();
         $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
-        return view('admin.expenses.create', compact('categories', 'subcategories', 'staff', 'projects', 'expenseTypes'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'categories' => $categories,
+                'subcategories' => $subcategories,
+                'staff' => $staff,
+                'projects' => $projects,
+                'expenseTypes' => $expenseTypes,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.expenses.index');
     }
 
     /**
@@ -161,7 +217,41 @@ class ExpenseController extends Controller
 
         $validated['company_id'] = CompanyContext::getActiveCompanyId();
         $validated['created_by'] = auth()->id();
-        Expense::create($validated);
+        $expense = Expense::create($validated);
+        $expense->load(['category', 'subcategory', 'staff', 'project', 'expenseType']);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $typeName = '';
+            if ($expense->constructionMaterial) {
+                $typeName = 'Purchase';
+            } elseif ($expense->advancePayment) {
+                $typeName = 'Advance';
+            } elseif ($expense->vehicleRent) {
+                $typeName = 'Vehicle rent';
+            } elseif ($expense->expenseType) {
+                $typeName = $expense->expenseType->name;
+            } else {
+                $typeName = 'N/A';
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Expense record created successfully.',
+                'expense' => [
+                    'id' => $expense->id,
+                    'date' => $expense->date->format('M d, Y'),
+                    'type_name' => $typeName,
+                    'item_name' => $expense->item_name,
+                    'description' => $expense->description,
+                    'amount' => number_format($expense->amount, 2),
+                    'project_name' => $expense->project ? $expense->project->name : 'N/A',
+                    'category_name' => $expense->category->name,
+                    'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
+                    'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.expenses.index')
             ->with('success', 'Expense record created successfully.');
@@ -181,8 +271,65 @@ class ExpenseController extends Controller
             $this->authorizeProjectAccess($expense->project_id);
         }
         
-        $expense->load(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment']);
-        return view('admin.expenses.show', compact('expense'));
+        $expense->load(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType']);
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            $typeName = '';
+            if ($expense->constructionMaterial) {
+                $typeName = 'Purchase';
+            } elseif ($expense->advancePayment) {
+                $typeName = 'Advance';
+            } elseif ($expense->vehicleRent) {
+                $typeName = 'Vehicle rent';
+            } elseif ($expense->expenseType) {
+                $typeName = $expense->expenseType->name;
+            } else {
+                $typeName = 'N/A';
+            }
+            
+            $imageUrls = [];
+            if ($expense->images) {
+                foreach ($expense->images as $image) {
+                    $imageUrls[] = Storage::url($image);
+                }
+            }
+            
+            return response()->json([
+                'expense' => [
+                    'id' => $expense->id,
+                    'date' => $expense->date->format('Y-m-d'),
+                    'formatted_date' => $expense->date->format('M d, Y'),
+                    'type_name' => $typeName,
+                    'item_name' => $expense->item_name,
+                    'description' => $expense->description,
+                    'amount' => number_format($expense->amount, 2),
+                    'payment_method' => $expense->payment_method,
+                    'notes' => $expense->notes,
+                    'project_id' => $expense->project_id,
+                    'project_name' => $expense->project ? $expense->project->name : 'N/A',
+                    'category_id' => $expense->category_id,
+                    'category_name' => $expense->category->name,
+                    'subcategory_id' => $expense->subcategory_id,
+                    'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
+                    'staff_id' => $expense->staff_id,
+                    'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
+                    'expense_type_id' => $expense->expense_type_id,
+                    'expense_type_name' => $expense->expenseType ? $expense->expenseType->name : 'N/A',
+                    'images' => $imageUrls,
+                    'has_construction_material' => $expense->constructionMaterial ? true : false,
+                    'has_advance_payment' => $expense->advancePayment ? true : false,
+                    'has_vehicle_rent' => $expense->vehicleRent ? true : false,
+                    'created_by' => $expense->creator ? $expense->creator->name : 'N/A',
+                    'updated_by' => $expense->updater ? $expense->updater->name : 'N/A',
+                    'created_at' => $expense->created_at ? $expense->created_at->format('M d, Y H:i') : '',
+                    'updated_at' => $expense->updated_at ? $expense->updated_at->format('M d, Y H:i') : '',
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.expenses.index');
     }
 
     /**
@@ -207,7 +354,43 @@ class ExpenseController extends Controller
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
         $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
-        return view('admin.expenses.edit', compact('expense', 'categories', 'subcategories', 'staff', 'projects', 'expenseTypes'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            $imageUrls = [];
+            if ($expense->images) {
+                foreach ($expense->images as $image) {
+                    $imageUrls[] = Storage::url($image);
+                }
+            }
+            
+            return response()->json([
+                'expense' => [
+                    'id' => $expense->id,
+                    'date' => $expense->date->format('Y-m-d'),
+                    'item_name' => $expense->item_name,
+                    'description' => $expense->description,
+                    'amount' => $expense->amount,
+                    'payment_method' => $expense->payment_method,
+                    'notes' => $expense->notes,
+                    'project_id' => $expense->project_id,
+                    'category_id' => $expense->category_id,
+                    'subcategory_id' => $expense->subcategory_id,
+                    'staff_id' => $expense->staff_id,
+                    'expense_type_id' => $expense->expense_type_id,
+                    'images' => $imageUrls,
+                    'image_paths' => $expense->images ?? [],
+                ],
+                'categories' => $categories,
+                'subcategories' => $subcategories,
+                'staff' => $staff,
+                'projects' => $projects,
+                'expenseTypes' => $expenseTypes,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.expenses.index');
     }
 
     /**
@@ -262,6 +445,40 @@ class ExpenseController extends Controller
 
         $validated['updated_by'] = auth()->id();
         $expense->update($validated);
+        $expense->load(['category', 'subcategory', 'staff', 'project', 'expenseType', 'constructionMaterial', 'advancePayment', 'vehicleRent']);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $typeName = '';
+            if ($expense->constructionMaterial) {
+                $typeName = 'Purchase';
+            } elseif ($expense->advancePayment) {
+                $typeName = 'Advance';
+            } elseif ($expense->vehicleRent) {
+                $typeName = 'Vehicle rent';
+            } elseif ($expense->expenseType) {
+                $typeName = $expense->expenseType->name;
+            } else {
+                $typeName = 'N/A';
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Expense record updated successfully.',
+                'expense' => [
+                    'id' => $expense->id,
+                    'date' => $expense->date->format('M d, Y'),
+                    'type_name' => $typeName,
+                    'item_name' => $expense->item_name,
+                    'description' => $expense->description,
+                    'amount' => number_format($expense->amount, 2),
+                    'project_name' => $expense->project ? $expense->project->name : 'N/A',
+                    'category_name' => $expense->category->name,
+                    'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
+                    'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.expenses.index')
             ->with('success', 'Expense record updated successfully.');
@@ -285,6 +502,14 @@ class ExpenseController extends Controller
         }
 
         $expense->delete();
+
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Expense record deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.expenses.index')
             ->with('success', 'Expense record deleted successfully.');
@@ -328,6 +553,40 @@ class ExpenseController extends Controller
         }
         
         $newExpense->save();
+        $newExpense->load(['category', 'subcategory', 'staff', 'project', 'expenseType', 'constructionMaterial', 'advancePayment', 'vehicleRent']);
+
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            $typeName = '';
+            if ($newExpense->constructionMaterial) {
+                $typeName = 'Purchase';
+            } elseif ($newExpense->advancePayment) {
+                $typeName = 'Advance';
+            } elseif ($newExpense->vehicleRent) {
+                $typeName = 'Vehicle rent';
+            } elseif ($newExpense->expenseType) {
+                $typeName = $newExpense->expenseType->name;
+            } else {
+                $typeName = 'N/A';
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Expense record duplicated successfully.',
+                'expense' => [
+                    'id' => $newExpense->id,
+                    'date' => $newExpense->date->format('M d, Y'),
+                    'type_name' => $typeName,
+                    'item_name' => $newExpense->item_name,
+                    'description' => $newExpense->description,
+                    'amount' => number_format($newExpense->amount, 2),
+                    'project_name' => $newExpense->project ? $newExpense->project->name : 'N/A',
+                    'category_name' => $newExpense->category->name,
+                    'subcategory_name' => $newExpense->subcategory ? $newExpense->subcategory->name : null,
+                    'staff_name' => $newExpense->staff ? $newExpense->staff->name : 'N/A',
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.expenses.edit', $newExpense)
             ->with('success', 'Expense record duplicated successfully. You can now edit it.');

@@ -64,6 +64,18 @@ class BillModuleController extends Controller
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $tableRows = view('admin.bill_modules.partials.table', compact('bills'))->render();
+            $tableHtml = '<tbody>' . $tableRows . '</tbody>';
+            $paginationHtml = view('admin.bill_modules.partials.pagination', ['paginator' => $bills])->render();
+            
+            return response()->json([
+                'tableHtml' => $tableHtml,
+                'paginationHtml' => $paginationHtml,
+            ]);
+        }
+
         return view('admin.bill_modules.index', compact('bills', 'projects'));
     }
 
@@ -86,6 +98,20 @@ class BillModuleController extends Controller
             $subcategoriesData[$cat->id] = $cat->activeSubcategories->map(function($sub) {
                 return ['id' => $sub->id, 'name' => $sub->name];
             })->toArray();
+        }
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'projects' => $projects->map(function($project) {
+                    return ['id' => $project->id, 'name' => $project->name];
+                }),
+                'billCategories' => $billCategories->map(function($cat) {
+                    return ['id' => $cat->id, 'name' => $cat->name];
+                }),
+                'subcategoriesData' => $subcategoriesData,
+                'projectId' => $projectId,
+            ]);
         }
 
         return view('admin.bill_modules.create', compact('projects', 'projectId', 'billCategories', 'subcategoriesData'));
@@ -156,10 +182,40 @@ class BillModuleController extends Controller
 
             DB::commit();
 
+            // Return JSON for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                $bill->load(['project', 'creator', 'aggregate']);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Bill module created successfully.',
+                    'bill' => [
+                        'id' => $bill->id,
+                        'title' => $bill->title,
+                        'project' => $bill->project ? ['id' => $bill->project->id, 'name' => $bill->project->name] : null,
+                        'version' => $bill->version,
+                        'mb_number' => $bill->mb_number,
+                        'status' => $bill->status,
+                        'grand_total' => $bill->aggregate->grand_total ?? 0,
+                        'created_by' => $bill->creator->name ?? '—',
+                        'created_at' => $bill->created_at->format('Y-m-d'),
+                    ]
+                ]);
+            }
+
             return redirect()->route('admin.bill-modules.show', $bill)
                 ->with('success', 'Bill module created successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            // Return JSON for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error creating bill: ' . $e->getMessage(),
+                    'error' => $e->getMessage(),
+                ], 422);
+            }
+            
             return back()->withInput()->with('error', 'Error creating bill: ' . $e->getMessage());
         }
     }
@@ -194,6 +250,44 @@ class BillModuleController extends Controller
             $subcategoriesData[$cat->id] = $cat->activeSubcategories->map(function($sub) {
                 return ['id' => $sub->id, 'name' => $sub->name];
             })->toArray();
+        }
+
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'bill' => [
+                    'id' => $bill_module->id,
+                    'title' => $bill_module->title,
+                    'project_id' => $bill_module->project_id,
+                    'version' => $bill_module->version,
+                    'mb_number' => $bill_module->mb_number,
+                    'mb_date' => $bill_module->mb_date ? $bill_module->mb_date->format('Y-m-d') : null,
+                    'overhead_percent' => $bill_module->aggregate->overhead_percent ?? 10,
+                    'contingency_percent' => $bill_module->aggregate->contingency_percent ?? 5,
+                    'notes' => $bill_module->notes,
+                    'items' => $bill_module->items->map(function($item) {
+                        return [
+                            'id' => $item->id,
+                            'bill_category_id' => $item->bill_category_id,
+                            'bill_subcategory_id' => $item->bill_subcategory_id,
+                            'description' => $item->description,
+                            'uom' => $item->uom,
+                            'quantity' => $item->quantity,
+                            'unit_rate' => $item->unit_rate,
+                            'wastage_percent' => $item->wastage_percent,
+                            'tax_percent' => $item->tax_percent,
+                            'remarks' => $item->remarks,
+                        ];
+                    }),
+                ],
+                'projects' => $projects->map(function($project) {
+                    return ['id' => $project->id, 'name' => $project->name];
+                }),
+                'billCategories' => $billCategories->map(function($cat) {
+                    return ['id' => $cat->id, 'name' => $cat->name];
+                }),
+                'subcategoriesData' => $subcategoriesData,
+            ]);
         }
 
         return view('admin.bill_modules.edit', compact('bill_module', 'projects', 'billCategories', 'subcategoriesData'));

@@ -66,12 +66,63 @@ class IncomeController extends Controller
             $query->where('project_id', $projectId);
         }
         
+        // Filter by category
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+        
+        // Filter by subcategory
+        if ($request->filled('subcategory_id')) {
+            $query->where('subcategory_id', $request->subcategory_id);
+        }
+        
+        // Filter by date range
+        if ($request->filled('start_date')) {
+            $query->where('date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->where('date', '<=', $request->end_date);
+        }
+        
         $incomes = $query->latest('date')->paginate(15)->withQueryString();
         
         // Get only accessible projects for dropdown
         $projects = $this->getAccessibleProjects();
         
-        return view('admin.incomes.index', compact('incomes', 'projects'));
+        $categories = Category::where('type', 'income')->where('is_active', true)->orderBy('name')->get();
+        
+        // Get subcategories for the selected category if category filter is applied
+        $subcategories = collect();
+        if ($request->filled('category_id')) {
+            $subcategories = Subcategory::where('category_id', $request->category_id)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get();
+        }
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $incomesData = $incomes->map(function($income) {
+                return [
+                    'id' => $income->id,
+                    'date' => $income->date->format('M d, Y'),
+                    'source' => $income->source,
+                    'description' => $income->description,
+                    'amount' => number_format($income->amount, 2),
+                    'payment_method' => $income->payment_method ?? 'N/A',
+                    'project_name' => $income->project ? $income->project->name : 'N/A',
+                    'category_name' => $income->category->name,
+                    'subcategory_name' => $income->subcategory ? $income->subcategory->name : null,
+                ];
+            });
+            
+            return response()->json([
+                'incomes' => $incomesData,
+                'pagination' => $incomes->links()->render(),
+            ]);
+        }
+        
+        return view('admin.incomes.index', compact('incomes', 'projects', 'categories', 'subcategories'));
     }
 
     /**
@@ -86,7 +137,18 @@ class IncomeController extends Controller
         })->where('is_active', true)->orderBy('name')->get();
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
-        return view('admin.incomes.create', compact('categories', 'subcategories', 'projects'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'categories' => $categories,
+                'subcategories' => $subcategories,
+                'projects' => $projects,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.incomes.index');
     }
 
     /**
@@ -113,7 +175,27 @@ class IncomeController extends Controller
         
         $validated['company_id'] = CompanyContext::getActiveCompanyId();
         $validated['created_by'] = auth()->id();
-        Income::create($validated);
+        $income = Income::create($validated);
+        $income->load(['category', 'subcategory', 'project']);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Income record created successfully.',
+                'income' => [
+                    'id' => $income->id,
+                    'date' => $income->date->format('M d, Y'),
+                    'source' => $income->source,
+                    'description' => $income->description,
+                    'amount' => number_format($income->amount, 2),
+                    'payment_method' => $income->payment_method ?? 'N/A',
+                    'project_name' => $income->project ? $income->project->name : 'N/A',
+                    'category_name' => $income->category->name,
+                    'subcategory_name' => $income->subcategory ? $income->subcategory->name : null,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.incomes.index')
             ->with('success', 'Income record created successfully.');
@@ -134,7 +216,35 @@ class IncomeController extends Controller
         }
         
         $income->load(['category', 'subcategory', 'project', 'creator', 'updater']);
-        return view('admin.incomes.show', compact('income'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'income' => [
+                    'id' => $income->id,
+                    'date' => $income->date->format('Y-m-d'),
+                    'formatted_date' => $income->date->format('M d, Y'),
+                    'source' => $income->source,
+                    'description' => $income->description,
+                    'amount' => number_format($income->amount, 2),
+                    'payment_method' => $income->payment_method,
+                    'notes' => $income->notes,
+                    'project_id' => $income->project_id,
+                    'project_name' => $income->project ? $income->project->name : 'N/A',
+                    'category_id' => $income->category_id,
+                    'category_name' => $income->category->name,
+                    'subcategory_id' => $income->subcategory_id,
+                    'subcategory_name' => $income->subcategory ? $income->subcategory->name : null,
+                    'created_by' => $income->creator ? $income->creator->name : 'N/A',
+                    'updated_by' => $income->updater ? $income->updater->name : 'N/A',
+                    'created_at' => $income->created_at ? $income->created_at->format('M d, Y H:i') : '',
+                    'updated_at' => $income->updated_at ? $income->updated_at->format('M d, Y H:i') : '',
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.incomes.index');
     }
 
     /**
@@ -157,7 +267,30 @@ class IncomeController extends Controller
         
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
-        return view('admin.incomes.edit', compact('income', 'categories', 'subcategories', 'projects'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'income' => [
+                    'id' => $income->id,
+                    'date' => $income->date->format('Y-m-d'),
+                    'source' => $income->source,
+                    'description' => $income->description,
+                    'amount' => $income->amount,
+                    'payment_method' => $income->payment_method,
+                    'notes' => $income->notes,
+                    'project_id' => $income->project_id,
+                    'category_id' => $income->category_id,
+                    'subcategory_id' => $income->subcategory_id,
+                ],
+                'categories' => $categories,
+                'subcategories' => $subcategories,
+                'projects' => $projects,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.incomes.index');
     }
 
     /**
@@ -192,6 +325,26 @@ class IncomeController extends Controller
 
         $validated['updated_by'] = auth()->id();
         $income->update($validated);
+        $income->load(['category', 'subcategory', 'project']);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Income record updated successfully.',
+                'income' => [
+                    'id' => $income->id,
+                    'date' => $income->date->format('M d, Y'),
+                    'source' => $income->source,
+                    'description' => $income->description,
+                    'amount' => number_format($income->amount, 2),
+                    'payment_method' => $income->payment_method ?? 'N/A',
+                    'project_name' => $income->project ? $income->project->name : 'N/A',
+                    'category_name' => $income->category->name,
+                    'subcategory_name' => $income->subcategory ? $income->subcategory->name : null,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.incomes.index')
             ->with('success', 'Income record updated successfully.');
@@ -206,6 +359,14 @@ class IncomeController extends Controller
             abort(403);
         }
         $income->delete();
+
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Income record deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.incomes.index')
             ->with('success', 'Income record deleted successfully.');

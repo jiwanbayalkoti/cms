@@ -21,7 +21,13 @@ class PaymentTypeController extends Controller
 
     public function create()
     {
-        return view('admin.payment_types.create');
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.payment-types.index');
     }
 
     public function store(Request $request)
@@ -30,13 +36,39 @@ class PaymentTypeController extends Controller
             'name' => 'required|string|max:255|unique:payment_types,name',
             'code' => 'nullable|string|max:255|unique:payment_types,code',
         ]);
-        PaymentType::create($data);
+        $paymentType = PaymentType::create($data);
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment type added successfully.',
+                'paymentType' => [
+                    'id' => $paymentType->id,
+                    'name' => $paymentType->name,
+                    'code' => $paymentType->code,
+                ],
+            ]);
+        }
+        
         return redirect()->route('admin.payment-types.index')->with('success', 'Payment type added successfully.');
     }
 
     public function edit(PaymentType $paymentType)
     {
-        return view('admin.payment_types.edit', compact('paymentType'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'paymentType' => [
+                    'id' => $paymentType->id,
+                    'name' => $paymentType->name,
+                    'code' => $paymentType->code,
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.payment-types.index');
     }
 
     public function update(Request $request, PaymentType $paymentType)
@@ -46,12 +78,35 @@ class PaymentTypeController extends Controller
             'code' => 'nullable|string|max:255|unique:payment_types,code,' . $paymentType->id,
         ]);
         $paymentType->update($data);
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment type updated successfully.',
+                'paymentType' => [
+                    'id' => $paymentType->id,
+                    'name' => $paymentType->name,
+                    'code' => $paymentType->code,
+                ],
+            ]);
+        }
+        
         return redirect()->route('admin.payment-types.index')->with('success', 'Payment type updated successfully.');
     }
 
-    public function destroy(PaymentType $paymentType)
+    public function destroy(Request $request, PaymentType $paymentType)
     {
         $paymentType->delete();
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment type deleted successfully.',
+            ]);
+        }
+        
         return redirect()->route('admin.payment-types.index')->with('success', 'Payment type deleted successfully.');
     }
 }

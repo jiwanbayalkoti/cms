@@ -22,7 +22,13 @@ class MaterialCategoryController extends Controller
 
     public function create()
     {
-        return view('admin.material_categories.create');
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.material-categories.index');
     }
 
     public function store(Request $request)
@@ -35,7 +41,21 @@ class MaterialCategoryController extends Controller
 
         $data['is_active'] = $request->boolean('is_active', true);
 
-        MaterialCategory::create($data);
+        $category = MaterialCategory::create($data);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Material category created successfully.',
+                'category' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'description' => $category->description,
+                    'is_active' => $category->is_active,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.material-categories.index')
             ->with('success', 'Material category created successfully.');
@@ -43,7 +63,20 @@ class MaterialCategoryController extends Controller
 
     public function edit(MaterialCategory $material_category)
     {
-        return view('admin.material_categories.edit', ['category' => $material_category]);
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'category' => [
+                    'id' => $material_category->id,
+                    'name' => $material_category->name,
+                    'description' => $material_category->description,
+                    'is_active' => $material_category->is_active,
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.material-categories.index');
     }
 
     public function update(Request $request, MaterialCategory $material_category)
@@ -58,13 +91,35 @@ class MaterialCategoryController extends Controller
 
         $material_category->update($data);
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Material category updated successfully.',
+                'category' => [
+                    'id' => $material_category->id,
+                    'name' => $material_category->name,
+                    'description' => $material_category->description,
+                    'is_active' => $material_category->is_active,
+                ],
+            ]);
+        }
+
         return redirect()->route('admin.material-categories.index')
             ->with('success', 'Material category updated successfully.');
     }
 
-    public function destroy(MaterialCategory $material_category)
+    public function destroy(Request $request, MaterialCategory $material_category)
     {
         $material_category->delete();
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Material category deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.material-categories.index')
             ->with('success', 'Material category deleted successfully.');

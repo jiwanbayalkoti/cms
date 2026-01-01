@@ -26,7 +26,8 @@ class CompanyController extends Controller
 
     public function create()
     {
-        return view('admin.companies.create');
+        // Redirect to index since we're using modals now
+        return redirect()->route('admin.companies.index');
     }
 
     public function store(Request $request)
@@ -63,17 +64,55 @@ class CompanyController extends Controller
             $company->update(['favicon' => $validated['favicon']]);
         }
 
+        // Return JSON response for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Company created successfully.',
+                'company' => $company
+            ]);
+        }
+
         return redirect()->route('admin.companies.index')->with('success', 'Company created successfully.');
     }
 
     public function edit(Company $company)
     {
-        return view('admin.companies.edit', compact('company'));
+        // Redirect to index since we're using modals now
+        return redirect()->route('admin.companies.index');
     }
 
     public function show(Company $company)
     {
-        return view('admin.companies.show', compact('company'));
+        // Get project count for THIS specific company (not filtered by any context)
+        // Use direct query to ensure we get the count for the specific company
+        $projectCount = \App\Models\Project::where('company_id', $company->id)->count();
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            
+            return response()->json([
+                'company' => [
+                    'id' => $company->id,
+                    'name' => $company->name,
+                    'address' => $company->address,
+                    'email' => $company->email,
+                    'phone' => $company->phone,
+                    'website' => $company->website,
+                    'tax_number' => $company->tax_number,
+                    'city' => $company->city,
+                    'state' => $company->state,
+                    'country' => $company->country,
+                    'zip' => $company->zip,
+                    'logo_url' => $company->getLogoUrl(),
+                    'favicon_url' => $company->getFaviconUrl(),
+                    'project_count' => $projectCount,
+                ]
+            ]);
+        }
+        
+        // Redirect to index since we're using modals now
+        return redirect()->route('admin.companies.index');
     }
 
     public function update(Request $request, Company $company)
@@ -90,6 +129,7 @@ class CompanyController extends Controller
             'country' => 'nullable|string|max:100',
             'zip' => 'nullable|string|max:20',
             'logo' => 'nullable|image|max:5120',
+            'favicon' => 'nullable|image|max:1024',
         ]);
 
         if ($request->hasFile('logo')) {
@@ -102,25 +142,64 @@ class CompanyController extends Controller
 
         $company->update($validated);
 
+        // Handle favicon
+        $faviconService = app(FaviconGeneratorService::class);
+        if ($request->hasFile('favicon')) {
+            $validated['favicon'] = $faviconService->generateFromFile($request->file('favicon'), $company->name);
+            $company->update(['favicon' => $validated['favicon']]);
+        }
+
+        // Return JSON response for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Company updated successfully.',
+                'company' => $company->fresh()
+            ]);
+        }
+
         return redirect()->route('admin.companies.index')->with('success', 'Company updated successfully.');
     }
 
     public function destroy(Company $company)
     {
         $company->delete();
+        
+        // Return JSON response for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Company deleted successfully.'
+            ]);
+        }
+        
         return redirect()->route('admin.companies.index')->with('success', 'Company deleted successfully.');
     }
 
     public function switch(Request $request)
     {
-        if ((int)auth()->user()->company_id !== 1) {
-            return back()->with('error', 'Only primary super admin can switch companies.');
+        // Check if user is super admin
+        if (auth()->user()->role !== 'super_admin') {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['error' => 'Only super admin can switch companies.'], 403);
+            }
+            return back()->with('error', 'Only super admin can switch companies.');
         }
+        
         $request->validate([
             'company_id' => 'required|exists:companies,id',
         ]);
 
         session(['active_company_id' => (int) $request->company_id]);
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Active company switched.',
+                'company_id' => (int) $request->company_id
+            ]);
+        }
         
         // If redirect parameter is provided, redirect to that route
         if ($request->has('redirect_to') && $request->redirect_to === 'projects') {
@@ -136,19 +215,19 @@ class CompanyController extends Controller
     public function profile()
     {
         try {
-            $companyId = CompanyContext::getActiveCompanyId();
-            
-            if (!$companyId) {
-                return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
-            }
+        $companyId = CompanyContext::getActiveCompanyId();
+        
+        if (!$companyId) {
+            return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
+        }
 
             $company = Company::find($companyId);
             
             if (!$company) {
                 return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
             }
-            
-            return view('admin.companies.profile', compact('company'));
+        
+        return view('admin.companies.profile', compact('company'));
         } catch (\Exception $e) {
             \Log::error('Error loading company profile: ' . $e->getMessage(), [
                 'user_id' => auth()->id(),
@@ -210,6 +289,15 @@ class CompanyController extends Controller
 
         $company->update($validated);
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Company profile updated successfully.',
+                'company' => $company->fresh()
+            ]);
+        }
+        
         return redirect()->route('admin.companies.profile')->with('success', 'Company profile updated successfully.');
     }
 }

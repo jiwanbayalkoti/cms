@@ -30,7 +30,13 @@ class PositionController extends Controller
      */
     public function create()
     {
-        return view('admin.positions.create');
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.positions.index');
     }
 
     /**
@@ -47,7 +53,24 @@ class PositionController extends Controller
 
         $validated['is_active'] = $request->has('is_active');
 
-        Position::create($validated);
+        $position = Position::create($validated);
+        $position->loadCount('staff');
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Position created successfully.',
+                'position' => [
+                    'id' => $position->id,
+                    'name' => $position->name,
+                    'description' => $position->description,
+                    'salary_range' => $position->salary_range,
+                    'is_active' => $position->is_active,
+                    'staff_count' => $position->staff_count,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.positions.index')
             ->with('success', 'Position created successfully.');
@@ -59,7 +82,32 @@ class PositionController extends Controller
     public function show(Position $position)
     {
         $position->load('staff');
-        return view('admin.positions.show', compact('position'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'position' => [
+                    'id' => $position->id,
+                    'name' => $position->name,
+                    'description' => $position->description,
+                    'salary_range' => $position->salary_range,
+                    'is_active' => $position->is_active,
+                    'staff_count' => $position->staff->count(),
+                    'created_at' => $position->created_at->format('M d, Y H:i'),
+                    'updated_at' => $position->updated_at->format('M d, Y H:i'),
+                    'staff' => $position->staff->map(function($s) {
+                        return [
+                            'id' => $s->id,
+                            'name' => $s->name,
+                            'email' => $s->email,
+                        ];
+                    }),
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.positions.index');
     }
 
     /**
@@ -67,7 +115,21 @@ class PositionController extends Controller
      */
     public function edit(Position $position)
     {
-        return view('admin.positions.edit', compact('position'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'position' => [
+                    'id' => $position->id,
+                    'name' => $position->name,
+                    'description' => $position->description,
+                    'salary_range' => $position->salary_range,
+                    'is_active' => $position->is_active,
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.positions.index');
     }
 
     /**
@@ -85,6 +147,23 @@ class PositionController extends Controller
         $validated['is_active'] = $request->has('is_active');
 
         $position->update($validated);
+        $position->loadCount('staff');
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Position updated successfully.',
+                'position' => [
+                    'id' => $position->id,
+                    'name' => $position->name,
+                    'description' => $position->description,
+                    'salary_range' => $position->salary_range,
+                    'is_active' => $position->is_active,
+                    'staff_count' => $position->staff_count,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.positions.index')
             ->with('success', 'Position updated successfully.');
@@ -93,15 +172,31 @@ class PositionController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Position $position)
+    public function destroy(Request $request, Position $position)
     {
         // Check if position has staff members
         if ($position->staff()->count() > 0) {
+            // Return JSON for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete position. There are staff members assigned to this position.',
+                ], 422);
+            }
+            
             return redirect()->route('admin.positions.index')
                 ->with('error', 'Cannot delete position. There are staff members assigned to this position.');
         }
 
         $position->delete();
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Position deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.positions.index')
             ->with('success', 'Position deleted successfully.');

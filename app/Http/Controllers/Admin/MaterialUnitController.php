@@ -22,7 +22,13 @@ class MaterialUnitController extends Controller
 
     public function create()
     {
-        return view('admin.material_units.create');
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.material-units.index');
     }
 
     public function store(Request $request)
@@ -32,7 +38,20 @@ class MaterialUnitController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        MaterialUnit::create($data);
+        $unit = MaterialUnit::create($data);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Material unit created successfully.',
+                'unit' => [
+                    'id' => $unit->id,
+                    'name' => $unit->name,
+                    'description' => $unit->description,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.material-units.index')
             ->with('success', 'Material unit created successfully.');
@@ -40,7 +59,19 @@ class MaterialUnitController extends Controller
 
     public function edit(MaterialUnit $material_unit)
     {
-        return view('admin.material_units.edit', ['unit' => $material_unit]);
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'unit' => [
+                    'id' => $material_unit->id,
+                    'name' => $material_unit->name,
+                    'description' => $material_unit->description,
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.material-units.index');
     }
 
     public function update(Request $request, MaterialUnit $material_unit)
@@ -52,13 +83,34 @@ class MaterialUnitController extends Controller
 
         $material_unit->update($data);
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Material unit updated successfully.',
+                'unit' => [
+                    'id' => $material_unit->id,
+                    'name' => $material_unit->name,
+                    'description' => $material_unit->description,
+                ],
+            ]);
+        }
+
         return redirect()->route('admin.material-units.index')
             ->with('success', 'Material unit updated successfully.');
     }
 
-    public function destroy(MaterialUnit $material_unit)
+    public function destroy(Request $request, MaterialUnit $material_unit)
     {
         $material_unit->delete();
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Material unit deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.material-units.index')
             ->with('success', 'Material unit deleted successfully.');

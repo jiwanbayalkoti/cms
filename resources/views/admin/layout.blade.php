@@ -1238,7 +1238,7 @@
 
             <!-- Main Content -->
             <main class="flex-1 py-6 mobile:py-2">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" id="main-content-container">
                 @if(session('success'))
                     <div class="alert-message mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative pr-10" role="alert">
                         <button type="button" class="alert-close-btn" onclick="closeAlert(this)" aria-label="Close">
@@ -1270,12 +1270,19 @@
                     </div>
                 @endif
 
-                    @yield('content')
+                    <div id="page-content">
+                        @yield('content')
+                    </div>
                 </div>
             </main>
         </div>
     </div>
     <script>
+        // Global CSRF token - initialize once to avoid redeclaration errors
+        if (typeof window.csrfToken === 'undefined') {
+            window.csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        }
+        
         document.addEventListener('DOMContentLoaded', function () {
             const sidebar = document.getElementById('sidebar');
             const sidebarToggle = document.getElementById('sidebarToggle');
@@ -1288,47 +1295,18 @@
                 return window.innerWidth <= 768;
             }
             
-            // Load sidebar state from localStorage (desktop only)
-            if (!isMobile()) {
-                const savedState = localStorage.getItem('sidebarCollapsed');
-                if (savedState === 'true') {
-                    sidebar.classList.remove('expanded');
-                    sidebar.classList.add('collapsed');
-                    if (toggleIcon) {
-                        toggleIcon.style.transform = 'rotate(180deg)';
-                    }
+            // Define functions first before using them
+            function closeSidebarMobile() {
+                if (!sidebar) return;
+                sidebar.classList.remove('mobile-open');
+                if (sidebarOverlay) {
+                    sidebarOverlay.classList.remove('active');
                 }
-            } else {
-                // Hide sidebar on initial load for mobile
-                closeSidebarMobile();
-            }
-            
-            // Toggle sidebar (desktop only)
-            if (sidebarToggle) {
-                sidebarToggle.addEventListener('click', function (e) {
-                    if (isMobile()) {
-                        e.preventDefault();
-                        return;
-                    }
-                    toggleSidebar();
-                });
-            }
-            
-            // Toggle sidebar (mobile)
-            if (sidebarToggleMobile) {
-                sidebarToggleMobile.addEventListener('click', function () {
-                    toggleSidebarMobile();
-                });
-            }
-            
-            // Close sidebar when clicking overlay (mobile)
-            if (sidebarOverlay) {
-                sidebarOverlay.addEventListener('click', function () {
-                    closeSidebarMobile();
-                });
+                document.body.classList.remove('sidebar-open');
             }
             
             function toggleSidebar() {
+                if (!sidebar) return;
                 if (isMobile()) return; // Don't allow desktop collapse on mobile
                 
                 const isCollapsed = sidebar.classList.contains('collapsed');
@@ -1351,6 +1329,7 @@
             }
             
             function toggleSidebarMobile() {
+                if (!sidebar) return;
                 const isOpen = sidebar.classList.contains('mobile-open');
                 
                 if (isOpen) {
@@ -1364,47 +1343,110 @@
                 }
             }
             
-            function closeSidebarMobile() {
-                sidebar.classList.remove('mobile-open');
-                if (sidebarOverlay) {
-                    sidebarOverlay.classList.remove('active');
+            // Load sidebar state from localStorage (desktop only)
+            if (sidebar) {
+                if (!isMobile()) {
+                    const savedState = localStorage.getItem('sidebarCollapsed');
+                    if (savedState === 'true') {
+                        sidebar.classList.remove('expanded');
+                        sidebar.classList.add('collapsed');
+                        if (toggleIcon) {
+                            toggleIcon.style.transform = 'rotate(180deg)';
+                        }
+                    }
+                } else {
+                    // Hide sidebar on initial load for mobile
+                    closeSidebarMobile();
                 }
-                document.body.classList.remove('sidebar-open');
+            }
+            
+            // Toggle sidebar (desktop only)
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (isMobile()) {
+                        return;
+                    }
+                    toggleSidebar();
+                });
+            }
+            
+            // Toggle sidebar (mobile)
+            if (sidebarToggleMobile) {
+                sidebarToggleMobile.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleSidebarMobile();
+                });
+            }
+            
+            // Close sidebar when clicking overlay (mobile)
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', function () {
+                    closeSidebarMobile();
+                });
             }
             
             // Close sidebar on initial load for mobile
-            if (isMobile()) {
+            if (isMobile() && sidebar) {
                 closeSidebarMobile();
             }
             
-            // Handle submenu toggles
-            document.querySelectorAll('#sidebar-nav .group-toggle').forEach(function (button) {
-                button.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const targetId = button.getAttribute('data-target');
-                    const panel = document.getElementById(targetId);
-                    const expanded = button.getAttribute('aria-expanded') === 'true';
+            // Function to handle submenu toggle (using event delegation for better performance)
+            function handleSubmenuToggle(e) {
+                const button = e.target.closest('.group-toggle');
+                if (!button) return;
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const targetId = button.getAttribute('data-target');
+                const panel = document.getElementById(targetId);
+                const expanded = button.getAttribute('aria-expanded') === 'true';
 
-                    if (panel) {
-                        // Toggle hidden class
+                if (panel) {
+                    // Toggle hidden class
+                    if (panel.classList.contains('hidden')) {
+                        panel.classList.remove('hidden');
+                        button.setAttribute('aria-expanded', 'true');
+                    } else {
+                        panel.classList.add('hidden');
+                        button.setAttribute('aria-expanded', 'false');
+                    }
+                    
+                    // Toggle chevron icon rotation
+                    const icon = button.querySelector('[data-icon="chevron"]');
+                    if (icon) {
                         if (panel.classList.contains('hidden')) {
-                            panel.classList.remove('hidden');
-                            button.setAttribute('aria-expanded', 'true');
+                            icon.classList.remove('rotate-180');
                         } else {
-                            panel.classList.add('hidden');
-                            button.setAttribute('aria-expanded', 'false');
-                        }
-                        
-                        // Toggle chevron icon rotation
-                        const icon = button.querySelector('[data-icon="chevron"]');
-                        if (icon) {
-                            icon.classList.toggle('rotate-180', !expanded);
+                            icon.classList.add('rotate-180');
                         }
                     }
-                });
-            });
+                }
+            }
+            
+            // Use event delegation on sidebar nav for submenu toggles
+            const sidebarNav = document.getElementById('sidebar-nav');
+            if (sidebarNav) {
+                sidebarNav.addEventListener('click', handleSubmenuToggle);
+            }
+            
+            // Function to attach submenu toggle listeners (for compatibility)
+            // Make it globally accessible for AJAX-loaded content
+            window.attachSubmenuToggleListeners = function() {
+                // Event delegation is already set up, so this is just for compatibility
+                // No need to do anything as event delegation handles it
+            };
+            
+            // Also create a local reference for backward compatibility
+            function attachSubmenuToggleListeners() {
+                window.attachSubmenuToggleListeners();
+            }
+            
+            // Initial call (for compatibility)
+            attachSubmenuToggleListeners();
             
             // Close mobile sidebar when clicking outside
             document.addEventListener('click', function(event) {
@@ -1442,7 +1484,555 @@
                     }
                 });
             });
+            
+            // AJAX Navigation - Intercept sidebar link clicks
+            document.querySelectorAll('#sidebar-nav a[href]').forEach(function(link) {
+                link.addEventListener('click', function(e) {
+                    const href = this.getAttribute('href');
+                    
+                    // Skip if it's an external link, mailto, tel, or hash link
+                    if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('http://') || href.startsWith('https://')) {
+                        return;
+                    }
+                    
+                    // Skip if it's a logout link or form submission
+                    if (href.includes('logout') || this.closest('form')) {
+                        return;
+                    }
+                    
+                    e.preventDefault();
+                    loadPageViaAjax(href);
+                });
+            });
+            
         });
+        
+        
+        // Global debounce utility for performance optimization
+        window.debounce = function(func, wait, immediate) {
+            let timeout;
+            return function executedFunction() {
+                const context = this;
+                const args = arguments;
+                const later = function() {
+                    timeout = null;
+                    if (!immediate) func.apply(context, args);
+                };
+                const callNow = immediate && !timeout;
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+                if (callNow) func.apply(context, args);
+            };
+        };
+        
+        // Request cache for AJAX calls (5 minute TTL)
+        window.requestCache = {
+            cache: new Map(),
+            ttl: 5 * 60 * 1000, // 5 minutes
+            get: function(key) {
+                const item = this.cache.get(key);
+                if (!item) return null;
+                if (Date.now() > item.expiry) {
+                    this.cache.delete(key);
+                    return null;
+                }
+                return item.data;
+            },
+            set: function(key, data) {
+                this.cache.set(key, {
+                    data: data,
+                    expiry: Date.now() + this.ttl
+                });
+            },
+            clear: function() {
+                this.cache.clear();
+            }
+        };
+        
+        // AJAX Page Loading Function (make it globally accessible)
+        window.loadPageViaAjax = function(url) {
+            const contentContainer = document.getElementById('page-content');
+            if (!contentContainer) return;
+            
+            // Check cache first
+            const cacheKey = 'page_' + url;
+            const cached = window.requestCache.get(cacheKey);
+            if (cached) {
+                contentContainer.innerHTML = cached;
+                // Re-execute scripts from cached content
+                const scripts = contentContainer.querySelectorAll('script');
+                scripts.forEach(function(oldScript) {
+                    const newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    if (oldScript.src) {
+                        newScript.src = oldScript.src;
+                    } else {
+                        newScript.textContent = oldScript.textContent || oldScript.innerHTML;
+                    }
+                    oldScript.remove();
+                    document.body.appendChild(newScript);
+                });
+                return;
+            }
+            
+            // Show loading state
+            contentContainer.innerHTML = '<div class="text-center py-8"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-3 text-muted">Loading page...</p></div>';
+            
+            // Update active menu items
+            document.querySelectorAll('#sidebar-nav a, #sidebar-nav button.nav-item').forEach(function(link) {
+                link.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-lg', 'bg-gray-700', 'text-white');
+                // Also remove active class from nav-item
+                link.classList.remove('active');
+            });
+            
+            // Find and activate the clicked link
+            // Try exact match first
+            let clickedLink = Array.from(document.querySelectorAll('#sidebar-nav a')).find(link => {
+                const href = link.getAttribute('href');
+                return href === url || href === url.split('?')[0]; // Match without query params
+            });
+            
+            // If no exact match, try to match by route pattern
+            if (!clickedLink) {
+                // For projects route
+                if (url.includes('/admin/projects') || url.includes('projects')) {
+                    clickedLink = Array.from(document.querySelectorAll('#sidebar-nav a')).find(link => {
+                        const href = link.getAttribute('href');
+                        return href && (href.includes('/admin/projects') || href.includes('projects') || href.includes('admin/projects'));
+                    });
+                    
+                    // Also expand the Projects parent menu if it exists
+                    const projectsMenu = document.getElementById('projects-menu');
+                    const projectsToggle = document.querySelector('button[data-target="projects-menu"]');
+                    if (projectsMenu && projectsToggle) {
+                        projectsMenu.classList.remove('hidden');
+                        projectsToggle.setAttribute('aria-expanded', 'true');
+                        // Rotate chevron icon
+                        const chevron = projectsToggle.querySelector('svg[data-icon="chevron"]');
+                        if (chevron) {
+                            chevron.classList.add('rotate-180');
+                        }
+                        // Activate parent button
+                        projectsToggle.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-lg');
+                    }
+                }
+            }
+            
+            if (clickedLink) {
+                clickedLink.classList.add('bg-gray-700', 'text-white', 'active');
+                // Also activate parent nav-item if it exists
+                const navItem = clickedLink.closest('.nav-item') || clickedLink;
+                if (navItem) {
+                    navItem.classList.add('active');
+                }
+                
+                // If it's a submenu item, expand and activate parent
+                const submenu = clickedLink.closest('.submenu');
+                if (submenu) {
+                    const menuId = submenu.getAttribute('id');
+                    if (menuId) {
+                        const parentToggle = document.querySelector(`button[data-target="${menuId}"]`);
+                        if (parentToggle) {
+                            submenu.classList.remove('hidden');
+                            parentToggle.setAttribute('aria-expanded', 'true');
+                            const chevron = parentToggle.querySelector('svg[data-icon="chevron"]');
+                            if (chevron) {
+                                chevron.classList.add('rotate-180');
+                            }
+                            parentToggle.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-lg');
+                        }
+                    }
+                }
+            }
+            
+            // Fetch page content
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                    'X-Page-Load': 'true'  // Signal that this is a page load, not a filter request
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.text();
+            })
+            .then(html => {
+                // Create a temporary container to parse the HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Extract the content from the response
+                // Look for the main content area - it should be inside main > div > #page-content
+                let newContent = '';
+                
+                // Try multiple selectors to find the content
+                const selectors = [
+                    '#page-content',
+                    'main .max-w-7xl',
+                    'main > div',
+                    'main',
+                    'body > main',
+                    '.content',
+                    'body'
+                ];
+                
+                for (let selector of selectors) {
+                    const element = doc.querySelector(selector);
+                    if (element) {
+                        if (selector === '#page-content') {
+                            newContent = element.innerHTML;
+                        } else if (selector === 'main .max-w-7xl') {
+                            const pageContent = element.querySelector('#page-content');
+                            newContent = pageContent ? pageContent.innerHTML : element.innerHTML;
+                        } else if (selector === 'main > div') {
+                            const pageContent = element.querySelector('#page-content');
+                            newContent = pageContent ? pageContent.innerHTML : element.innerHTML;
+                        } else if (selector === 'main') {
+                            const pageContent = element.querySelector('#page-content');
+                            newContent = pageContent ? pageContent.innerHTML : element.innerHTML;
+                        } else {
+                            const pageContent = element.querySelector('#page-content');
+                            newContent = pageContent ? pageContent.innerHTML : element.innerHTML;
+                        }
+                        break;
+                    }
+                }
+                
+                // If still no content, try to extract from body
+                if (!newContent && doc.body) {
+                    const bodyContent = doc.body.querySelector('#page-content') || doc.body.querySelector('main') || doc.body;
+                    newContent = bodyContent ? bodyContent.innerHTML : '';
+                }
+                
+                // Extract scripts from the full document (not just page-content)
+                // This includes scripts from the scripts stack
+                const allScripts = doc.querySelectorAll('script');
+                const scriptsToExecute = [];
+                allScripts.forEach(function(oldScript) {
+                    // Skip if script is empty or invalid
+                    if (!oldScript.src && (!oldScript.textContent || !oldScript.textContent.trim())) {
+                        return;
+                    }
+                    
+                    const newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    if (oldScript.src) {
+                        newScript.src = oldScript.src;
+                    } else {
+                        const scriptContent = oldScript.textContent || oldScript.innerHTML || '';
+                        // Validate script content is complete
+                        if (scriptContent.trim()) {
+                            // Count braces and parentheses to check if script is complete
+                            const openBraces = (scriptContent.match(/\{/g) || []).length;
+                            const closeBraces = (scriptContent.match(/\}/g) || []).length;
+                            const openParens = (scriptContent.match(/\(/g) || []).length;
+                            const closeParens = (scriptContent.match(/\)/g) || []).length;
+                            
+                            // If braces/parens don't match, skip this script (might be incomplete)
+                            if (openBraces !== closeBraces || openParens !== closeParens) {
+                                console.warn('Skipping potentially incomplete script from scripts stack:', {
+                                    openBraces,
+                                    closeBraces,
+                                    openParens,
+                                    closeParens,
+                                    contentLength: scriptContent.length,
+                                    preview: scriptContent.substring(0, 100)
+                                });
+                                return;
+                            }
+                            
+                            // Try to validate syntax
+                            try {
+                                new Function(scriptContent);
+                            } catch (syntaxError) {
+                                console.error('Syntax error in script from scripts stack, skipping:', syntaxError.message);
+                                console.warn('Script content preview:', scriptContent.substring(0, 200));
+                                return; // Skip this script
+                            }
+                        }
+                        newScript.textContent = scriptContent;
+                    }
+                    scriptsToExecute.push(newScript);
+                });
+                
+                // Also extract modals that might be outside #page-content
+                const modals = doc.querySelectorAll('[id$="Modal"], [id$="ConfirmationModal"]');
+                let modalsHtml = '';
+                modals.forEach(modal => {
+                    // Check if modal doesn't already exist in the document
+                    if (!document.getElementById(modal.id)) {
+                        modalsHtml += modal.outerHTML;
+                    }
+                });
+                
+                // Update content
+                contentContainer.innerHTML = newContent || '<div class="alert alert-warning">No content found</div>';
+                
+                // Append modals to body if they don't exist
+                if (modalsHtml) {
+                    const tempModalContainer = document.createElement('div');
+                    tempModalContainer.innerHTML = modalsHtml;
+                    while (tempModalContainer.firstChild) {
+                        document.body.appendChild(tempModalContainer.firstChild);
+                    }
+                }
+                
+                // Execute scripts after content is loaded
+                // Use a small delay to ensure DOM is ready
+                setTimeout(function() {
+                    // First, execute scripts from the full document (from scripts stack)
+                    scriptsToExecute.forEach(function(newScript) {
+                        // Check if script with same content already exists to avoid duplicates
+                        const existingScripts = document.querySelectorAll('script');
+                        let scriptExists = false;
+                        existingScripts.forEach(function(existing) {
+                            if (newScript.src && existing.src === newScript.src) {
+                                scriptExists = true;
+                            } else if (!newScript.src && existing.textContent === newScript.textContent && existing.textContent.trim() !== '') {
+                                scriptExists = true;
+                            }
+                        });
+                        
+                        if (!scriptExists) {
+                            try {
+                                document.body.appendChild(newScript);
+                            } catch (e) {
+                                console.error('Error executing script:', e);
+                            }
+                        }
+                    });
+                    
+                    // Also execute any scripts that might be in the loaded content itself
+                    const contentScripts = contentContainer.querySelectorAll('script');
+                    contentScripts.forEach(function(oldScript) {
+                        // Skip if script is already processed
+                        if (oldScript.dataset.processed) return;
+                        
+                        // Get the full script content before removing (declare once)
+                        const scriptContent = oldScript.textContent || oldScript.innerHTML || '';
+                        
+                        // Check if this script was already executed by checking its content hash
+                        if (scriptContent.trim()) {
+                            const scriptHash = btoa(scriptContent).substring(0, 32);
+                            const existingScript = Array.from(document.querySelectorAll('script')).find(s => {
+                                const existingContent = s.textContent || s.innerHTML || '';
+                                if (existingContent.trim()) {
+                                    const existingHash = btoa(existingContent).substring(0, 32);
+                                    return existingHash === scriptHash && !s.dataset.processed;
+                                }
+                                return false;
+                            });
+                            if (existingScript) {
+                                return; // Skip this script, it's already been executed
+                            }
+                        }
+                        
+                        oldScript.dataset.processed = 'true';
+                        
+                        // Validate script content is complete (basic check)
+                        if (!oldScript.src && scriptContent.trim()) {
+                            // Count braces to check if script is complete
+                            const openBraces = (scriptContent.match(/\{/g) || []).length;
+                            const closeBraces = (scriptContent.match(/\}/g) || []).length;
+                            const openParens = (scriptContent.match(/\(/g) || []).length;
+                            const closeParens = (scriptContent.match(/\)/g) || []).length;
+                            
+                            // If braces/parens don't match, skip this script (might be incomplete)
+                            if (openBraces !== closeBraces || openParens !== closeParens) {
+                                console.warn('Skipping potentially incomplete script:', {
+                                    openBraces,
+                                    closeBraces,
+                                    openParens,
+                                    closeParens,
+                                    contentLength: scriptContent.length
+                                });
+                                return;
+                            }
+                        }
+                        
+                        const newScript = document.createElement('script');
+                        Array.from(oldScript.attributes).forEach(attr => {
+                            if (attr.name !== 'data-processed') {
+                                newScript.setAttribute(attr.name, attr.value);
+                            }
+                        });
+                        if (oldScript.src) {
+                            newScript.src = oldScript.src;
+                            newScript.onload = function() {
+                                // Script loaded, check if it's Chart.js and initialize dashboard if needed
+                                if (oldScript.src.includes('chart.js') && document.getElementById('incomeExpenseChart')) {
+                                    setTimeout(function() {
+                                        if (typeof window.initDashboardCharts === 'function') {
+                                            window.initDashboardCharts();
+                                        } else if (typeof initDashboardCharts === 'function') {
+                                            initDashboardCharts();
+                                        }
+                                    }, 100);
+                                }
+                            };
+                            newScript.onerror = function() {
+                                console.error('Error loading script:', oldScript.src);
+                            };
+                        } else {
+                            newScript.textContent = scriptContent;
+                        }
+                        
+                        // Remove old script and append new one to body to execute it
+                        try {
+                            // Validate script before executing
+                            if (!oldScript.src && newScript.textContent) {
+                                // Try to parse the script to check for syntax errors
+                                try {
+                                    // This will throw an error if the script has syntax errors
+                                    new Function(newScript.textContent);
+                                } catch (syntaxError) {
+                                    console.error('Syntax error in script, skipping:', syntaxError.message);
+                                    console.warn('Script content preview:', newScript.textContent.substring(0, 200));
+                                    return; // Skip this script
+                                }
+                            }
+                            
+                            oldScript.remove();
+                            document.body.appendChild(newScript);
+                        } catch (e) {
+                            console.error('Error executing script:', e);
+                            // Don't remove the old script if there was an error
+                        }
+                    });
+                    
+                    // Check if dashboard charts need to be initialized
+                    if (contentContainer.querySelector('#incomeExpenseChart')) {
+                        setTimeout(function() {
+                            if (typeof window.initializeDashboard === 'function') {
+                                window.initializeDashboard();
+                            } else if (typeof initializeDashboard === 'function') {
+                                initializeDashboard();
+                            }
+                        }, 200);
+                    }
+                }, 50);
+                
+                // Re-initialize any components that need it
+                wrapTablesForMobile();
+                
+                // Re-attach event listeners for dynamically loaded content
+                if (typeof attachPaginationListeners === 'function') {
+                    attachPaginationListeners();
+                }
+                
+                // Re-attach submenu toggle event listeners
+                if (typeof window.attachSubmenuToggleListeners === 'function') {
+                    window.attachSubmenuToggleListeners();
+                } else if (typeof attachSubmenuToggleListeners === 'function') {
+                    attachSubmenuToggleListeners();
+                }
+                
+                // Ensure active state is maintained after content load
+                // Re-check and activate the correct menu item based on current URL
+                const currentUrl = url.split('?')[0]; // Remove query params
+                if (currentUrl.includes('/admin/projects')) {
+                    const projectsLink = document.querySelector('#sidebar-nav a[href*="projects"]');
+                    const projectsMenu = document.getElementById('projects-menu');
+                    const projectsToggle = document.querySelector('button[data-target="projects-menu"]');
+                    
+                    if (projectsLink) {
+                        projectsLink.classList.add('bg-gray-700', 'text-white');
+                    }
+                    if (projectsMenu && projectsToggle) {
+                        projectsMenu.classList.remove('hidden');
+                        projectsToggle.setAttribute('aria-expanded', 'true');
+                        projectsToggle.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-lg');
+                        const chevron = projectsToggle.querySelector('svg[data-icon="chevron"]');
+                        if (chevron) {
+                            chevron.classList.add('rotate-180');
+                        }
+                    }
+                }
+                
+                // Update browser URL without page refresh (for browser history)
+                if (typeof window.history !== 'undefined' && window.history.pushState) {
+                    window.history.pushState({path: url}, '', url);
+                }
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            })
+            .catch(error => {
+                console.error('Error loading page:', error);
+                contentContainer.innerHTML = '<div class="alert alert-danger"><strong>Error:</strong> Failed to load page. <a href="' + url + '" class="alert-link">Click here to reload</a></div>';
+            });
+        };
+        
+        // Handle browser back/forward buttons for AJAX navigation
+        window.addEventListener('popstate', function(event) {
+            if (event.state && event.state.path) {
+                loadPageViaAjax(event.state.path);
+            } else {
+                // Fallback: reload the page if no state
+                window.location.reload();
+            }
+        });
+        
+        // AJAX Navigation - Intercept all internal links within page-content (for dashboard cards, etc.)
+        // Use event delegation with capture phase to catch events early
+        // Set up immediately after loadPageViaAjax is defined
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+            
+            // Only intercept links within page-content (skip sidebar links as they're handled separately)
+            const pageContent = document.getElementById('page-content');
+            if (!pageContent || !pageContent.contains(link)) return;
+            
+            // Skip if link is in sidebar (already handled by sidebar navigation)
+            const sidebarNav = document.getElementById('sidebar-nav');
+            if (sidebarNav && sidebarNav.contains(link)) return;
+            
+            // Skip if link has data-ajax="false" attribute
+            if (link.getAttribute('data-ajax') === 'false') return;
+            
+            const href = link.getAttribute('href');
+            if (!href) return;
+            
+            // Skip if it's an external link, mailto, tel, hash link, or download link
+            if (href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || 
+                href.startsWith('http://') || href.startsWith('https://') || link.hasAttribute('download')) {
+                return;
+            }
+            
+            // Skip if it's a logout link or form submission
+            if (href.includes('logout') || link.closest('form')) {
+                return;
+            }
+            
+            // Skip if it's opening in a new tab/window
+            if (link.getAttribute('target') === '_blank' || link.getAttribute('target') === '_new') {
+                return;
+            }
+            
+            // Skip if modifier keys are pressed (Ctrl, Cmd, Shift, etc.)
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
+                return;
+            }
+            
+            // Check if loadPageViaAjax function exists
+            if (typeof window.loadPageViaAjax !== 'function') {
+                console.warn('loadPageViaAjax not available yet');
+                return;
+            }
+            
+            // Prevent default navigation and use AJAX
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            window.loadPageViaAjax(href);
+        }, true); // Use capture phase to catch events before other handlers
         
         // Alert Messages Auto-dismiss and Close functionality
         function closeAlert(button) {
@@ -1571,4 +2161,5 @@
     <script src="{{ asset('js/form-validation.js') }}"></script>
 </body>
 </html>
+
 

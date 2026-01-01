@@ -22,7 +22,13 @@ class WorkTypeController extends Controller
 
     public function create()
     {
-        return view('admin.work_types.create');
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.work-types.index');
     }
 
     public function store(Request $request)
@@ -35,7 +41,21 @@ class WorkTypeController extends Controller
 
         $data['is_active'] = $request->boolean('is_active', true);
 
-        WorkType::create($data);
+        $workType = WorkType::create($data);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Work type created successfully.',
+                'workType' => [
+                    'id' => $workType->id,
+                    'name' => $workType->name,
+                    'description' => $workType->description,
+                    'is_active' => $workType->is_active,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.work-types.index')
             ->with('success', 'Work type created successfully.');
@@ -43,7 +63,20 @@ class WorkTypeController extends Controller
 
     public function edit(WorkType $work_type)
     {
-        return view('admin.work_types.edit', ['workType' => $work_type]);
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'workType' => [
+                    'id' => $work_type->id,
+                    'name' => $work_type->name,
+                    'description' => $work_type->description,
+                    'is_active' => $work_type->is_active,
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.work-types.index');
     }
 
     public function update(Request $request, WorkType $work_type)
@@ -58,13 +91,35 @@ class WorkTypeController extends Controller
 
         $work_type->update($data);
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Work type updated successfully.',
+                'workType' => [
+                    'id' => $work_type->id,
+                    'name' => $work_type->name,
+                    'description' => $work_type->description,
+                    'is_active' => $work_type->is_active,
+                ],
+            ]);
+        }
+
         return redirect()->route('admin.work-types.index')
             ->with('success', 'Work type updated successfully.');
     }
 
-    public function destroy(WorkType $work_type)
+    public function destroy(Request $request, WorkType $work_type)
     {
         $work_type->delete();
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Work type deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.work-types.index')
             ->with('success', 'Work type deleted successfully.');

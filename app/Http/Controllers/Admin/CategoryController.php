@@ -48,7 +48,13 @@ class CategoryController extends Controller
      */
     public function create()
     {
-        return view('admin.categories.create');
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.categories.index');
     }
 
     /**
@@ -65,7 +71,24 @@ class CategoryController extends Controller
 
         $validated['is_active'] = $request->has('is_active');
 
-        Category::create($validated);
+        $category = Category::create($validated);
+        $category->load('subcategories');
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Category created successfully.',
+                'category' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'type' => $category->type,
+                    'description' => $category->description,
+                    'is_active' => $category->is_active,
+                    'subcategories_count' => $category->subcategories->count(),
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.categories.index')
             ->with('success', 'Category created successfully.');
@@ -77,7 +100,32 @@ class CategoryController extends Controller
     public function show(Category $category)
     {
         $category->load('subcategories');
-        return view('admin.categories.show', compact('category'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'category' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'type' => $category->type,
+                    'description' => $category->description,
+                    'is_active' => $category->is_active,
+                    'created_at' => $category->created_at->format('M d, Y H:i'),
+                    'updated_at' => $category->updated_at->format('M d, Y H:i'),
+                    'subcategories' => $category->subcategories->map(function($sub) {
+                        return [
+                            'id' => $sub->id,
+                            'name' => $sub->name,
+                            'description' => $sub->description,
+                            'is_active' => $sub->is_active,
+                        ];
+                    }),
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.categories.index');
     }
 
     /**
@@ -85,7 +133,21 @@ class CategoryController extends Controller
      */
     public function edit(Category $category)
     {
-        return view('admin.categories.edit', compact('category'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'category' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'type' => $category->type,
+                    'description' => $category->description,
+                    'is_active' => $category->is_active,
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.categories.index');
     }
 
     /**
@@ -103,6 +165,23 @@ class CategoryController extends Controller
         $validated['is_active'] = $request->has('is_active');
 
         $category->update($validated);
+        $category->load('subcategories');
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Category updated successfully.',
+                'category' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'type' => $category->type,
+                    'description' => $category->description,
+                    'is_active' => $category->is_active,
+                    'subcategories_count' => $category->subcategories->count(),
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.categories.index')
             ->with('success', 'Category updated successfully.');
@@ -111,9 +190,17 @@ class CategoryController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Category $category)
+    public function destroy(Request $request, Category $category)
     {
         $category->delete();
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Category deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.categories.index')
             ->with('success', 'Category deleted successfully.');

@@ -102,6 +102,43 @@ class SalaryPaymentController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $salaryPaymentsData = $salaryPayments->map(function($payment) {
+                $statusClass = '';
+                if ($payment->status === 'paid') {
+                    $statusClass = 'bg-green-100 text-green-800';
+                } elseif ($payment->status === 'partial') {
+                    $statusClass = 'bg-blue-100 text-blue-800';
+                } elseif ($payment->status === 'pending') {
+                    $statusClass = 'bg-yellow-100 text-yellow-800';
+                } else {
+                    $statusClass = 'bg-red-100 text-red-800';
+                }
+                
+                return [
+                    'id' => $payment->id,
+                    'staff_name' => $payment->staff->name,
+                    'project_name' => $payment->project ? $payment->project->name : null,
+                    'payment_month_name' => $payment->payment_month_name,
+                    'base_salary' => number_format($payment->base_salary, 2),
+                    'gross_amount' => number_format($payment->gross_amount, 2),
+                    'tax_amount' => number_format($payment->tax_amount ?? 0, 2),
+                    'assessment_type' => ucfirst($payment->assessment_type ?? 'single'),
+                    'net_amount' => number_format($payment->net_amount, 2),
+                    'status' => ucfirst($payment->status),
+                    'status_class' => $statusClass,
+                    'paid_amount' => $payment->status === 'partial' ? number_format($payment->paid_amount, 2) : null,
+                    'payment_date' => $payment->payment_date->format('M d, Y'),
+                ];
+            });
+            
+            return response()->json([
+                'salaryPayments' => $salaryPaymentsData,
+                'pagination' => $salaryPayments->links()->render(),
+            ]);
+        }
+
         return view('admin.salary_payments.index', compact('salaryPayments', 'staff', 'projects'));
     }
 
@@ -122,7 +159,25 @@ class SalaryPaymentController extends Controller
             ->get();
         $paymentModes = PaymentMode::orderBy('name')->get();
 
-        return view('admin.salary_payments.create', compact('staff', 'projects', 'bankAccounts', 'paymentModes'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'staff' => $staff->map(function($s) {
+                    return [
+                        'id' => $s->id,
+                        'name' => $s->name,
+                        'position_name' => $s->position ? $s->position->name : 'N/A',
+                        'salary' => $s->salary,
+                    ];
+                }),
+                'projects' => $projects,
+                'bankAccounts' => $bankAccounts,
+                'paymentModes' => $paymentModes,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.salary-payments.index');
     }
 
     /**
@@ -372,6 +427,29 @@ class SalaryPaymentController extends Controller
             }
         }
 
+        $salaryPayment->load(['staff', 'project']);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Salary payment created successfully.',
+                'payment' => [
+                    'id' => $salaryPayment->id,
+                    'staff_name' => $salaryPayment->staff->name,
+                    'payment_month_name' => $salaryPayment->payment_month_name,
+                    'base_salary' => number_format($salaryPayment->base_salary, 2),
+                    'gross_amount' => number_format($salaryPayment->gross_amount, 2),
+                    'tax_amount' => number_format($salaryPayment->tax_amount ?? 0, 2),
+                    'net_amount' => number_format($salaryPayment->net_amount, 2),
+                    'status' => $salaryPayment->status,
+                    'payment_date' => $salaryPayment->payment_date->format('M d, Y'),
+                    'project_name' => $salaryPayment->project ? $salaryPayment->project->name : 'N/A',
+                    'paid_amount' => number_format($salaryPayment->paid_amount, 2),
+                ],
+            ]);
+        }
+
         return redirect()->route('admin.salary-payments.index')
             ->with('success', 'Salary payment created successfully.');
     }
@@ -391,7 +469,48 @@ class SalaryPaymentController extends Controller
             ->get();
         $paymentModes = PaymentMode::orderBy('name')->get();
         $salaryPayment->load(['staff', 'project', 'expense', 'bankAccount', 'creator', 'updater', 'transactions.bankAccount', 'transactions.creator']);
-        return view('admin.salary_payments.show', compact('salaryPayment', 'bankAccounts', 'paymentModes'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'payment' => [
+                    'id' => $salaryPayment->id,
+                    'staff_name' => $salaryPayment->staff->name,
+                    'staff_position' => $salaryPayment->staff->position ? $salaryPayment->staff->position->name : null,
+                    'project_name' => $salaryPayment->project ? $salaryPayment->project->name : null,
+                    'payment_month_name' => $salaryPayment->payment_month_name,
+                    'payment_date' => $salaryPayment->payment_date->format('Y-m-d'),
+                    'formatted_payment_date' => $salaryPayment->payment_date->format('M d, Y'),
+                    'base_salary' => number_format($salaryPayment->base_salary, 2),
+                    'working_days' => $salaryPayment->working_days,
+                    'total_days' => $salaryPayment->total_days,
+                    'overtime_amount' => number_format($salaryPayment->overtime_amount ?? 0, 2),
+                    'bonus_amount' => number_format($salaryPayment->bonus_amount ?? 0, 2),
+                    'allowance_amount' => number_format($salaryPayment->allowance_amount ?? 0, 2),
+                    'deduction_amount' => number_format($salaryPayment->deduction_amount ?? 0, 2),
+                    'advance_deduction' => number_format($salaryPayment->advance_deduction ?? 0, 2),
+                    'gross_amount' => number_format($salaryPayment->gross_amount, 2),
+                    'tax_amount' => number_format($salaryPayment->tax_amount ?? 0, 2),
+                    'taxable_income' => number_format($salaryPayment->taxable_income ?? 0, 2),
+                    'assessment_type' => $salaryPayment->assessment_type ?? 'single',
+                    'net_amount' => number_format($salaryPayment->net_amount, 2),
+                    'paid_amount' => number_format($salaryPayment->paid_amount, 2),
+                    'balance_amount' => number_format($salaryPayment->balance_amount, 2),
+                    'status' => $salaryPayment->status,
+                    'payment_method' => $salaryPayment->payment_method,
+                    'bank_account_name' => $salaryPayment->bankAccount ? $salaryPayment->bankAccount->account_name : null,
+                    'transaction_reference' => $salaryPayment->transaction_reference,
+                    'notes' => $salaryPayment->notes,
+                    'created_by' => $salaryPayment->creator ? $salaryPayment->creator->name : 'N/A',
+                    'updated_by' => $salaryPayment->updater ? $salaryPayment->updater->name : 'N/A',
+                    'created_at' => $salaryPayment->created_at ? $salaryPayment->created_at->format('M d, Y H:i') : '',
+                    'updated_at' => $salaryPayment->updated_at ? $salaryPayment->updated_at->format('M d, Y H:i') : '',
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.salary-payments.index');
     }
 
     /**
@@ -414,7 +533,48 @@ class SalaryPaymentController extends Controller
             ->get();
         $paymentModes = PaymentMode::orderBy('name')->get();
 
-        return view('admin.salary_payments.edit', compact('salaryPayment', 'staff', 'projects', 'bankAccounts', 'paymentModes'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'payment' => [
+                    'id' => $salaryPayment->id,
+                    'staff_id' => $salaryPayment->staff_id,
+                    'project_id' => $salaryPayment->project_id,
+                    'payment_month' => $salaryPayment->payment_month->format('Y-m'),
+                    'payment_date' => $salaryPayment->payment_date->format('Y-m-d'),
+                    'base_salary' => $salaryPayment->base_salary,
+                    'working_days' => $salaryPayment->working_days,
+                    'total_days' => $salaryPayment->total_days,
+                    'overtime_amount' => $salaryPayment->overtime_amount ?? 0,
+                    'bonus_amount' => $salaryPayment->bonus_amount ?? 0,
+                    'allowance_amount' => $salaryPayment->allowance_amount ?? 0,
+                    'deduction_amount' => $salaryPayment->deduction_amount ?? 0,
+                    'advance_deduction' => $salaryPayment->advance_deduction ?? 0,
+                    'assessment_type' => $salaryPayment->assessment_type ?? 'single',
+                    'status' => $salaryPayment->status,
+                    'payment_method' => $salaryPayment->payment_method,
+                    'bank_account_id' => $salaryPayment->bank_account_id,
+                    'transaction_reference' => $salaryPayment->transaction_reference,
+                    'notes' => $salaryPayment->notes,
+                    'paid_amount' => $salaryPayment->paid_amount,
+                    'balance_amount' => $salaryPayment->balance_amount,
+                ],
+                'staff' => $staff->map(function($s) {
+                    return [
+                        'id' => $s->id,
+                        'name' => $s->name,
+                        'position_name' => $s->position ? $s->position->name : 'N/A',
+                        'salary' => $s->salary,
+                    ];
+                }),
+                'projects' => $projects,
+                'bankAccounts' => $bankAccounts,
+                'paymentModes' => $paymentModes,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.salary-payments.index');
     }
 
     /**
@@ -618,6 +778,29 @@ class SalaryPaymentController extends Controller
             }
         }
 
+        $salaryPayment->load(['staff', 'project']);
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Salary payment updated successfully.',
+                'payment' => [
+                    'id' => $salaryPayment->id,
+                    'staff_name' => $salaryPayment->staff->name,
+                    'payment_month_name' => $salaryPayment->payment_month_name,
+                    'base_salary' => number_format($salaryPayment->base_salary, 2),
+                    'gross_amount' => number_format($salaryPayment->gross_amount, 2),
+                    'tax_amount' => number_format($salaryPayment->tax_amount ?? 0, 2),
+                    'net_amount' => number_format($salaryPayment->net_amount, 2),
+                    'status' => $salaryPayment->status,
+                    'payment_date' => $salaryPayment->payment_date->format('M d, Y'),
+                    'project_name' => $salaryPayment->project ? $salaryPayment->project->name : 'N/A',
+                    'paid_amount' => number_format($salaryPayment->paid_amount, 2),
+                ],
+            ]);
+        }
+
         return redirect()->route('admin.salary-payments.index')
             ->with('success', 'Salary payment updated successfully.');
     }
@@ -640,6 +823,14 @@ class SalaryPaymentController extends Controller
         }
 
         $salaryPayment->delete();
+
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Salary payment deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.salary-payments.index')
             ->with('success', 'Salary payment deleted successfully.');

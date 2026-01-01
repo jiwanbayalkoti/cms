@@ -6,7 +6,7 @@
 <div class="mb-4 mb-md-12">
     <div class="d-flex justify-content-between align-items-center mb-4 mb-md-12">
         <h2 class="h4 mb-0">Company Profile</h2>
-        <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+        <a href="{{ route('admin.dashboard') }}" onclick="if(typeof window.loadPageViaAjax === 'function') { event.preventDefault(); window.loadPageViaAjax('{{ route('admin.dashboard') }}'); }" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
         </a>
     </div>
@@ -16,7 +16,7 @@
             <h5 class="mb-0"><i class="bi bi-building me-2"></i>Company Information</h5>
         </div>
         <div class="card-body">
-            <form method="POST" action="{{ route('admin.companies.profile.update') }}" enctype="multipart/form-data">
+            <form id="companyProfileForm" method="POST" action="{{ route('admin.companies.profile.update') }}" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
 
@@ -154,10 +154,10 @@
                 </div>
 
                 <div class="mt-4 pt-3 border-top">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-circle me-2"></i>Update Profile
+                    <button type="submit" id="profile-submit-btn" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-2"></i><span id="profile-submit-text">Update Profile</span>
                     </button>
-                    <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary ms-2">
+                    <a href="{{ route('admin.dashboard') }}" onclick="if(typeof window.loadPageViaAjax === 'function') { event.preventDefault(); window.loadPageViaAjax('{{ route('admin.dashboard') }}'); }" class="btn btn-outline-secondary ms-2">
                         Cancel
                     </a>
                 </div>
@@ -165,5 +165,122 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('companyProfileForm');
+    const submitBtn = document.getElementById('profile-submit-btn');
+    const submitText = document.getElementById('profile-submit-text');
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Hide previous errors
+            document.querySelectorAll('.invalid-feedback').forEach(el => {
+                el.style.display = 'none';
+            });
+            document.querySelectorAll('.is-invalid').forEach(el => {
+                el.classList.remove('is-invalid');
+            });
+            
+            const formData = new FormData(form);
+            const originalText = submitText.textContent;
+            
+            submitBtn.disabled = true;
+            submitText.textContent = 'Updating...';
+            
+            fetch('{{ route("admin.companies.profile.update") }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw err;
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Show success notification
+                    if (typeof showNotification === 'function') {
+                        showNotification(data.message, 'success');
+                    } else {
+                        alert(data.message);
+                    }
+                    
+                    // Update logo/favicon preview if they were changed
+                    if (formData.has('logo')) {
+                        // Reload logo preview (would need to fetch new URL from server)
+                        const logoInput = form.querySelector('input[name="logo"]');
+                        if (logoInput && logoInput.files.length > 0) {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const logoPreview = form.querySelector('img[alt="Company Logo"]');
+                                if (logoPreview) {
+                                    logoPreview.src = e.target.result;
+                                }
+                            };
+                            reader.readAsDataURL(logoInput.files[0]);
+                        }
+                    }
+                    
+                    if (formData.has('favicon')) {
+                        const faviconInput = form.querySelector('input[name="favicon"]');
+                        if (faviconInput && faviconInput.files.length > 0) {
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                const faviconPreview = form.querySelector('img[alt="Company Favicon"]');
+                                if (faviconPreview) {
+                                    faviconPreview.src = e.target.result;
+                                }
+                            };
+                            reader.readAsDataURL(faviconInput.files[0]);
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                
+                if (error.errors) {
+                    // Display validation errors
+                    Object.keys(error.errors).forEach(field => {
+                        const input = form.querySelector(`[name="${field}"]`);
+                        if (input) {
+                            input.classList.add('is-invalid');
+                            const errorDiv = input.nextElementSibling;
+                            if (errorDiv && errorDiv.classList.contains('invalid-feedback')) {
+                                errorDiv.textContent = error.errors[field][0];
+                                errorDiv.style.display = 'block';
+                            }
+                        }
+                    });
+                }
+                
+                // Show error notification
+                const errorMessage = error.message || 'An error occurred while updating the profile.';
+                if (typeof showNotification === 'function') {
+                    showNotification(errorMessage, 'error');
+                } else {
+                    alert(errorMessage);
+                }
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitText.textContent = originalText;
+            });
+        });
+    }
+});
+</script>
+@endpush
 @endsection
 

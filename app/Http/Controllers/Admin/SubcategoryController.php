@@ -50,7 +50,16 @@ class SubcategoryController extends Controller
     public function create()
     {
         $categories = Category::where('is_active', true)->orderBy('name')->get();
-        return view('admin.subcategories.create', compact('categories'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'categories' => $categories,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.subcategories.index');
     }
 
     /**
@@ -67,7 +76,24 @@ class SubcategoryController extends Controller
 
         $validated['is_active'] = $request->has('is_active');
 
-        Subcategory::create($validated);
+        $subcategory = Subcategory::create($validated);
+        $subcategory->load('category');
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Subcategory created successfully.',
+                'subcategory' => [
+                    'id' => $subcategory->id,
+                    'name' => $subcategory->name,
+                    'description' => $subcategory->description,
+                    'is_active' => $subcategory->is_active,
+                    'category_name' => $subcategory->category->name,
+                    'category_id' => $subcategory->category_id,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.subcategories.index')
             ->with('success', 'Subcategory created successfully.');
@@ -79,7 +105,25 @@ class SubcategoryController extends Controller
     public function show(Subcategory $subcategory)
     {
         $subcategory->load('category');
-        return view('admin.subcategories.show', compact('subcategory'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'subcategory' => [
+                    'id' => $subcategory->id,
+                    'name' => $subcategory->name,
+                    'description' => $subcategory->description,
+                    'is_active' => $subcategory->is_active,
+                    'category_name' => $subcategory->category->name,
+                    'category_id' => $subcategory->category_id,
+                    'created_at' => $subcategory->created_at->format('M d, Y H:i'),
+                    'updated_at' => $subcategory->updated_at->format('M d, Y H:i'),
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.subcategories.index');
     }
 
     /**
@@ -88,7 +132,23 @@ class SubcategoryController extends Controller
     public function edit(Subcategory $subcategory)
     {
         $categories = Category::where('is_active', true)->orderBy('name')->get();
-        return view('admin.subcategories.edit', compact('subcategory', 'categories'));
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'subcategory' => [
+                    'id' => $subcategory->id,
+                    'name' => $subcategory->name,
+                    'description' => $subcategory->description,
+                    'is_active' => $subcategory->is_active,
+                    'category_id' => $subcategory->category_id,
+                ],
+                'categories' => $categories,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.subcategories.index');
     }
 
     /**
@@ -106,6 +166,23 @@ class SubcategoryController extends Controller
         $validated['is_active'] = $request->has('is_active');
 
         $subcategory->update($validated);
+        $subcategory->load('category');
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Subcategory updated successfully.',
+                'subcategory' => [
+                    'id' => $subcategory->id,
+                    'name' => $subcategory->name,
+                    'description' => $subcategory->description,
+                    'is_active' => $subcategory->is_active,
+                    'category_name' => $subcategory->category->name,
+                    'category_id' => $subcategory->category_id,
+                ],
+            ]);
+        }
 
         return redirect()->route('admin.subcategories.index')
             ->with('success', 'Subcategory updated successfully.');
@@ -114,9 +191,17 @@ class SubcategoryController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Subcategory $subcategory)
+    public function destroy(Request $request, Subcategory $subcategory)
     {
         $subcategory->delete();
+
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Subcategory deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.subcategories.index')
             ->with('success', 'Subcategory deleted successfully.');

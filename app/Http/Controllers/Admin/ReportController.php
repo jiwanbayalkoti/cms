@@ -131,6 +131,19 @@ class ReportController extends Controller
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'totalIncome' => $totalIncome,
+                'totalExpenses' => $totalExpenses,
+                'netBalance' => $netBalance,
+                'incomeByCategory' => $incomeByCategory,
+                'expensesByCategory' => $expensesByCategory,
+                'expensesByType' => $expensesByType,
+                'monthlyTrend' => $monthlyTrend,
+            ]);
+        }
+
         return view('admin.reports.financial-summary', compact(
             'startDate',
             'endDate',

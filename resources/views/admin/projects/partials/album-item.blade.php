@@ -33,7 +33,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                 </svg>
             </button>
-            <button onclick="deleteAlbum({{ $albumIndex }})" class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition" title="Delete Album">
+            <button onclick="showDeleteAlbumConfirmation({{ $albumIndex }}, '{{ addslashes($album['name'] ?? 'Album') }}')" class="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition" title="Delete Album">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                 </svg>
@@ -85,7 +85,7 @@
                         }
                     @endphp
                     @if($photoUrl)
-                        <div class="relative group bg-white rounded-lg overflow-hidden shadow-md border border-gray-200 hover:shadow-lg transition-shadow" data-photo-index="{{ $photoIndex }}">
+                        <div class="relative group bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow" data-photo-index="{{ $photoIndex }}" style="overflow: visible;">
                             @if(isset($isSiteEngineer) && $isSiteEngineer && $approvalStatus === 'pending')
                             <!-- Checkbox for bulk selection (only for pending photos) -->
                             <input type="checkbox" 
@@ -94,13 +94,14 @@
                                    data-photo-index="{{ $photoIndex }}"
                                    onchange="updateBulkButtons({{ $albumIndex }})">
                             @endif
-                            <div class="relative" style="height: 160px;">
+                            <div class="relative overflow-hidden rounded-t-lg" style="height: 160px;">
                                 <img
                                     src="{{ $photoUrl }}"
                                     alt="{{ $photoName }}"
                                     class="w-full h-full cursor-pointer"
                                     style="width: 100%; height: 160px; object-fit: cover; display: block;"
                                     loading="lazy"
+                                    decoding="async"
                                     data-photo-url="{{ $photoUrl }}"
                                     data-photo-caption="{{ $photoName }}"
                                     onclick="openLightbox('{{ $photoUrl }}', '{{ $photoName }}', {{ $albumIndex }}, {{ $photoIndex }})"
@@ -109,20 +110,35 @@
                             
                             <!-- Status and Approver Info (below image) -->
                             <div class="p-2 bg-gray-50 border-t border-gray-200">
-                                <div class="flex items-center justify-between mb-1">
-                                    <span class="text-xs font-medium text-gray-700">Status:</span>
+                                <div class="flex items-center justify-between mb-1 gap-2 min-w-0">
+                                    <span class="text-xs font-medium text-gray-700 flex-shrink-0 status-label">Status:</span>
                                     @if($approvalStatus === 'approved')
-                                        <span class="bg-green-600 text-white text-xs px-2 py-0.5 rounded">Approved</span>
+                                        <span class="bg-green-600 text-white text-xs px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0 status-badge">
+                                            <span class="status-text">Approved</span>
+                                            <svg class="h-3 w-3 inline status-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                        </span>
                                     @elseif($approvalStatus === 'disapproved')
-                                        <span class="bg-red-600 text-white text-xs px-2 py-0.5 rounded">Disapproved</span>
+                                        <span class="bg-red-600 text-white text-xs px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0 status-badge">
+                                            <span class="status-text">Disapproved</span>
+                                            <svg class="h-3 w-3 inline status-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </span>
                                     @else
-                                        <span class="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded">Pending</span>
+                                        <span class="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0 status-badge">
+                                            <span class="status-text">Pending</span>
+                                            <svg class="h-3 w-3 inline status-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                        </span>
                                     @endif
                                 </div>
                                 @if($approverName && $approvedAt)
-                                    <div class="text-xs text-gray-600 mt-1">
-                                        <span class="font-medium">By:</span> {{ $approverName }}
-                                        <span class="text-gray-400 ml-1">({{ \Carbon\Carbon::parse($approvedAt)->format('M d, Y') }})</span>
+                                    <div class="text-xs text-gray-600 mt-1 break-words approver-info">
+                                        <span class="font-medium approver-label">By:</span> <span class="break-all approver-name">{{ $approverName }}</span>
+                                        <span class="text-gray-400 ml-1 whitespace-nowrap approver-date">({{ \Carbon\Carbon::parse($approvedAt)->format('M d, Y') }})</span>
                                     </div>
                                 @endif
                             </div>

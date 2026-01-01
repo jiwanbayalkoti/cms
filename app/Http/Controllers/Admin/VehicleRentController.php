@@ -165,6 +165,72 @@ class VehicleRentController extends Controller
         
         $vehicleTypes = VehicleRent::getVehicleTypes();
         
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $vehicleRentsData = $vehicleRents->map(function($rent) use ($vehicleTypes) {
+                $statusClass = '';
+                $statusIcon = '';
+                if ($rent->payment_status === 'paid') {
+                    $statusClass = 'badge bg-success';
+                    $statusIcon = 'bi-check-circle-fill';
+                } elseif ($rent->payment_status === 'partial') {
+                    $statusClass = 'badge bg-warning text-dark';
+                    $statusIcon = 'bi-exclamation-triangle-fill';
+                } else {
+                    $statusClass = 'badge bg-danger';
+                    $statusIcon = 'bi-x-circle-fill';
+                }
+                
+                // Calculate balance
+                $balanceAmount = $rent->is_ongoing ? ($rent->calculated_balance_amount ?? 0) : ($rent->balance_amount ?? 0);
+                $totalAmount = $rent->is_ongoing ? ($rent->calculated_total_amount ?? $rent->total_amount) : $rent->total_amount;
+                
+                // Format route
+                $route = '';
+                if ($rent->start_location || $rent->destination_location) {
+                    $route = '<strong>From:</strong> ' . ($rent->start_location ?? 'N/A') . '<br><strong>To:</strong> ' . ($rent->destination_location ?? 'N/A');
+                } else {
+                    $route = 'N/A';
+                }
+                
+                return [
+                    'id' => $rent->id,
+                    'rent_date' => $rent->rent_date->format('Y-m-d'),
+                    'vehicle_type' => $vehicleTypes[$rent->vehicle_type] ?? $rent->vehicle_type,
+                    'vehicle_number' => $rent->vehicle_number ?? '—',
+                    'route' => $route,
+                    'rate_type' => ucfirst(str_replace('_', ' ', $rent->rate_type)),
+                    'project_name' => $rent->project ? $rent->project->name : '—',
+                    'supplier_name' => $rent->supplier ? $rent->supplier->name : '—',
+                    'total_amount' => number_format($totalAmount, 2),
+                    'paid_amount' => number_format($rent->paid_amount ?? 0, 2),
+                    'balance' => number_format($balanceAmount, 2),
+                    'payment_status' => ucfirst($rent->payment_status),
+                    'status_class' => $statusClass,
+                    'status_icon' => $statusIcon,
+                    'is_ongoing' => $rent->is_ongoing ?? false,
+                ];
+            });
+            
+            $summaryData = null;
+            if ($allRents->count() > 0) {
+                $summaryData = [
+                    'totalAmount' => number_format($totalAmount, 2),
+                    'totalPaid' => number_format($totalPaid, 2),
+                    'totalBalance' => number_format($totalBalance, 2),
+                    'totalAdvancePayments' => number_format($totalAdvancePayments ?? 0, 2),
+                    'netBalance' => number_format($netBalance ?? 0, 2),
+                    'hasNetBalance' => isset($netBalance),
+                ];
+            }
+            
+            return response()->json([
+                'vehicleRents' => $vehicleRentsData,
+                'pagination' => $vehicleRents->links()->render(),
+                'summary' => $summaryData,
+            ]);
+        }
+        
         return view('admin.vehicle_rents.index', compact('vehicleRents', 'projects', 'suppliers', 'vehicleTypes', 'totalAmount', 'totalPaid', 'totalBalance', 'totalAdvancePayments', 'netBalance'));
     }
 
@@ -232,7 +298,18 @@ class VehicleRentController extends Controller
         
         $vehicleTypes = VehicleRent::getVehicleTypes();
         
-        return view('admin.vehicle_rents.create', compact('projects', 'suppliers', 'bankAccounts', 'vehicleTypes'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'projects' => $projects,
+                'suppliers' => $suppliers,
+                'bankAccounts' => $bankAccounts,
+                'vehicleTypes' => $vehicleTypes,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.vehicle-rents.index');
     }
 
     /**
@@ -365,6 +442,42 @@ class VehicleRentController extends Controller
 
         $vehicleRent = VehicleRent::create($validated);
         $this->createExpenseFromVehicleRent($vehicleRent);
+        $vehicleRent->load(['project', 'supplier']);
+        
+        $vehicleTypes = VehicleRent::getVehicleTypes();
+        $rateTypeLabels = [
+            'fixed' => 'Fixed Rate',
+            'per_km' => 'Per KM',
+            'per_hour' => 'Per Hour',
+            'daywise' => 'Daywise',
+            'per_quintal' => 'Per Quintal',
+            'not_fixed' => 'Not Fixed',
+        ];
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle rent record created successfully.',
+                'rent' => [
+                    'id' => $vehicleRent->id,
+                    'rent_date' => $vehicleRent->rent_date->format('Y-m-d'),
+                    'vehicle_type' => $vehicleTypes[$vehicleRent->vehicle_type] ?? $vehicleRent->vehicle_type,
+                    'vehicle_number' => $vehicleRent->vehicle_number ?? '—',
+                    'start_location' => $vehicleRent->start_location,
+                    'destination_location' => $vehicleRent->destination_location,
+                    'rate_type' => $vehicleRent->rate_type,
+                    'rate_type_label' => $rateTypeLabels[$vehicleRent->rate_type] ?? ucfirst(str_replace('_', ' ', $vehicleRent->rate_type)),
+                    'project_name' => $vehicleRent->project ? $vehicleRent->project->name : '—',
+                    'supplier_name' => $vehicleRent->supplier ? $vehicleRent->supplier->name : '—',
+                    'total_amount' => number_format($vehicleRent->total_amount, 2),
+                    'paid_amount' => number_format($vehicleRent->paid_amount, 2),
+                    'balance_amount' => number_format($vehicleRent->balance_amount, 2),
+                    'payment_status' => $vehicleRent->payment_status,
+                ],
+            ]);
+        }
+        
         return redirect()->route('admin.vehicle-rents.index')
             ->with('success', 'Vehicle rent record created successfully.');
     }
@@ -374,8 +487,64 @@ class VehicleRentController extends Controller
      */
     public function show(VehicleRent $vehicleRent)
     {
-        $vehicleRent->load(['project', 'bankAccount', 'creator', 'updater']);
-        return view('admin.vehicle_rents.show', compact('vehicleRent'));
+        $vehicleRent->load(['project', 'bankAccount', 'creator', 'updater', 'supplier']);
+        $vehicleTypes = VehicleRent::getVehicleTypes();
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            $rateTypeLabels = [
+                'fixed' => 'Fixed Rate',
+                'per_km' => 'Per KM',
+                'per_hour' => 'Per Hour',
+                'daywise' => 'Daywise',
+                'per_quintal' => 'Per Quintal',
+                'not_fixed' => 'Not Fixed',
+            ];
+            
+            return response()->json([
+                'rent' => [
+                    'id' => $vehicleRent->id,
+                    'rent_date' => $vehicleRent->rent_date->format('Y-m-d'),
+                    'vehicle_type' => $vehicleTypes[$vehicleRent->vehicle_type] ?? $vehicleRent->vehicle_type,
+                    'vehicle_number' => $vehicleRent->vehicle_number,
+                    'driver_name' => $vehicleRent->driver_name,
+                    'driver_contact' => $vehicleRent->driver_contact,
+                    'start_location' => $vehicleRent->start_location,
+                    'destination_location' => $vehicleRent->destination_location,
+                    'distance_km' => $vehicleRent->distance_km ? number_format($vehicleRent->distance_km, 2) : null,
+                    'hours' => $vehicleRent->hours,
+                    'minutes' => $vehicleRent->minutes,
+                    'rate_per_km' => $vehicleRent->rate_per_km ? number_format($vehicleRent->rate_per_km, 2) : null,
+                    'rate_per_hour' => $vehicleRent->rate_per_hour ? number_format($vehicleRent->rate_per_hour, 2) : null,
+                    'fixed_rate' => $vehicleRent->fixed_rate ? number_format($vehicleRent->fixed_rate, 2) : null,
+                    'number_of_days' => $vehicleRent->number_of_days,
+                    'rate_per_day' => $vehicleRent->rate_per_day ? number_format($vehicleRent->rate_per_day, 2) : null,
+                    'rent_start_date' => $vehicleRent->rent_start_date ? $vehicleRent->rent_start_date->format('Y-m-d') : null,
+                    'rent_end_date' => $vehicleRent->rent_end_date ? $vehicleRent->rent_end_date->format('Y-m-d') : null,
+                    'quantity_quintal' => $vehicleRent->quantity_quintal ? number_format($vehicleRent->quantity_quintal, 2) : null,
+                    'rate_per_quintal' => $vehicleRent->rate_per_quintal ? number_format($vehicleRent->rate_per_quintal, 2) : null,
+                    'rate_type' => $vehicleRent->rate_type,
+                    'rate_type_label' => $rateTypeLabels[$vehicleRent->rate_type] ?? ucfirst(str_replace('_', ' ', $vehicleRent->rate_type)),
+                    'total_amount' => number_format($vehicleRent->total_amount, 2),
+                    'paid_amount' => number_format($vehicleRent->paid_amount, 2),
+                    'balance_amount' => number_format($vehicleRent->balance_amount, 2),
+                    'payment_status' => $vehicleRent->payment_status,
+                    'payment_date' => $vehicleRent->payment_date ? $vehicleRent->payment_date->format('Y-m-d') : null,
+                    'bank_account_name' => $vehicleRent->bankAccount ? $vehicleRent->bankAccount->account_name : null,
+                    'notes' => $vehicleRent->notes,
+                    'purpose' => $vehicleRent->purpose,
+                    'project_name' => $vehicleRent->project ? $vehicleRent->project->name : null,
+                    'supplier_name' => $vehicleRent->supplier ? $vehicleRent->supplier->name : null,
+                    'created_by' => $vehicleRent->creator ? $vehicleRent->creator->name : 'N/A',
+                    'updated_by' => $vehicleRent->updater ? $vehicleRent->updater->name : 'N/A',
+                    'created_at' => $vehicleRent->created_at ? $vehicleRent->created_at->format('M d, Y H:i') : '',
+                    'updated_at' => $vehicleRent->updated_at ? $vehicleRent->updated_at->format('M d, Y H:i') : '',
+                ],
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.vehicle-rents.index');
     }
 
     /**
@@ -400,7 +569,49 @@ class VehicleRentController extends Controller
         
         $vehicleTypes = VehicleRent::getVehicleTypes();
         
-        return view('admin.vehicle_rents.edit', compact('vehicleRent', 'projects', 'suppliers', 'bankAccounts', 'vehicleTypes'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'rent' => [
+                    'id' => $vehicleRent->id,
+                    'project_id' => $vehicleRent->project_id,
+                    'supplier_id' => $vehicleRent->supplier_id,
+                    'vehicle_type' => $vehicleRent->vehicle_type,
+                    'vehicle_number' => $vehicleRent->vehicle_number,
+                    'driver_name' => $vehicleRent->driver_name,
+                    'driver_contact' => $vehicleRent->driver_contact,
+                    'rent_date' => $vehicleRent->rent_date->format('Y-m-d'),
+                    'start_location' => $vehicleRent->start_location,
+                    'destination_location' => $vehicleRent->destination_location,
+                    'distance_km' => $vehicleRent->distance_km,
+                    'hours' => $vehicleRent->hours,
+                    'minutes' => $vehicleRent->minutes,
+                    'rate_per_km' => $vehicleRent->rate_per_km,
+                    'rate_per_hour' => $vehicleRent->rate_per_hour,
+                    'fixed_rate' => $vehicleRent->fixed_rate,
+                    'number_of_days' => $vehicleRent->number_of_days,
+                    'rate_per_day' => $vehicleRent->rate_per_day,
+                    'rent_start_date' => $vehicleRent->rent_start_date ? $vehicleRent->rent_start_date->format('Y-m-d') : null,
+                    'rent_end_date' => $vehicleRent->rent_end_date ? $vehicleRent->rent_end_date->format('Y-m-d') : null,
+                    'quantity_quintal' => $vehicleRent->quantity_quintal,
+                    'rate_per_quintal' => $vehicleRent->rate_per_quintal,
+                    'rate_type' => $vehicleRent->rate_type,
+                    'total_amount' => $vehicleRent->total_amount,
+                    'paid_amount' => $vehicleRent->paid_amount,
+                    'bank_account_id' => $vehicleRent->bank_account_id,
+                    'payment_date' => $vehicleRent->payment_date ? $vehicleRent->payment_date->format('Y-m-d') : null,
+                    'notes' => $vehicleRent->notes,
+                    'purpose' => $vehicleRent->purpose,
+                ],
+                'projects' => $projects,
+                'suppliers' => $suppliers,
+                'bankAccounts' => $bankAccounts,
+                'vehicleTypes' => $vehicleTypes,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.vehicle-rents.index');
     }
 
     /**
@@ -522,6 +733,42 @@ class VehicleRentController extends Controller
 
         $vehicleRent->update($validated);
         $this->createExpenseFromVehicleRent($vehicleRent);
+        $vehicleRent->load(['project', 'supplier']);
+        $vehicleTypes = VehicleRent::getVehicleTypes();
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $rateTypeLabels = [
+                'fixed' => 'Fixed Rate',
+                'per_km' => 'Per KM',
+                'per_hour' => 'Per Hour',
+                'daywise' => 'Daywise',
+                'per_quintal' => 'Per Quintal',
+                'not_fixed' => 'Not Fixed',
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle rent record updated successfully.',
+                'rent' => [
+                    'id' => $vehicleRent->id,
+                    'rent_date' => $vehicleRent->rent_date->format('Y-m-d'),
+                    'vehicle_type' => $vehicleTypes[$vehicleRent->vehicle_type] ?? $vehicleRent->vehicle_type,
+                    'vehicle_number' => $vehicleRent->vehicle_number ?? '—',
+                    'start_location' => $vehicleRent->start_location,
+                    'destination_location' => $vehicleRent->destination_location,
+                    'rate_type' => $vehicleRent->rate_type,
+                    'rate_type_label' => $rateTypeLabels[$vehicleRent->rate_type] ?? ucfirst(str_replace('_', ' ', $vehicleRent->rate_type)),
+                    'project_name' => $vehicleRent->project ? $vehicleRent->project->name : '—',
+                    'supplier_name' => $vehicleRent->supplier ? $vehicleRent->supplier->name : '—',
+                    'total_amount' => number_format($vehicleRent->total_amount, 2),
+                    'paid_amount' => number_format($vehicleRent->paid_amount, 2),
+                    'balance_amount' => number_format($vehicleRent->balance_amount, 2),
+                    'payment_status' => $vehicleRent->payment_status,
+                ],
+            ]);
+        }
+        
         return redirect()->route('admin.vehicle-rents.index')
             ->with('success', 'Vehicle rent record updated successfully.');
     }
@@ -532,6 +779,14 @@ class VehicleRentController extends Controller
     public function destroy(VehicleRent $vehicleRent)
     {
         $vehicleRent->delete();
+
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Vehicle rent record deleted successfully.',
+            ]);
+        }
 
         return redirect()->route('admin.vehicle-rents.index')
             ->with('success', 'Vehicle rent record deleted successfully.');

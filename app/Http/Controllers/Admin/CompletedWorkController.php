@@ -64,7 +64,7 @@ class CompletedWorkController extends Controller
             $query->where('work_date', '<=', $request->end_date);
         }
         
-        $completedWorks = $query->paginate(15);
+        $completedWorks = $query->paginate(15)->withQueryString();
         
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
@@ -76,19 +76,71 @@ class CompletedWorkController extends Controller
             ->sort()
             ->values();
         
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $completedWorksData = $completedWorks->map(function ($work, $index) use ($completedWorks) {
+                return [
+                    'id' => $work->id,
+                    'index' => $completedWorks->firstItem() + $index,
+                    'work_date' => $work->work_date->format('Y-m-d'),
+                    'project_name' => $work->project->name ?? '—',
+                    'work_type' => $work->work_type,
+                    'description' => \Illuminate\Support\Str::limit($work->description, 50),
+                    'quantity' => number_format($work->quantity, 2),
+                    'uom' => $work->uom,
+                    'status' => $work->status,
+                    'status_badge_class' => $work->status === 'billed' ? 'success' : ($work->status === 'verified' ? 'warning' : 'secondary'),
+                    'bill_item_description' => $work->billItem ? \Illuminate\Support\Str::limit($work->billItem->description, 50) : '—',
+                    'show_url' => route('admin.completed-works.show', $work),
+                    'edit_url' => route('admin.completed-works.edit', $work),
+                    'destroy_url' => route('admin.completed-works.destroy', $work),
+                ];
+            });
+            
+            // Calculate summary
+            $totalRecords = $completedWorks->total();
+            $totalQuantity = $completedWorks->sum('quantity');
+            $billedCount = $completedWorks->where('status', 'billed')->count();
+            
+            return response()->json([
+                'completedWorks' => $completedWorksData,
+                'pagination' => view('components.pagination', [
+                    'paginator' => $completedWorks,
+                    'wrapperClass' => 'mt-3',
+                    'showInfo' => true
+                ])->render(),
+                'summary' => [
+                    'totalRecords' => $totalRecords,
+                    'totalQuantity' => number_format($totalQuantity, 2),
+                    'billedCount' => $billedCount,
+                ]
+            ]);
+        }
+        
         return view('admin.completed_works.index', compact('completedWorks', 'projects', 'workTypes'));
     }
 
     public function create(Request $request)
     {
-        $companyId = CompanyContext::getActiveCompanyId();
+        // Return JSON for AJAX requests (modal popup)
+        if ($request->ajax() || $request->wantsJson()) {
+            $companyId = CompanyContext::getActiveCompanyId();
+            $projects = $this->getAccessibleProjects();
+            $selectedProjectId = $request->get('project_id');
+            
+            return response()->json([
+                'projects' => $projects->map(function ($project) {
+                    return [
+                        'id' => $project->id,
+                        'name' => $project->name,
+                    ];
+                }),
+                'selectedProjectId' => $selectedProjectId,
+            ]);
+        }
         
-        // Get only accessible projects
-        $projects = $this->getAccessibleProjects();
-        
-        $selectedProjectId = $request->get('project_id');
-        
-        return view('admin.completed_works.create', compact('projects', 'selectedProjectId'));
+        // Redirect to index if accessed directly
+        return redirect()->route('admin.completed-works.index');
     }
 
     public function store(Request $request)
@@ -133,7 +185,15 @@ class CompletedWorkController extends Controller
         $validated['recorded_by'] = auth()->id();
         $validated['status'] = 'recorded';
         
-        CompletedWork::create($validated);
+        $completedWork = CompletedWork::create($validated);
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Completed work record created successfully.',
+            ]);
+        }
         
         return redirect()->route('admin.completed-works.index')
             ->with('success', 'Completed work record created successfully.');
@@ -148,12 +208,36 @@ class CompletedWorkController extends Controller
 
     public function edit(CompletedWork $completed_work)
     {
-        $companyId = CompanyContext::getActiveCompanyId();
+        // Return JSON for AJAX requests (modal popup)
+        if (request()->ajax() || request()->wantsJson()) {
+            $companyId = CompanyContext::getActiveCompanyId();
+            $projects = $this->getAccessibleProjects();
+            
+            return response()->json([
+                'completedWork' => [
+                    'id' => $completed_work->id,
+                    'project_id' => $completed_work->project_id,
+                    'work_type' => $completed_work->work_type,
+                    'quantity_input_method' => $completed_work->quantity_input_method ?? 'dimensions',
+                    'length' => $completed_work->length,
+                    'width' => $completed_work->width,
+                    'height' => $completed_work->height,
+                    'quantity' => $completed_work->quantity,
+                    'uom' => $completed_work->uom,
+                    'work_date' => $completed_work->work_date->format('Y-m-d'),
+                    'description' => $completed_work->description,
+                ],
+                'projects' => $projects->map(function ($project) {
+                    return [
+                        'id' => $project->id,
+                        'name' => $project->name,
+                    ];
+                }),
+            ]);
+        }
         
-        // Get only accessible projects
-        $projects = $this->getAccessibleProjects();
-        
-        return view('admin.completed_works.edit', compact('completed_work', 'projects'));
+        // Redirect to index if accessed directly
+        return redirect()->route('admin.completed-works.index');
     }
 
     public function update(Request $request, CompletedWork $completed_work)
@@ -193,6 +277,14 @@ class CompletedWorkController extends Controller
         }
         
         $completed_work->update($validated);
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Completed work record updated successfully.',
+            ]);
+        }
         
         return redirect()->route('admin.completed-works.index')
             ->with('success', 'Completed work record updated successfully.');
@@ -405,10 +497,28 @@ class CompletedWorkController extends Controller
             
             DB::commit();
             
+            // Handle AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Bill generated successfully from completed works. You can edit it before submitting.',
+                    'redirect' => route('admin.bill-modules.show', $bill)
+                ]);
+            }
+            
             return redirect()->route('admin.bill-modules.show', $bill)
                 ->with('success', 'Bill generated successfully from completed works. You can edit it before submitting.');
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            // Handle AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Error generating bill: ' . $e->getMessage()
+                ], 422);
+            }
+            
             return back()->withInput()->with('error', 'Error generating bill: ' . $e->getMessage());
         }
     }

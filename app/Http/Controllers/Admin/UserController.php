@@ -105,7 +105,16 @@ class UserController extends Controller
 
         $projects = $projectsQuery->get();
         
-        return view('admin.users.create', compact('companies', 'projects'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'companies' => $companies,
+                'projects' => $projects,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.users.index');
     }
 
     public function store(Request $request)
@@ -126,6 +135,13 @@ class UserController extends Controller
         // Role-based restrictions
         // Only super admin can create super_admin users
         if ($validated['role'] === 'super_admin' && !$currentUser->isSuperAdmin()) {
+            // Return JSON for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to create super admin users.',
+                ], 403);
+            }
             return back()->withInput()->with('error', 'You do not have permission to create super admin users.');
         }
 
@@ -134,6 +150,13 @@ class UserController extends Controller
         if (!$currentUser->isSuperAdmin()) {
             $activeCompanyId = CompanyContext::getActiveCompanyId();
             if ($companyId && $companyId != $activeCompanyId) {
+                // Return JSON for AJAX requests
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You can only create users for your own company.',
+                    ], 403);
+                }
                 return back()->withInput()->with('error', 'You can only create users for your own company.');
             }
             // Force company_id to active company for regular admins
@@ -141,6 +164,13 @@ class UserController extends Controller
             
             // Regular admin cannot create super_admin or other admins (only regular users and site engineers)
             if (in_array($validated['role'], ['super_admin', 'admin'])) {
+                // Return JSON for AJAX requests
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You do not have permission to create admin users.',
+                    ], 403);
+                }
                 return back()->withInput()->with('error', 'You do not have permission to create admin users.');
             }
         }
@@ -194,6 +224,22 @@ class UserController extends Controller
             $user->projects()->sync([]);
         }
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $user->load('company');
+            return response()->json([
+                'success' => true,
+                'message' => 'User created successfully.',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'company_name' => $user->company ? $user->company->name : null,
+                    'role' => $user->role,
+                ],
+            ]);
+        }
+
         return redirect()->route('admin.users.index')->with('success', 'User created successfully.');
     }
 
@@ -229,7 +275,25 @@ class UserController extends Controller
         $projects = $projectsQuery->get();
         $selectedProjectIds = $user->projects()->pluck('projects.id')->all();
         
-        return view('admin.users.edit', compact('user', 'companies', 'projects', 'selectedProjectIds'));
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'company_id' => $user->company_id,
+                    'role' => $user->role,
+                    'is_admin' => $user->is_admin,
+                ],
+                'companies' => $companies,
+                'projects' => $projects,
+                'selectedProjectIds' => $selectedProjectIds,
+            ]);
+        }
+        
+        // Redirect to index page since popup handles everything
+        return redirect()->route('admin.users.index');
     }
 
     public function update(Request $request, User $user)
@@ -328,6 +392,13 @@ class UserController extends Controller
         // Role-based restrictions
         // Only super admin can assign super_admin role
         if ($validated['role'] === 'super_admin' && !$currentUser->isSuperAdmin()) {
+            // Return JSON for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to assign super admin role.',
+                ], 403);
+            }
             return back()->withInput()->with('error', 'You do not have permission to assign super admin role.');
         }
 
@@ -336,10 +407,24 @@ class UserController extends Controller
         if (!$currentUser->isSuperAdmin()) {
             // Prevent changing to admin roles
             if (in_array($validated['role'], ['super_admin', 'admin'])) {
+                // Return JSON for AJAX requests
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You do not have permission to assign admin roles.',
+                    ], 403);
+                }
                 return back()->withInput()->with('error', 'You do not have permission to assign admin roles.');
             }
             // Prevent changing existing admin/super_admin users
             if (in_array($user->role, ['super_admin', 'admin'])) {
+                // Return JSON for AJAX requests
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You do not have permission to modify admin or super admin users.',
+                    ], 403);
+                }
                 return back()->withInput()->with('error', 'You do not have permission to modify admin or super admin users.');
             }
             
@@ -347,6 +432,13 @@ class UserController extends Controller
             $companyId = $validated['company_id'] ?? $user->company_id;
             $activeCompanyId = CompanyContext::getActiveCompanyId();
             if ($companyId && $companyId != $activeCompanyId) {
+                // Return JSON for AJAX requests
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You can only assign users to your own company.',
+                    ], 403);
+                }
                 return back()->withInput()->with('error', 'You can only assign users to your own company.');
             }
             $validated['company_id'] = $activeCompanyId;
@@ -418,15 +510,38 @@ class UserController extends Controller
             $user->projects()->sync([]);
         }
 
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $user->load('company');
+            return response()->json([
+                'success' => true,
+                'message' => 'User updated successfully.',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'company_name' => $user->company ? $user->company->name : null,
+                    'role' => $user->role,
+                ],
+            ]);
+        }
+
         return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');
     }
 
-    public function destroy(User $user)
+    public function destroy(Request $request, User $user)
     {
         $currentUser = auth()->user();
         
         // Prevent users from deleting themselves
         if ($currentUser->id === $user->id) {
+            // Return JSON for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You cannot delete your own account.',
+                ], 403);
+            }
             return back()->with('error', 'You cannot delete your own account.');
         }
         
@@ -434,17 +549,40 @@ class UserController extends Controller
         if (!$currentUser->isSuperAdmin()) {
             // Regular admin cannot delete super_admin users
             if ($user->isSuperAdmin()) {
+                // Return JSON for AJAX requests
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You do not have permission to delete super admin users.',
+                    ], 403);
+                }
                 return back()->with('error', 'You do not have permission to delete super admin users.');
             }
             
             // Regular admin can only delete users from their company
             $companyId = CompanyContext::getActiveCompanyId();
             if ($user->company_id != $companyId) {
+                // Return JSON for AJAX requests
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You can only delete users from your own company.',
+                    ], 403);
+                }
                 abort(403, 'You can only delete users from your own company.');
             }
         }
         
         $user->delete();
+        
+        // Return JSON for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'User deleted successfully.',
+            ]);
+        }
+
         return redirect()->route('admin.users.index')->with('success', 'User deleted successfully.');
     }
 }

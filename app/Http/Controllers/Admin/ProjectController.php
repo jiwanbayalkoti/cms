@@ -91,10 +91,14 @@ class ProjectController extends Controller
         // Group projects by company
         $projectsByCompany = $allProjects->groupBy('company_id');
         
+        // Eager load all companies at once to avoid N+1 queries
+        $companyIds = $projectsByCompany->keys()->filter()->toArray();
+        $companies = Company::whereIn('id', $companyIds)->get()->keyBy('id');
+        
         // Get companies with their projects
         $companiesWithProjects = collect();
         foreach ($projectsByCompany as $compId => $projects) {
-            $company = $compId ? Company::find($compId) : null;
+            $company = $compId ? ($companies[$compId] ?? null) : null;
             $companiesWithProjects->push([
                 'company' => $company,
                 'company_id' => $compId,
@@ -112,6 +116,13 @@ class ProjectController extends Controller
     {
         if (!auth()->user()->isAdmin()) {
             abort(403, 'Only administrators can create projects.');
+        }
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'statuses' => Project::statusOptions(),
+            ]);
         }
         
         return view('admin.projects.create', [
@@ -153,15 +164,51 @@ class ProjectController extends Controller
         }
 
         try {
-            Project::create($validated);
+            $project = Project::create($validated);
         } catch (\Illuminate\Database\QueryException $e) {
             if ($e->getCode() == 23000) {
                 // Foreign key constraint violation
+                $errorMessage = 'Cannot create project: Invalid company selected. Please ensure you have selected a valid company.';
+                
+                // Return JSON response for AJAX requests
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $errorMessage,
+                        'errors' => ['company_id' => [$errorMessage]]
+                    ], 422);
+                }
+                
                 return back()
                     ->withInput()
-                    ->with('error', 'Cannot create project: Invalid company selected. Please ensure you have selected a valid company.');
+                    ->with('error', $errorMessage);
             }
             throw $e;
+        }
+
+        // Return JSON response for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $project->load('company');
+            return response()->json([
+                'success' => true,
+                'message' => 'Project created successfully.',
+                'project' => [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'client_name' => $project->client_name,
+                    'description' => $project->description,
+                    'status' => $project->status,
+                    'budget' => $project->budget,
+                    'start_date' => $project->start_date ? $project->start_date->format('Y-m-d') : null,
+                    'end_date' => $project->end_date ? $project->end_date->format('Y-m-d') : null,
+                    'company_id' => $project->company_id,
+                    'company' => $project->company ? [
+                        'id' => $project->company->id,
+                        'name' => $project->company->name,
+                    ] : null,
+                    'files' => $project->files ?? [],
+                ]
+            ]);
         }
 
         return redirect()->route('admin.projects.index')
@@ -172,22 +219,105 @@ class ProjectController extends Controller
     {
         // Site engineers cannot access project details, only galleries
         if (auth()->user()->role === 'site_engineer') {
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json(['error' => 'You only have access to project galleries.'], 403);
+            }
             abort(403, 'You only have access to project galleries.');
         }
         
-        $this->authorizeCompanyAccess($project);
+        $authorizationResult = $this->authorizeCompanyAccess($project);
+        if ($authorizationResult) {
+            return $authorizationResult;
+        }
 
-        return view('admin.projects.show', [
-            'project' => $project->load(['company', 'creator', 'updater']),
-        ]);
+        $project->load(['company', 'creator', 'updater']);
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            $statusColors = [
+                'planned' => 'bg-gray-100 text-gray-800',
+                'active' => 'bg-green-100 text-green-800',
+                'on_hold' => 'bg-yellow-100 text-yellow-800',
+                'completed' => 'bg-blue-100 text-blue-800',
+                'cancelled' => 'bg-red-100 text-red-800',
+            ];
+            
+            $activeCompanyId = \App\Support\CompanyContext::getActiveCompanyId();
+            
+            // Format files with URLs
+            $files = [];
+            if ($project->files && is_array($project->files)) {
+                foreach ($project->files as $file) {
+                    $files[] = [
+                        'name' => $file['name'] ?? 'Document',
+                        'original_name' => $file['original_name'] ?? '',
+                        'size' => $file['size'] ?? 0,
+                        'path' => $file['path'] ?? '',
+                        'url' => \App\Helpers\StorageHelper::url($file['path'] ?? ''),
+                    ];
+                }
+            }
+            
+            return response()->json([
+                'project' => [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'client_name' => $project->client_name,
+                    'description' => $project->description,
+                    'status' => $project->status,
+                    'status_color' => $statusColors[$project->status] ?? 'bg-gray-100 text-gray-800',
+                    'status_text' => \Str::headline($project->status),
+                    'budget' => $project->budget,
+                    'budget_formatted' => $project->budget ? number_format($project->budget, 2) : 'Not set',
+                    'start_date' => $project->start_date ? $project->start_date->format('M d, Y') : 'TBD',
+                    'end_date' => $project->end_date ? $project->end_date->format('M d, Y') : 'TBD',
+                    'timeline' => ($project->start_date ? $project->start_date->format('M d, Y') : 'TBD') . ' — ' . ($project->end_date ? $project->end_date->format('M d, Y') : 'TBD'),
+                    'company_id' => $project->company_id,
+                    'company_name' => optional($project->company)->name ?? '—',
+                    'files' => $files,
+                    'created_by' => $project->creator->name ?? 'System',
+                    'created_at' => $project->created_at ? $project->created_at->format('M d, Y H:i') : '',
+                    'updated_by' => $project->updater->name ?? $project->creator->name ?? 'System',
+                    'updated_at' => $project->updated_at ? $project->updated_at->format('M d, Y H:i') : '',
+                    'show_company' => (int) $activeCompanyId === 1,
+                ],
+            ]);
+        }
+
+        // Redirect to index since we're using modals now
+        return redirect()->route('admin.projects.index');
     }
 
     public function gallery(Project $project)
     {
         $this->authorizeCompanyAccess($project);
 
+        $project->load(['company']);
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            // Render gallery content without layout for modal
+            $galleryContent = view('admin.projects.gallery-content', [
+                'project' => $project,
+            ])->render();
+            
+            return response()->json([
+                'project' => [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'client_name' => $project->client_name,
+                    'company' => $project->company ? [
+                        'id' => $project->company->id,
+                        'name' => $project->company->name,
+                    ] : null,
+                ],
+                'photos' => $project->photos ?? [],
+                'html' => $galleryContent,
+            ]);
+        }
+
         return view('admin.projects.gallery', [
-            'project' => $project->load(['company']),
+            'project' => $project,
         ]);
     }
 
@@ -722,10 +852,27 @@ class ProjectController extends Controller
             abort(403, 'Only administrators can edit projects.');
         }
 
-        return view('admin.projects.edit', [
-            'project' => $project->load('company'),
-            'statuses' => Project::statusOptions(),
-        ]);
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'project' => [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'client_name' => $project->client_name,
+                    'description' => $project->description,
+                    'status' => $project->status,
+                    'budget' => $project->budget,
+                    'start_date' => $project->start_date ? $project->start_date->format('Y-m-d') : null,
+                    'end_date' => $project->end_date ? $project->end_date->format('Y-m-d') : null,
+                    'company_id' => $project->company_id,
+                    'files' => $project->files ?? [],
+                ],
+                'statuses' => Project::statusOptions(),
+            ]);
+        }
+
+        // Redirect to index since we're using modals now
+        return redirect()->route('admin.projects.index');
     }
 
     public function update(Request $request, Project $project)
@@ -754,11 +901,48 @@ class ProjectController extends Controller
         } catch (\Illuminate\Database\QueryException $e) {
             if ($e->getCode() == 23000) {
                 // Foreign key constraint violation
+                $errorMessage = 'Cannot update project: Invalid company or related data. Please check your selections.';
+                
+                // Return JSON response for AJAX requests
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $errorMessage,
+                        'errors' => ['company_id' => [$errorMessage]]
+                    ], 422);
+                }
+                
                 return back()
                     ->withInput()
-                    ->with('error', 'Cannot update project: Invalid company or related data. Please check your selections.');
+                    ->with('error', $errorMessage);
             }
             throw $e;
+        }
+
+        // Return JSON response for AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            $project->refresh();
+            $project->load('company');
+            return response()->json([
+                'success' => true,
+                'message' => 'Project updated successfully.',
+                'project' => [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'client_name' => $project->client_name,
+                    'description' => $project->description,
+                    'status' => $project->status,
+                    'budget' => $project->budget,
+                    'start_date' => $project->start_date ? $project->start_date->format('Y-m-d') : null,
+                    'end_date' => $project->end_date ? $project->end_date->format('Y-m-d') : null,
+                    'company_id' => $project->company_id,
+                    'company' => $project->company ? [
+                        'id' => $project->company->id,
+                        'name' => $project->company->name,
+                    ] : null,
+                    'files' => $project->files ?? [],
+                ]
+            ]);
         }
 
         return redirect()->route('admin.projects.index')
