@@ -27,7 +27,7 @@
 
 <div class="mb-6 flex justify-between items-center">
     <div>
-        <h1 class="text-3xl font-bold text-gray-900">Projects</h1>
+        <h1 class="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">Projects</h1>
         <p class="text-gray-600">Track initiatives across your company</p>
     </div>
     @if(Auth::user()->isAdmin())
@@ -49,7 +49,7 @@
                         <span class="text-indigo-600 font-bold text-sm">{{ strtoupper(substr($companyGroup['company_name'], 0, 1)) }}</span>
                     </div>
                 @endif
-                <h2 class="text-2xl font-bold text-gray-900">{{ $companyGroup['company_name'] }}</h2>
+                <h2 class="text-lg md:text-xl lg:text-2xl font-bold text-gray-900">{{ $companyGroup['company_name'] }}</h2>
                 <span class="ml-3 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
                     {{ $companyGroup['projects']->count() }} {{ Str::plural('project', $companyGroup['projects']->count()) }}
                 </span>
@@ -61,7 +61,7 @@
                     <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-6" data-project-id="{{ $project->id }}">
                         <div class="flex items-start justify-between mb-4">
                             <div class="flex-1">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ $project->name }}</h3>
+                                <h3 class="text-base md:text-lg font-semibold text-gray-900 mb-1">{{ $project->name }}</h3>
                                 @php($color = $statusColors[$project->status] ?? 'bg-gray-100 text-gray-800')
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $color }} whitespace-nowrap">
                                     {{ Str::headline($project->status) }}
@@ -261,7 +261,7 @@
 <div id="galleryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
         <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-            <h2 class="text-2xl font-bold text-gray-900" id="gallery-modal-title">Project Gallery</h2>
+            <h2 class="text-lg md:text-xl lg:text-2xl font-bold text-gray-900" id="gallery-modal-title">Project Gallery</h2>
             <button onclick="closeGalleryModal()" class="text-gray-400 hover:text-gray-600 transition duration-200">
                 <i class="bi bi-x-lg text-xl"></i>
             </button>
