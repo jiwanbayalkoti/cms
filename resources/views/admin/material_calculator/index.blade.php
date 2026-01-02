@@ -17,11 +17,13 @@
                                 <label class="form-label fw-semibold">Work Type</label>
                                 <select class="form-select" id="workType" required>
                                     <option value="">-- Select Work Type --</option>
-                                    <option value="concrete">Concrete Works</option>
-                                    <option value="masonry">Masonry / Wall</option>
-                                    <option value="plaster">Plaster / Finish</option>
-                                    <option value="soling">Soling / Base</option>
-                                    <option value="steel">Rod / Steel Reinforcement</option>
+                                    <option value="brick_soling">Brick Soling</option>
+                                    <option value="stone_soling">Stone Soling</option>
+                                    <option value="pcc_soling">PCC Soling</option>
+                                    <option value="plaster">Plaster</option>
+                                    <option value="concrete">Concrete</option>
+                                    <option value="floor_slab">Floor Slab</option>
+                                    <option value="footing">Footing (Multiple Sizes)</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -188,7 +190,109 @@
                             </div>
                         </div>
 
-                        {{-- Soling Inputs --}}
+                        {{-- Brick Soling Inputs --}}
+                        <div class="mt-4 d-none" data-section="brick_soling">
+                            <h6 class="fw-semibold text-primary">Brick Soling</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Area (m²)</label>
+                                    <input type="number" step="0.01" min="0" id="brickSolingArea" class="form-control" placeholder="e.g., 7.4" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Brick Size (mm)</label>
+                                    <select id="brickSize" class="form-select">
+                                        <option value="230x110x75">230 × 110 × 75 mm (Standard)</option>
+                                        <option value="230x110x75">Custom</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Sand for Joint Filling</label>
+                                    <select id="brickSolingSand" class="form-select">
+                                        <option value="yes" selected>Yes</option>
+                                        <option value="no">No</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Stone Soling Inputs --}}
+                        <div class="mt-4 d-none" data-section="stone_soling">
+                            <h6 class="fw-semibold text-primary">Stone Soling</h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Area (m²)</label>
+                                    <input type="number" step="0.01" min="0" id="stoneSolingArea" class="form-control" placeholder="e.g., 50" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Thickness (cm)</label>
+                                    <input type="number" step="0.1" min="0" id="stoneSolingThickness" class="form-control" placeholder="e.g., 15" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Sand for Joint Filling</label>
+                                    <select id="stoneSolingSand" class="form-select">
+                                        <option value="yes" selected>Yes</option>
+                                        <option value="no">No</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- PCC Soling Inputs --}}
+                        <div class="mt-4 d-none" data-section="pcc_soling">
+                            <h6 class="fw-semibold text-primary">PCC Soling</h6>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Area (m²)</label>
+                                    <input type="number" step="0.01" min="0" id="pccSolingArea" class="form-control" placeholder="e.g., 50" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Thickness (cm)</label>
+                                    <input type="number" step="0.1" min="0" id="pccSolingThickness" class="form-control" placeholder="e.g., 10" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Concrete Grade</label>
+                                    <select id="pccSolingGrade" class="form-select">
+                                        <option value="M10">M10 (1:3:6)</option>
+                                        <option value="M15" selected>M15 (1:2:4)</option>
+                                        <option value="M20">M20 (1:1.5:3)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Cement-Sand-Aggregate Ratio</label>
+                                    <input type="text" id="pccSolingRatio" class="form-control" placeholder="e.g., 1:2:4" value="1:2:4" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Footing Inputs (Multiple Sizes) --}}
+                        <div class="mt-4 d-none" data-section="footing">
+                            <h6 class="fw-semibold text-primary">Footing Calculation (Multiple Sizes)</h6>
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Add different footing sizes (F1, F2, F3, etc.) with their dimensions and quantities.
+                            </div>
+                            
+                            <div id="footingList" class="mb-3">
+                                <!-- Footing items will be added here dynamically -->
+                            </div>
+                            
+                            <button type="button" class="btn btn-sm btn-primary mb-3" onclick="addFootingItem()">
+                                <i class="bi bi-plus-circle me-1"></i> Add Footing Size
+                            </button>
+                            
+                            <div class="row g-3 mt-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Concrete Grade</label>
+                                    <select id="footingGrade" class="form-select">
+                                        @foreach($concreteGrades as $grade)
+                                            <option value="{{ $grade['value'] }}">{{ $grade['label'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Soling Inputs (Legacy) --}}
                         <div class="mt-4 d-none" data-section="soling">
                             <h6 class="fw-semibold text-primary">Soling / Base</h6>
                             <div class="row g-3">
@@ -350,43 +454,51 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Cement / bag</label>
-                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="cement_bag" placeholder="0.00">
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="cement_bag" placeholder="0.00" value="0">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Sand / m³</label>
-                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="sand_m3" placeholder="0.00">
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="sand_m3" placeholder="0.00" value="0">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Aggregate / m³</label>
-                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="aggregate_m3" placeholder="0.00">
+                            <label class="form-label">Aggregate / Stone / m³</label>
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="aggregate_m3" placeholder="0.00" value="0">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Water / litre</label>
-                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="water_litre" placeholder="0.00">
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="water_litre" placeholder="0.00" value="0">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Brick / block</label>
-                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="brick_unit" placeholder="0.00">
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="brick_unit" placeholder="0.00" value="0">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Soling / m³</label>
-                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="soling_m3" placeholder="0.00">
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="soling_m3" placeholder="0.00" value="0">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Steel / Rod (per kg)</label>
-                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="steel_kg" placeholder="0.00">
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="steel_kg" placeholder="0.00" value="0">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Labour Cost (per m³)</label>
-                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="labour_m3" placeholder="0.00">
+                            <label class="form-label">Skilled Labor Rate (per day)</label>
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="skilled_labor_day" placeholder="0.00" value="0">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Labour Cost (per m²)</label>
-                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="labour_m2" placeholder="0.00">
+                            <label class="form-label">Unskilled Labor Rate (per day)</label>
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="unskilled_labor_day" placeholder="0.00" value="0">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Labour Cost (per m³) <small class="text-muted">(Optional - for backward compatibility)</small></label>
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="labour_m3" placeholder="0.00" value="0">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Labour Cost (per m²) <small class="text-muted">(Optional - for backward compatibility)</small></label>
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="labour_m2" placeholder="0.00" value="0">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Centering Rate (per m²)</label>
-                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="centering_m2" placeholder="0.00">
+                            <input type="number" min="0" step="0.01" class="form-control cost-input" data-key="centering_m2" placeholder="0.00" value="0">
                         </div>
                     </div>
                     <div class="alert alert-info mt-4 mb-0 small d-flex">
@@ -453,13 +565,14 @@
                         <th>Water (L)</th>
                         <th>Soling Vol (m³)</th>
                         <th>Steel / Rod (kg)</th>
+                        <th>Labor (days)</th>
                         <th>Cost</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr class="no-data-row">
-                        <td colspan="11" class="text-center text-muted py-4">
+                        <td colspan="12" class="text-center text-muted py-4">
                             No work items added yet. Use the form above to calculate materials.
                         </td>
                     </tr>
@@ -474,16 +587,17 @@
                         <td id="totalWater">0</td>
                         <td id="totalSoling">0</td>
                         <td id="totalSteel">0</td>
+                        <td id="totalLabor">0</td>
                         <td id="totalCost">0</td>
                         <td></td>
                     </tr>
                     <tr class="fw-semibold table-secondary d-none" id="toolsMachinesCostRow">
-                        <td colspan="9" class="text-end">Tools & Machines Cost:</td>
+                        <td colspan="10" class="text-end">Tools & Machines Cost:</td>
                         <td id="toolsMachinesCostInTable">0</td>
                         <td></td>
                     </tr>
                     <tr class="fw-bold table-success d-none" id="grandTotalRow">
-                        <td colspan="9" class="text-end">Grand Total:</td>
+                        <td colspan="10" class="text-end">Grand Total:</td>
                         <td id="grandTotalCost">0</td>
                         <td></td>
                     </tr>
@@ -653,12 +767,35 @@ const defaultCosts = @json($defaultCosts);
 const results = [];
 const toolsMachines = [];
 let historySets = {};
+// Footing management variables
+let footingItems = [];
+let footingItemCounter = 0;
 
 document.getElementById('workType').addEventListener('change', (event) => {
     const value = event.target.value;
     document.querySelectorAll('[data-section]').forEach(section => {
-        if (section.getAttribute('data-section') === value) {
+        const sectionType = section.getAttribute('data-section');
+        // Map work types to sections
+        const sectionMap = {
+            'brick_soling': 'brick_soling',
+            'stone_soling': 'stone_soling',
+            'pcc_soling': 'pcc_soling',
+            'plaster': 'plaster',
+            'concrete': 'concrete',
+            'floor_slab': 'concrete', // Floor slab uses concrete section
+            'footing': 'footing',
+        };
+        
+        if (sectionMap[value] === sectionType || (value === 'soling' && sectionType === 'soling')) {
             section.classList.remove('d-none');
+            // Initialize footing section if selected
+            if (value === 'footing' && sectionType === 'footing') {
+                setTimeout(() => {
+                    if (footingItems.length === 0 && typeof addFootingItem === 'function') {
+                        addFootingItem(); // Add first footing item automatically
+                    }
+                }, 100);
+            }
         } else {
             section.classList.add('d-none');
         }
@@ -676,6 +813,17 @@ if (steelMethodEl) {
                 areaMethod.style.display = 'none';
             }
         }
+    });
+}
+
+// Update PCC soling ratio display when grade changes
+const pccSolingGradeEl = document.getElementById('pccSolingGrade');
+const pccSolingRatioEl = document.getElementById('pccSolingRatio');
+if (pccSolingGradeEl && pccSolingRatioEl) {
+    pccSolingGradeEl.addEventListener('change', (event) => {
+        const grade = event.target.value;
+        const ratio = concreteRatios[grade] || [1, 2, 4];
+        pccSolingRatioEl.value = `${ratio[0]}:${ratio[1]}:${ratio[2]}`;
     });
 }
 
@@ -709,7 +857,16 @@ if (wallHeightEl && wallThicknessEl) {
     });
 }
 
+// Initialize cost inputs with default values if empty
 document.querySelectorAll('.cost-input').forEach(input => {
+    const key = input.dataset.key;
+    const currentValue = parseFloat(input.value) || 0;
+    
+    // If input is empty or 0, and defaultCosts has a value for this key, set it
+    if ((!input.value || currentValue === 0) && defaultCosts[key] && defaultCosts[key] > 0) {
+        input.value = defaultCosts[key];
+    }
+    
     input.addEventListener('input', () => renderSummary());
 });
 
@@ -722,6 +879,13 @@ function resetForm() {
     }
     // Reset masonry thickness manual change flag
     masonryThicknessManuallyChanged = false;
+    // Reset footing items
+    footingItems = [];
+    footingItemCounter = 0;
+    const footingList = document.getElementById('footingList');
+    if (footingList) {
+        footingList.innerHTML = '';
+    }
 }
 
 function roundValue(value, precision = 2) {
@@ -805,12 +969,20 @@ function addWorkItem() {
 
     let calculation = null;
 
-    if (type === 'concrete') {
-        calculation = calculateConcrete(wastage, label, notes);
+    if (type === 'concrete' || type === 'floor_slab') {
+        calculation = calculateConcrete(wastage, label, notes, type === 'floor_slab');
     } else if (type === 'masonry') {
         calculation = calculateMasonry(wastage, label, notes);
     } else if (type === 'plaster') {
         calculation = calculatePlaster(wastage, label, notes);
+    } else if (type === 'brick_soling') {
+        calculation = calculateBrickSoling(wastage, label, notes);
+    } else if (type === 'stone_soling') {
+        calculation = calculateStoneSoling(wastage, label, notes);
+    } else if (type === 'pcc_soling') {
+        calculation = calculatePCCSoling(wastage, label, notes);
+    } else if (type === 'footing') {
+        calculation = calculateFooting(wastage, label, notes);
     } else if (type === 'soling') {
         calculation = calculateSoling(wastage, label, notes);
     } else if (type === 'steel') {
@@ -826,7 +998,7 @@ function addWorkItem() {
     resetForm();
 }
 
-function calculateConcrete(wastage, label, notes) {
+function calculateConcrete(wastage, label, notes, isFloorSlab = false) {
     const lengthValue = parseFloat(document.getElementById('concreteLength').value);
     const widthValue = parseFloat(document.getElementById('concreteWidth').value);
     const depthValue = parseFloat(document.getElementById('concreteDepth').value);
@@ -864,9 +1036,15 @@ function calculateConcrete(wastage, label, notes) {
     // For rectangular elements: 2 × (length × depth + width × depth) + (length × width) [top]
     const formworkArea = 2 * (length * depth + width * depth) + (length * width);
 
+    // Labor calculation: approximately 0.5 man-day per m³ for skilled, 1.0 man-day per m³ for unskilled
+    const skilledManDays = volume * 0.5;
+    const unskilledManDays = volume * 1.0;
+
+    const workTypeLabel = isFloorSlab ? 'Floor Slab' : `Concrete - ${element}`;
+
     return {
         id: Date.now(),
-        work_type: `Concrete - ${element}`,
+        work_type: workTypeLabel,
         description,
         notes,
         materials: {
@@ -882,6 +1060,8 @@ function calculateConcrete(wastage, label, notes) {
             concrete_volume_m3_exact: volume,
             formwork_area_m2: roundValue(formworkArea),
             formwork_area_m2_exact: formworkArea,
+            skilled_labor_days: roundValue(skilledManDays, 2),
+            unskilled_labor_days: roundValue(unskilledManDays, 2),
         }
     };
 }
@@ -981,9 +1161,13 @@ function calculatePlaster(wastage, label, notes) {
 
     const description = `Plaster ${areaValue}${getUnitLabel(areaUnit)} @ ${thicknessValue}${getUnitLabel(thicknessUnit)} | Mix ${mix}` + (label ? ` | ${label}` : '');
 
+    // Labor calculation: approximately 0.15 man-day per m² for skilled, 0.3 man-day per m² for unskilled
+    const skilledManDays = area * 0.15;
+    const unskilledManDays = area * 0.3;
+
     return {
         id: Date.now(),
-        work_type: 'Plaster / Finish',
+        work_type: 'Plaster',
         description,
         notes,
         materials: {
@@ -993,6 +1177,8 @@ function calculatePlaster(wastage, label, notes) {
             sand_m3_exact: sandVolume,
             plaster_area_m2: roundValue(area),
             plaster_area_m2_exact: area,
+            skilled_labor_days: roundValue(skilledManDays, 2),
+            unskilled_labor_days: roundValue(unskilledManDays, 2),
         }
     };
 }
@@ -1046,6 +1232,368 @@ function calculateSoling(wastage, label, notes) {
         notes,
         materials,
         soling_type: material, // Store material type for display
+    };
+}
+
+// Calculate Brick Soling (Nepali style)
+function calculateBrickSoling(wastage, label, notes) {
+    const area = parseFloat(document.getElementById('brickSolingArea').value);
+    const brickSize = document.getElementById('brickSize').value;
+    const useSand = document.getElementById('brickSolingSand').value === 'yes';
+
+    if (!area || area <= 0) {
+        alert('Provide brick soling area in m².');
+        return null;
+    }
+
+    // Standard brick size: 230mm x 110mm x 75mm
+    // For soling, bricks are laid flat (230mm x 110mm face)
+    const brickArea = 0.23 * 0.11; // Area covered by one brick in m²
+    const bricksNeeded = (area / brickArea) * (1 + wastage / 100);
+    
+    // Sand for joint filling (approximately 0.15 m³ per 50 m² or 0.003 m³ per m²)
+    const sandVolume = useSand ? (area * 0.003) * (1 + wastage / 100) : 0;
+
+    // Labor calculation: approximately 0.25 man-day per m² for skilled, 0.5 man-day per m² for unskilled
+    const skilledManDays = area * 0.25;
+    const unskilledManDays = area * 0.5;
+
+    const description = `Brick Soling ${area} m²` + (label ? ` | ${label}` : '');
+
+    return {
+        id: Date.now(),
+        work_type: 'Brick Soling',
+        description,
+        notes,
+        materials: {
+            bricks_units: Math.ceil(bricksNeeded),
+            bricks_units_exact: bricksNeeded,
+            sand_m3: roundValue(sandVolume),
+            sand_m3_exact: sandVolume,
+            soling_area_m2: roundValue(area),
+            soling_area_m2_exact: area,
+            skilled_labor_days: roundValue(skilledManDays, 2),
+            unskilled_labor_days: roundValue(unskilledManDays, 2),
+        }
+    };
+}
+
+// Calculate Stone Soling (Nepali style)
+function calculateStoneSoling(wastage, label, notes) {
+    const area = parseFloat(document.getElementById('stoneSolingArea').value);
+    const thickness = parseFloat(document.getElementById('stoneSolingThickness').value) / 100; // Convert cm to m
+    const useSand = document.getElementById('stoneSolingSand').value === 'yes';
+
+    if (!area || area <= 0 || !thickness || thickness <= 0) {
+        alert('Provide stone soling area and thickness.');
+        return null;
+    }
+
+    const volume = area * thickness;
+    const volumeWithWastage = volume * (1 + wastage / 100);
+    
+    // Sand for joint filling (approximately 0.2 m³ per m³ of stone)
+    const sandVolume = useSand ? (volume * 0.2) * (1 + wastage / 100) : 0;
+
+    // Labor calculation: approximately 0.3 man-day per m² for skilled, 0.6 man-day per m² for unskilled
+    const skilledManDays = area * 0.3;
+    const unskilledManDays = area * 0.6;
+
+    const description = `Stone Soling ${area} m² @ ${(thickness * 100).toFixed(1)} cm` + (label ? ` | ${label}` : '');
+
+    return {
+        id: Date.now(),
+        work_type: 'Stone Soling',
+        description,
+        notes,
+        materials: {
+            stone_volume_m3: roundValue(volumeWithWastage),
+            stone_volume_m3_exact: volumeWithWastage,
+            sand_m3: roundValue(sandVolume),
+            sand_m3_exact: sandVolume,
+            soling_area_m2: roundValue(area),
+            soling_area_m2_exact: area,
+            soling_volume_m3: roundValue(volume),
+            soling_volume_m3_exact: volume,
+            skilled_labor_days: roundValue(skilledManDays, 2),
+            unskilled_labor_days: roundValue(unskilledManDays, 2),
+        }
+    };
+}
+
+// Calculate PCC Soling (Nepali style)
+function calculatePCCSoling(wastage, label, notes) {
+    const area = parseFloat(document.getElementById('pccSolingArea').value);
+    const thickness = parseFloat(document.getElementById('pccSolingThickness').value) / 100; // Convert cm to m
+    const grade = document.getElementById('pccSolingGrade').value;
+
+    if (!area || area <= 0 || !thickness || thickness <= 0) {
+        alert('Provide PCC soling area and thickness.');
+        return null;
+    }
+
+    const volume = area * thickness;
+    const ratio = concreteRatios[grade] || [1, 2, 4];
+    const totalParts = ratio[0] + ratio[1] + ratio[2];
+    const dryVolume = volume * 1.54;
+    const wastageFactor = 1 + wastage / 100;
+
+    const cementVolume = dryVolume * (ratio[0] / totalParts) * wastageFactor;
+    const sandVolume = dryVolume * (ratio[1] / totalParts) * wastageFactor;
+    const aggregateVolume = dryVolume * (ratio[2] / totalParts) * wastageFactor;
+    const cementBags = cementVolume / 0.035;
+    const waterLitres = cementBags * 50 * 0.5;
+
+    // Labor calculation: approximately 0.4 man-day per m² for skilled, 0.8 man-day per m² for unskilled
+    const skilledManDays = area * 0.4;
+    const unskilledManDays = area * 0.8;
+
+    const description = `PCC Soling ${area} m² @ ${(thickness * 100).toFixed(1)} cm - Grade ${grade}` + (label ? ` | ${label}` : '');
+
+    return {
+        id: Date.now(),
+        work_type: 'PCC Soling',
+        description,
+        notes,
+        materials: {
+            cement_bags: roundValue(cementBags),
+            cement_bags_exact: cementBags,
+            sand_m3: roundValue(sandVolume),
+            sand_m3_exact: sandVolume,
+            aggregate_m3: roundValue(aggregateVolume),
+            aggregate_m3_exact: aggregateVolume,
+            water_litres: roundValue(waterLitres),
+            water_litres_exact: waterLitres,
+            concrete_volume_m3: roundValue(volume),
+            concrete_volume_m3_exact: volume,
+            soling_area_m2: roundValue(area),
+            soling_area_m2_exact: area,
+            skilled_labor_days: roundValue(skilledManDays, 2),
+            unskilled_labor_days: roundValue(unskilledManDays, 2),
+        }
+    };
+}
+
+// Footing management functions
+function addFootingItem() {
+    footingItemCounter++;
+    const itemId = `footing_${footingItemCounter}`;
+    const item = {
+        id: itemId,
+        label: `F${footingItemCounter}`,
+        length: '',
+        width: '',
+        depth: '',
+        quantity: 1,
+        lengthUnit: 'm',
+        widthUnit: 'm',
+        depthUnit: 'm'
+    };
+    footingItems.push(item);
+    renderFootingItems();
+}
+
+function removeFootingItem(itemId) {
+    footingItems = footingItems.filter(item => item.id !== itemId);
+    renderFootingItems();
+}
+
+function renderFootingItems() {
+    const container = document.getElementById('footingList');
+    if (!container) return;
+    
+    if (footingItems.length === 0) {
+        container.innerHTML = '<div class="alert alert-secondary mb-0">No footing sizes added yet. Click "Add Footing Size" to add.</div>';
+        return;
+    }
+    
+    container.innerHTML = footingItems.map((item, index) => {
+        return `
+            <div class="card mb-3" data-footing-id="${item.id}">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <strong>${item.label}</strong>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="removeFootingItem('${item.id}')">
+                        <i class="bi bi-trash"></i> Remove
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-2">
+                            <label class="form-label">Label</label>
+                            <input type="text" class="form-control footing-label" data-id="${item.id}" value="${item.label}" placeholder="F1">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Length</label>
+                            <input type="number" step="0.01" min="0" class="form-control footing-length" data-id="${item.id}" value="${item.length}" placeholder="e.g., 1.5">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">&nbsp;</label>
+                            <select class="form-select footing-length-unit" data-id="${item.id}">
+                                <option value="m" ${item.lengthUnit === 'm' ? 'selected' : ''}>m</option>
+                                <option value="cm" ${item.lengthUnit === 'cm' ? 'selected' : ''}>cm</option>
+                                <option value="mm" ${item.lengthUnit === 'mm' ? 'selected' : ''}>mm</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Width</label>
+                            <input type="number" step="0.01" min="0" class="form-control footing-width" data-id="${item.id}" value="${item.width}" placeholder="e.g., 1.5">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">&nbsp;</label>
+                            <select class="form-select footing-width-unit" data-id="${item.id}">
+                                <option value="m" ${item.widthUnit === 'm' ? 'selected' : ''}>m</option>
+                                <option value="cm" ${item.widthUnit === 'cm' ? 'selected' : ''}>cm</option>
+                                <option value="mm" ${item.widthUnit === 'mm' ? 'selected' : ''}>mm</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Depth</label>
+                            <input type="number" step="0.01" min="0" class="form-control footing-depth" data-id="${item.id}" value="${item.depth}" placeholder="e.g., 0.5">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">&nbsp;</label>
+                            <select class="form-select footing-depth-unit" data-id="${item.id}">
+                                <option value="m" ${item.depthUnit === 'm' ? 'selected' : ''}>m</option>
+                                <option value="cm" ${item.depthUnit === 'cm' ? 'selected' : ''}>cm</option>
+                                <option value="mm" ${item.depthUnit === 'mm' ? 'selected' : ''}>mm</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">Qty</label>
+                            <input type="number" step="1" min="1" class="form-control footing-quantity" data-id="${item.id}" value="${item.quantity}" placeholder="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    // Add event listeners for input changes
+    container.querySelectorAll('.footing-label').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const id = e.target.dataset.id;
+            const item = footingItems.find(i => i.id === id);
+            if (item) item.label = e.target.value;
+        });
+    });
+    
+    container.querySelectorAll('.footing-length, .footing-width, .footing-depth, .footing-quantity').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const id = e.target.dataset.id;
+            const item = footingItems.find(i => i.id === id);
+            if (item) {
+                if (e.target.classList.contains('footing-length')) item.length = e.target.value;
+                if (e.target.classList.contains('footing-width')) item.width = e.target.value;
+                if (e.target.classList.contains('footing-depth')) item.depth = e.target.value;
+                if (e.target.classList.contains('footing-quantity')) item.quantity = parseInt(e.target.value) || 1;
+            }
+        });
+    });
+    
+    container.querySelectorAll('.footing-length-unit, .footing-width-unit, .footing-depth-unit').forEach(select => {
+        select.addEventListener('change', (e) => {
+            const id = e.target.dataset.id;
+            const item = footingItems.find(i => i.id === id);
+            if (item) {
+                if (e.target.classList.contains('footing-length-unit')) item.lengthUnit = e.target.value;
+                if (e.target.classList.contains('footing-width-unit')) item.widthUnit = e.target.value;
+                if (e.target.classList.contains('footing-depth-unit')) item.depthUnit = e.target.value;
+            }
+        });
+    });
+}
+
+// Calculate Footing (Multiple Sizes)
+function calculateFooting(wastage, label, notes) {
+    if (footingItems.length === 0) {
+        alert('Add at least one footing size.');
+        return null;
+    }
+    
+    const grade = document.getElementById('footingGrade').value;
+    const ratio = concreteRatios[grade] || [1, 2, 4];
+    const totalParts = ratio[0] + ratio[1] + ratio[2];
+    
+    let totalVolume = 0;
+    let footingDetails = [];
+    let hasError = false;
+    
+    footingItems.forEach((item, index) => {
+        const lengthValue = parseFloat(item.length);
+        const widthValue = parseFloat(item.width);
+        const depthValue = parseFloat(item.depth);
+        const quantity = parseInt(item.quantity) || 1;
+        
+        if (!lengthValue || lengthValue <= 0 || !widthValue || widthValue <= 0 || !depthValue || depthValue <= 0) {
+            alert(`${item.label}: Please provide all dimensions (length, width, depth).`);
+            hasError = true;
+            return;
+        }
+        
+        const length = convertToMeters(lengthValue, item.lengthUnit);
+        const width = convertToMeters(widthValue, item.widthUnit);
+        const depth = convertToMeters(depthValue, item.depthUnit);
+        
+        const volume = length * width * depth * quantity;
+        totalVolume += volume;
+        
+        footingDetails.push({
+            label: item.label,
+            length: lengthValue,
+            width: widthValue,
+            depth: depthValue,
+            lengthUnit: item.lengthUnit,
+            widthUnit: item.widthUnit,
+            depthUnit: item.depthUnit,
+            quantity: quantity,
+            volume: volume
+        });
+    });
+    
+    if (hasError || totalVolume <= 0) {
+        return null;
+    }
+    
+    const dryVolume = totalVolume * 1.54;
+    const wastageFactor = 1 + wastage / 100;
+    
+    const cementVolume = dryVolume * (ratio[0] / totalParts) * wastageFactor;
+    const sandVolume = dryVolume * (ratio[1] / totalParts) * wastageFactor;
+    const aggregateVolume = dryVolume * (ratio[2] / totalParts) * wastageFactor;
+    const cementBags = cementVolume / 0.035;
+    const waterLitres = cementBags * 50 * 0.5;
+    
+    // Labor calculation: approximately 0.5 man-day per m³ for skilled, 1.0 man-day per m³ for unskilled
+    const skilledManDays = totalVolume * 0.5;
+    const unskilledManDays = totalVolume * 1.0;
+    
+    // Create description with all footing details
+    const footingDesc = footingDetails.map(f => {
+        return `${f.label}: ${f.length}${getUnitLabel(f.lengthUnit)} × ${f.width}${getUnitLabel(f.widthUnit)} × ${f.depth}${getUnitLabel(f.depthUnit)} (Qty: ${f.quantity})`;
+    }).join(' | ');
+    
+    const description = `Footing - Grade ${grade} | ${footingDesc}` + (label ? ` | ${label}` : '');
+    
+    return {
+        id: Date.now(),
+        work_type: 'Footing (Multiple Sizes)',
+        description,
+        notes,
+        materials: {
+            cement_bags: roundValue(cementBags),
+            cement_bags_exact: cementBags,
+            sand_m3: roundValue(sandVolume),
+            sand_m3_exact: sandVolume,
+            aggregate_m3: roundValue(aggregateVolume),
+            aggregate_m3_exact: aggregateVolume,
+            water_litres: roundValue(waterLitres),
+            water_litres_exact: waterLitres,
+            concrete_volume_m3: roundValue(totalVolume),
+            concrete_volume_m3_exact: totalVolume,
+            skilled_labor_days: roundValue(skilledManDays, 2),
+            unskilled_labor_days: roundValue(unskilledManDays, 2),
+            footing_details: footingDetails, // Store details for reference
+        }
     };
 }
 
@@ -1308,12 +1856,21 @@ function calculateCost(materials, unitCosts) {
         aggregate: (materials.aggregate_m3 || 0) * (unitCosts.aggregate_m3 || 0),
         water: (materials.water_litres || 0) * (unitCosts.water_litre || 0),
         bricks: (materials.bricks_units || 0) * (unitCosts.brick_unit || 0),
-        stone: (materials.stone_volume_m3 || 0) * (unitCosts.stone_m3 || 0), // Stone cost per m³
+        stone: (materials.stone_volume_m3 || 0) * (unitCosts.aggregate_m3 || 0), // Use aggregate rate for stone
         soling: ((materials.soling_volume_m3 || materials.material_volume_m3 || 0) * (unitCosts.soling_m3 || 0)),
         steel: (materials.steel_kg || 0) * (unitCosts.steel_kg || 0),
     };
     
-    // Calculate labour cost based on volume (m³) for concrete, masonry, soling
+    // Calculate skilled and unskilled labor costs (new method - per day)
+    if (materials.skilled_labor_days !== undefined && materials.skilled_labor_days > 0) {
+        breakdown.skilled_labor = materials.skilled_labor_days * (unitCosts.skilled_labor_day || 0);
+    }
+    
+    if (materials.unskilled_labor_days !== undefined && materials.unskilled_labor_days > 0) {
+        breakdown.unskilled_labor = materials.unskilled_labor_days * (unitCosts.unskilled_labor_day || 0);
+    }
+    
+    // Calculate labour cost based on volume (m³) for concrete, masonry, soling (legacy method)
     let labourVolume = 0;
     if (materials.concrete_volume_m3_exact !== undefined) {
         labourVolume = materials.concrete_volume_m3_exact;
@@ -1323,13 +1880,12 @@ function calculateCost(materials, unitCosts) {
         labourVolume = materials.soling_volume_m3_exact;
     }
     
-    if (labourVolume > 0) {
+    if (labourVolume > 0 && !breakdown.skilled_labor && !breakdown.unskilled_labor) {
         breakdown.labour = labourVolume * (unitCosts.labour_m3 || 0);
     }
     
-    // Calculate labour cost based on area (m²) for plaster
-    if (materials.plaster_area_m2_exact !== undefined) {
-        // For plaster, use labour per m²
+    // Calculate labour cost based on area (m²) for plaster (legacy method)
+    if (materials.plaster_area_m2_exact !== undefined && !breakdown.skilled_labor && !breakdown.unskilled_labor) {
         breakdown.labour = (breakdown.labour || 0) + (materials.plaster_area_m2_exact * (unitCosts.labour_m2 || 0));
     }
     
@@ -1349,7 +1905,7 @@ function renderSummary() {
     if (!results.length) {
         const row = document.createElement('tr');
         row.classList.add('no-data-row');
-        row.innerHTML = `<td colspan="11" class="text-center text-muted py-4">No work items added yet. Use the form above to calculate materials.</td>`;
+        row.innerHTML = `<td colspan="12" class="text-center text-muted py-4">No work items added yet. Use the form above to calculate materials.</td>`;
         tbody.appendChild(row);
         document.getElementById('resultsFooter').classList.add('d-none');
         updateExportPayload();
@@ -1376,6 +1932,10 @@ function renderSummary() {
         soling_volume_m3_exact: 0,
         steel_kg: 0,
         steel_kg_exact: 0,
+        skilled_labor_days: 0,
+        skilled_labor_days_exact: 0,
+        unskilled_labor_days: 0,
+        unskilled_labor_days_exact: 0,
         total_cost: 0,
         total_cost_exact: 0,
     };
@@ -1392,6 +1952,8 @@ function renderSummary() {
         totals.water_litres_exact += item.materials.water_litres_exact || item.materials.water_litres || 0;
         totals.soling_volume_m3_exact += item.materials.soling_volume_m3_exact || item.materials.soling_volume_m3 || 0;
         totals.steel_kg_exact += item.materials.steel_kg_exact || item.materials.steel_kg || 0;
+        totals.skilled_labor_days_exact += item.materials.skilled_labor_days || 0;
+        totals.unskilled_labor_days_exact += item.materials.unskilled_labor_days || 0;
         totals.total_cost_exact += cost.total;
         
         // Sum rounded values (for display - calculated from exact values at the end)
@@ -1403,6 +1965,8 @@ function renderSummary() {
         totals.water_litres += item.materials.water_litres || 0;
         totals.soling_volume_m3 += item.materials.soling_volume_m3 || 0;
         totals.steel_kg += item.materials.steel_kg || 0;
+        totals.skilled_labor_days += item.materials.skilled_labor_days || 0;
+        totals.unskilled_labor_days += item.materials.unskilled_labor_days || 0;
         totals.total_cost += roundValue(cost.total, 2);
 
         const row = document.createElement('tr');
@@ -1420,6 +1984,11 @@ function renderSummary() {
             <td>${item.materials.water_litres_exact !== undefined ? formatValueWithRounding(item.materials.water_litres_exact, item.materials.water_litres, ' L', 2) : (item.materials.water_litres ?? '-')}</td>
             <td>${item.materials.soling_volume_m3_exact !== undefined ? formatValueWithRounding(item.materials.soling_volume_m3_exact, item.materials.soling_volume_m3, ' m³', 3) : (item.materials.soling_volume_m3 ? (item.materials.soling_volume_m3 + ' m³') : '-')}</td>
             <td>${item.materials.steel_kg_exact !== undefined ? formatValueWithRounding(item.materials.steel_kg_exact, item.materials.steel_kg, ' kg', 2) : (item.materials.steel_kg ?? '-')}</td>
+            <td>
+                ${(item.materials.skilled_labor_days || item.materials.unskilled_labor_days) ? 
+                    (item.materials.skilled_labor_days ? `Skilled: ${roundValue(item.materials.skilled_labor_days, 2)}<br>` : '') + 
+                    (item.materials.unskilled_labor_days ? `Unskilled: ${roundValue(item.materials.unskilled_labor_days, 2)}` : '') : '-'}
+            </td>
             <td>${cost.total ? formatValueWithRounding(cost.total, roundValue(cost.total, 2), ' ' + currencySymbol, 2) : '-'}</td>
             <td class="text-end">
                 <button class="btn btn-sm btn-link text-danger" onclick="removeItem(${item.id})">
@@ -1449,6 +2018,20 @@ function renderSummary() {
     document.getElementById('totalWater').innerHTML = formatValueWithRounding(totals.water_litres_exact, roundValue(totals.water_litres_exact, 2), ' L', 2);
     document.getElementById('totalSoling').innerHTML = formatValueWithRounding(totals.soling_volume_m3_exact, roundValue(totals.soling_volume_m3_exact, 3), ' m³', 3);
     document.getElementById('totalSteel').innerHTML = formatValueWithRounding(totals.steel_kg_exact, roundValue(totals.steel_kg_exact, 2), ' kg', 2);
+    
+    // Display labor totals
+    let laborText = '';
+    if (totals.skilled_labor_days_exact > 0 || totals.unskilled_labor_days_exact > 0) {
+        if (totals.skilled_labor_days_exact > 0) {
+            laborText += `Skilled: ${roundValue(totals.skilled_labor_days_exact, 2)}`;
+        }
+        if (totals.unskilled_labor_days_exact > 0) {
+            if (laborText) laborText += '<br>';
+            laborText += `Unskilled: ${roundValue(totals.unskilled_labor_days_exact, 2)}`;
+        }
+    }
+    document.getElementById('totalLabor').innerHTML = laborText || '-';
+    
     document.getElementById('totalCost').innerHTML = formatValueWithRounding(totals.total_cost_exact, roundValue(totals.total_cost_exact, 2), ' ' + currencySymbol, 2);
     
     // Add tools and machines cost to total

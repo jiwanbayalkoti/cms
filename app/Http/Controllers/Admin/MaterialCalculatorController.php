@@ -40,13 +40,18 @@ class MaterialCalculatorController extends Controller
         ];
 
         $defaultCosts = [
-            'cement_bag' => 0,
-            'sand_m3' => 0,
-            'aggregate_m3' => 0,
+            'cement_bag' => 850,
+            'sand_m3' => 2500,
+            'aggregate_m3' => 3500,
             'water_litre' => 0,
-            'brick_unit' => 0,
-            'soling_m3' => 0,
+            'brick_unit' => 12,
+            'soling_m3' => 3000,
             'steel_kg' => 0,
+            'skilled_labor_day' => 2000,
+            'unskilled_labor_day' => 1200,
+            'labour_m3' => 0,
+            'labour_m2' => 0,
+            'centering_m2' => 0,
         ];
 
         return view('admin.material_calculator.index', compact(
