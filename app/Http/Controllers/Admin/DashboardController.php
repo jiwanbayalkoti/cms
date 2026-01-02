@@ -32,9 +32,9 @@ class DashboardController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         
-        // Get period filter (default: 1 month)
-        $period = $request->get('period', '1_month');
-        $dateRange = $this->getDateRange($period);
+        // Get period filter (default: all time)
+        $period = $request->get('period', 'all_time');
+        $dateRange = $this->getDateRange($period, $companyId);
         $startDate = $dateRange['start'];
         $endDate = $dateRange['end'];
         
@@ -91,7 +91,7 @@ class DashboardController extends Controller
         $recentExpenses = $recentExpensesQuery->limit(5)->get();
         
         // Chart data - adjust based on period
-        $chartMonths = $this->getChartMonthsForPeriod($period);
+        $chartMonths = $this->getChartMonthsForPeriod($period, $startDate, $endDate);
         $monthlyData = $this->getMonthlyData($companyId, $chartMonths);
         
         // Category breakdown for selected period
@@ -129,7 +129,7 @@ class DashboardController extends Controller
     /**
      * Get date range based on period filter.
      */
-    private function getDateRange($period)
+    private function getDateRange($period, $companyId = null)
     {
         $endDate = now()->format('Y-m-d');
         
@@ -147,8 +147,23 @@ class DashboardController extends Controller
                 $startDate = now()->subYear()->startOfMonth()->format('Y-m-d');
                 break;
             case 'all_time':
-                // Get earliest record date or default to 1 year ago
-                $startDate = now()->subYears(2)->startOfMonth()->format('Y-m-d');
+                // Get earliest record date from database
+                $earliestDate = null;
+                if ($companyId) {
+                    $earliestIncome = Income::where('company_id', $companyId)->min('date');
+                    $earliestExpense = Expense::where('company_id', $companyId)->min('date');
+                    
+                    if ($earliestIncome && $earliestExpense) {
+                        $earliestDate = $earliestIncome < $earliestExpense ? $earliestIncome : $earliestExpense;
+                    } elseif ($earliestIncome) {
+                        $earliestDate = $earliestIncome;
+                    } elseif ($earliestExpense) {
+                        $earliestDate = $earliestExpense;
+                    }
+                }
+                
+                // If no records found, default to 10 years ago
+                $startDate = $earliestDate ? Carbon::parse($earliestDate)->format('Y-m-d') : now()->subYears(10)->format('Y-m-d');
                 break;
             default:
                 $startDate = now()->startOfMonth()->format('Y-m-d');
@@ -163,7 +178,7 @@ class DashboardController extends Controller
     /**
      * Get number of months for chart based on period.
      */
-    private function getChartMonthsForPeriod($period)
+    private function getChartMonthsForPeriod($period, $startDate = null, $endDate = null)
     {
         switch ($period) {
             case '1_month':
@@ -175,7 +190,14 @@ class DashboardController extends Controller
             case '1_year':
                 return 12;
             case 'all_time':
-                return 24; // Show last 2 years
+                // Calculate months dynamically based on date range, cap at 60 months (5 years) for readability
+                if ($startDate && $endDate) {
+                    $start = Carbon::parse($startDate);
+                    $end = Carbon::parse($endDate);
+                    $months = $start->diffInMonths($end) + 1; // +1 to include both start and end months
+                    return min($months, 60); // Cap at 60 months for chart readability
+                }
+                return 24; // Fallback to 24 months if dates not provided
             default:
                 return 12;
         }
