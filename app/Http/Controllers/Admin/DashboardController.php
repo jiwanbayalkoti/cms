@@ -32,22 +32,19 @@ class DashboardController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         
-        // Get period filter (default: all time)
-        $period = $request->get('period', 'all_time');
+        // Get period filter (default: 1 month)
+        $period = $request->get('period', '1_month');
         $dateRange = $this->getDateRange($period);
         $startDate = $dateRange['start'];
         $endDate = $dateRange['end'];
         
         // Statistics for selected period - filter by accessible projects
-        // Remove global scope to show all accessible projects, not just selected project
-        $incomeQuery = Income::withoutGlobalScope('project')
-            ->where('company_id', $companyId)
+        $incomeQuery = Income::where('company_id', $companyId)
             ->whereBetween('date', [$startDate, $endDate]);
         $this->filterByAccessibleProjects($incomeQuery, 'project_id');
         $totalIncome = $incomeQuery->sum('amount');
         
-        $expenseQuery = Expense::withoutGlobalScope('project')
-            ->where('company_id', $companyId)
+        $expenseQuery = Expense::where('company_id', $companyId)
             ->whereBetween('date', [$startDate, $endDate]);
         $this->filterByAccessibleProjects($expenseQuery, 'project_id');
         $totalExpenses = $expenseQuery->sum('amount');
@@ -81,16 +78,13 @@ class DashboardController extends Controller
         }
         
         // Recent transactions (last 5 regardless of period) - filter by accessible projects
-        // Remove global scope to show all accessible projects, not just selected project
-        $recentIncomesQuery = Income::withoutGlobalScope('project')
-            ->with(['category'])
+        $recentIncomesQuery = Income::with(['category'])
             ->where('company_id', $companyId)
             ->latest('date');
         $this->filterByAccessibleProjects($recentIncomesQuery, 'project_id');
         $recentIncomes = $recentIncomesQuery->limit(5)->get();
         
-        $recentExpensesQuery = Expense::withoutGlobalScope('project')
-            ->with(['category', 'staff'])
+        $recentExpensesQuery = Expense::with(['category', 'staff'])
             ->where('company_id', $companyId)
             ->latest('date');
         $this->filterByAccessibleProjects($recentExpensesQuery, 'project_id');
@@ -204,16 +198,13 @@ class DashboardController extends Controller
             
             $labels[] = $date->format('M Y');
             
-            // Remove global scope to show all accessible projects, not just selected project
-            $incomeQuery = Income::withoutGlobalScope('project')
-                ->where('company_id', $companyId)
+            $incomeQuery = Income::where('company_id', $companyId)
                 ->whereBetween('date', [$monthStart, $monthEnd]);
             $this->filterByAccessibleProjects($incomeQuery, 'project_id');
             $income = $incomeQuery->sum('amount');
             $incomeData[] = (float) $income;
             
-            $expenseQuery = Expense::withoutGlobalScope('project')
-                ->where('company_id', $companyId)
+            $expenseQuery = Expense::where('company_id', $companyId)
                 ->whereBetween('date', [$monthStart, $monthEnd]);
             $this->filterByAccessibleProjects($expenseQuery, 'project_id');
             $expense = $expenseQuery->sum('amount');
@@ -232,9 +223,7 @@ class DashboardController extends Controller
      */
     private function getIncomeByCategory($companyId, $startDate, $endDate)
     {
-        // Remove global scope to show all accessible projects, not just selected project
-        $query = Income::withoutGlobalScope('project')
-            ->join('categories', 'incomes.category_id', '=', 'categories.id')
+        $query = Income::join('categories', 'incomes.category_id', '=', 'categories.id')
             ->where('incomes.company_id', $companyId)
             ->whereBetween('incomes.date', [$startDate, $endDate]);
         
@@ -259,9 +248,7 @@ class DashboardController extends Controller
      */
     private function getExpenseByCategory($companyId, $startDate, $endDate)
     {
-        // Remove global scope to show all accessible projects, not just selected project
-        $query = Expense::withoutGlobalScope('project')
-            ->join('categories', 'expenses.category_id', '=', 'categories.id')
+        $query = Expense::join('categories', 'expenses.category_id', '=', 'categories.id')
             ->where('expenses.company_id', $companyId)
             ->whereBetween('expenses.date', [$startDate, $endDate]);
         
