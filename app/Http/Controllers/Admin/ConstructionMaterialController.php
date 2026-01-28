@@ -15,7 +15,6 @@ use App\Models\PaymentMode;
 use App\Models\Project;
 use App\Models\PurchasedBy;
 use App\Models\Supplier;
-use App\Models\WorkType;
 use App\Models\AdvancePayment;
 use App\Models\Expense;
 use App\Models\Category;
@@ -230,7 +229,7 @@ class ConstructionMaterialController extends Controller
         $categories = MaterialCategory::where('is_active', true)->orderBy('name')->get();
         $units = MaterialUnit::orderBy('name')->get();
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
-        $workTypes = WorkType::where('is_active', true)->orderBy('name')->get();
+        // WorkType model removed - work_type is now a simple text field
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
         $materialNames = MaterialName::orderBy('name')->get();
@@ -243,7 +242,6 @@ class ConstructionMaterialController extends Controller
                 'categories' => $categories,
                 'units' => $units,
                 'suppliers' => $suppliers,
-                'workTypes' => $workTypes,
                 'projects' => $projects,
                 'materialNames' => $materialNames,
                 'paymentModes' => $paymentModes,
@@ -360,7 +358,7 @@ class ConstructionMaterialController extends Controller
         $categories = MaterialCategory::where('is_active', true)->orderBy('name')->get();
         $units = MaterialUnit::orderBy('name')->get();
         $suppliers = Supplier::where('is_active', true)->orderBy('name')->get();
-        $workTypes = WorkType::where('is_active', true)->orderBy('name')->get();
+        // WorkType model removed - work_type is now a simple text field
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
         $materialNames = MaterialName::orderBy('name')->get();
@@ -374,7 +372,6 @@ class ConstructionMaterialController extends Controller
                 'categories' => $categories,
                 'units' => $units,
                 'suppliers' => $suppliers,
-                'workTypes' => $workTypes,
                 'projects' => $projects,
                 'materialNames' => $materialNames,
                 'paymentModes' => $paymentModes,

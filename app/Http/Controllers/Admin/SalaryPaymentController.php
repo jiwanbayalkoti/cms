@@ -88,7 +88,17 @@ class SalaryPaymentController extends Controller
             $query->where('status', $request->status);
         }
 
-        // Filter by payment month
+        // Filter by date range (from_date and to_date)
+        if ($request->filled('from_date')) {
+            $fromDate = Carbon::parse($request->from_date)->startOfMonth();
+            $query->where('payment_month', '>=', $fromDate);
+        }
+        if ($request->filled('to_date')) {
+            $toDate = Carbon::parse($request->to_date)->endOfMonth();
+            $query->where('payment_month', '<=', $toDate);
+        }
+        
+        // Legacy: Filter by payment month (single month)
         if ($request->filled('payment_month')) {
             $query->whereYear('payment_month', Carbon::parse($request->payment_month)->year)
                   ->whereMonth('payment_month', Carbon::parse($request->payment_month)->month);
@@ -96,7 +106,67 @@ class SalaryPaymentController extends Controller
 
         $salaryPayments = $query->latest('payment_month')->latest('created_at')->paginate(15)->withQueryString();
 
+        // Get all staff with their payment summaries
         $staff = Staff::where('is_active', true)->orderBy('name')->get();
+        
+        // Get payment summaries for each staff
+        $currentYear = now()->year;
+        $staffSummaries = $staff->map(function($staffMember) use ($companyId, $request, $currentYear) {
+            $staffPaymentsQuery = SalaryPayment::where('staff_id', $staffMember->id)
+                ->where('company_id', $companyId);
+            
+            // Apply filters if provided
+            if ($request->filled('project_id')) {
+                $staffPaymentsQuery->where('project_id', $request->project_id);
+            }
+            if ($request->filled('status')) {
+                $staffPaymentsQuery->where('status', $request->status);
+            }
+            // Filter by date range (from_date and to_date)
+            if ($request->filled('from_date')) {
+                $fromDate = Carbon::parse($request->from_date)->startOfMonth();
+                $staffPaymentsQuery->where('payment_month', '>=', $fromDate);
+            }
+            if ($request->filled('to_date')) {
+                $toDate = Carbon::parse($request->to_date)->endOfMonth();
+                $staffPaymentsQuery->where('payment_month', '<=', $toDate);
+            }
+            // Legacy: Filter by payment month (single month)
+            if ($request->filled('payment_month')) {
+                $staffPaymentsQuery->whereYear('payment_month', Carbon::parse($request->payment_month)->year)
+                      ->whereMonth('payment_month', Carbon::parse($request->payment_month)->month);
+            }
+            
+            $staffPayments = $staffPaymentsQuery->get();
+            
+            // Calculate totals - filter by current year for total paid
+            $currentYearPayments = $staffPayments->filter(function($payment) use ($currentYear) {
+                return Carbon::parse($payment->payment_month)->year == $currentYear;
+            });
+            
+            $totalPaid = $currentYearPayments->sum('paid_amount');
+            $totalRemaining = $staffPayments->sum('balance_amount'); // Total remaining includes all years
+            $totalNet = $staffPayments->sum('net_amount');
+            $paymentCount = $staffPayments->count();
+            
+            // Get latest payment for this staff
+            $latestPayment = $staffPayments->sortByDesc('payment_month')->first();
+            
+            return [
+                'staff_id' => $staffMember->id,
+                'staff_name' => $staffMember->name,
+                'position_name' => $staffMember->position ? $staffMember->position->name : null,
+                'project_name' => $staffMember->project ? $staffMember->project->name : null,
+                'payment_count' => $paymentCount,
+                'total_paid' => number_format($totalPaid, 2),
+                'total_remaining' => number_format($totalRemaining, 2),
+                'total_net' => number_format($totalNet, 2),
+                'latest_payment_id' => $latestPayment ? $latestPayment->id : null,
+                'latest_payment_month' => $latestPayment ? $latestPayment->payment_month_name : null,
+                'latest_payment_date' => $latestPayment ? $latestPayment->payment_date->format('M d, Y') : null,
+            ];
+        });
+        
         $projects = Project::where('company_id', $companyId)
             ->where('status', '!=', 'cancelled')
             ->orderBy('name')
@@ -104,6 +174,7 @@ class SalaryPaymentController extends Controller
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
+            // Also return individual payments for backward compatibility
             $salaryPaymentsData = $salaryPayments->map(function($payment) {
                 $statusClass = '';
                 if ($payment->status === 'paid') {
@@ -118,6 +189,7 @@ class SalaryPaymentController extends Controller
                 
                 return [
                     'id' => $payment->id,
+                    'staff_id' => $payment->staff_id,
                     'staff_name' => $payment->staff->name,
                     'project_name' => $payment->project ? $payment->project->name : null,
                     'payment_month_name' => $payment->payment_month_name,
@@ -135,11 +207,12 @@ class SalaryPaymentController extends Controller
             
             return response()->json([
                 'salaryPayments' => $salaryPaymentsData,
+                'staffSummaries' => $staffSummaries,
                 'pagination' => $salaryPayments->links()->render(),
             ]);
         }
 
-        return view('admin.salary_payments.index', compact('salaryPayments', 'staff', 'projects'));
+        return view('admin.salary_payments.index', compact('salaryPayments', 'staff', 'projects', 'staffSummaries'));
     }
 
     /**
@@ -245,46 +318,153 @@ class SalaryPaymentController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'staff_id' => 'required|exists:staff,id',
-            'payment_month' => 'required|date',
-            'payment_date' => 'required|date',
-            'base_salary' => 'required|numeric|min:0',
-            'working_days' => 'nullable|integer|min:1',
-            'total_days' => 'nullable|integer|min:1',
-            'overtime_amount' => 'nullable|numeric|min:0',
-            'bonus_amount' => 'nullable|numeric|min:0',
-            'allowance_amount' => 'nullable|numeric|min:0',
-            'deduction_amount' => 'nullable|numeric|min:0',
-            'advance_deduction' => 'nullable|numeric|min:0',
-            'assessment_type' => 'nullable|in:single,couple',
-            'status' => 'required|in:pending,partial,paid,cancelled',
-            'payment_percentage' => 'nullable|numeric|min:0|max:100',
-            'payment_amount' => 'nullable|numeric|min:0',
-            'paid_amount' => 'nullable|numeric|min:0',
-            'balance_amount' => 'nullable|numeric|min:0',
-            'payment_method' => 'nullable|string|max:255',
-            'bank_account_id' => 'nullable|exists:bank_accounts,id',
-            'transaction_reference' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-            'project_id' => 'nullable|exists:projects,id',
-        ]);
+        try {
+            $validated = $request->validate([
+                'staff_id' => 'required|exists:staff,id',
+                'payment_month' => 'required|date',
+                'payment_date' => 'required|date',
+                'base_salary' => 'required|numeric|min:0',
+                'working_days' => 'nullable|integer|min:1',
+                'total_days' => 'nullable|integer|min:1',
+                'overtime_amount' => 'nullable|numeric|min:0',
+                'bonus_amount' => 'nullable|numeric|min:0',
+                'allowance_amount' => 'nullable|numeric|min:0',
+                'deduction_amount' => 'nullable|numeric|min:0',
+                'advance_deduction' => 'nullable|numeric|min:0',
+                'assessment_type' => 'nullable|in:single,couple',
+                'status' => 'required|in:pending,partial,paid,cancelled',
+                'payment_percentage' => 'nullable|numeric|min:0|max:100',
+                'payment_amount' => 'nullable|numeric|min:0',
+                'paid_amount' => 'nullable|numeric|min:0',
+                'balance_amount' => 'nullable|numeric|min:0',
+                'payment_method' => 'nullable|string|max:255',
+                'bank_account_id' => 'nullable|exists:bank_accounts,id',
+                'transaction_reference' => 'nullable|string|max:255',
+                'notes' => 'nullable|string',
+                'project_id' => 'nullable|exists:projects,id',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+            throw $e;
+        }
 
         // Ensure payment_month is first day of month
         $paymentMonth = Carbon::parse($validated['payment_month'])->startOfMonth();
 
-        // Check for duplicate
+        // Check for existing payment
         $companyId = CompanyContext::getActiveCompanyId();
-        $exists = SalaryPayment::where('staff_id', $validated['staff_id'])
+        $existingPayment = SalaryPayment::where('staff_id', $validated['staff_id'])
             ->where('payment_month', $paymentMonth)
             ->where('company_id', $companyId)
-            ->exists();
+            ->first();
 
-        if ($exists) {
-            return back()->withInput()->with('error', 'Salary payment for this staff member and month already exists.');
+        if ($existingPayment && $existingPayment->status === 'paid') {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Salary payment for this staff member and month is already fully paid.',
+                    'errors' => [
+                        'payment_month' => ['Salary payment for this staff member and month is already fully paid.']
+                    ],
+                ], 422);
+            }
+            return back()->withInput()->with('error', 'Salary payment for this staff member and month is already fully paid.');
         }
 
-        // Calculate amounts
+        // If partial payment exists, update it instead of creating new
+        if ($existingPayment && ($existingPayment->status === 'partial' || $existingPayment->status === 'pending')) {
+            // Calculate new payment amount from form
+            $newPaymentAmount = 0;
+            if (isset($validated['payment_amount']) && $validated['payment_amount'] > 0) {
+                $newPaymentAmount = (float) $validated['payment_amount'];
+            } elseif (isset($validated['payment_percentage']) && $validated['payment_percentage'] > 0) {
+                $newPaymentAmount = ($existingPayment->net_amount * (float) $validated['payment_percentage']) / 100;
+            } elseif (isset($validated['paid_amount']) && $validated['paid_amount'] > 0) {
+                $newPaymentAmount = (float) $validated['paid_amount'];
+            }
+            
+            // Add new payment amount to existing paid amount
+            $updatedPaidAmount = $existingPayment->paid_amount + $newPaymentAmount;
+            $updatedBalanceAmount = $existingPayment->net_amount - $updatedPaidAmount;
+            
+            // Update status
+            $newStatus = $existingPayment->status;
+            if ($updatedBalanceAmount <= 0.01) {
+                $newStatus = 'paid';
+                $updatedPaidAmount = $existingPayment->net_amount;
+                $updatedBalanceAmount = 0;
+            } elseif ($updatedPaidAmount > 0) {
+                $newStatus = 'partial';
+            }
+            
+            // Update existing payment
+            $existingPayment->update([
+                'paid_amount' => $updatedPaidAmount,
+                'balance_amount' => $updatedBalanceAmount,
+                'status' => $newStatus,
+                'payment_date' => $validated['payment_date'],
+                'payment_method' => $validated['payment_method'] ?? $existingPayment->payment_method,
+                'bank_account_id' => $validated['bank_account_id'] ?? $existingPayment->bank_account_id,
+                'transaction_reference' => $validated['transaction_reference'] ?? $existingPayment->transaction_reference,
+                'notes' => $validated['notes'] ?? $existingPayment->notes,
+                'updated_by' => auth()->id(),
+            ]);
+            
+            $existingPayment->refresh();
+            $existingPayment->load(['staff', 'project']);
+            
+            // Update expense if needed
+            if ($existingPayment->paid_amount > 0) {
+                try {
+                    if ($existingPayment->expense_id) {
+                        $expense = Expense::find($existingPayment->expense_id);
+                        if ($expense) {
+                            $expense->amount = $existingPayment->paid_amount;
+                            $expense->date = $existingPayment->payment_date;
+                            $expense->save();
+                        }
+                    } else {
+                        $this->createExpenseFromSalaryPayment($existingPayment);
+                        $existingPayment->refresh();
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Error updating expense: ' . $e->getMessage());
+                }
+            }
+            
+            // Return JSON for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment amount added to existing partial payment successfully.',
+                    'payment' => [
+                        'id' => $existingPayment->id,
+                        'staff_name' => $existingPayment->staff->name,
+                        'payment_month_name' => $existingPayment->payment_month_name,
+                        'base_salary' => number_format($existingPayment->base_salary, 2),
+                        'gross_amount' => number_format($existingPayment->gross_amount, 2),
+                        'tax_amount' => number_format($existingPayment->tax_amount ?? 0, 2),
+                        'net_amount' => number_format($existingPayment->net_amount, 2),
+                        'status' => $existingPayment->status,
+                        'payment_date' => $existingPayment->payment_date->format('M d, Y'),
+                        'project_id' => $existingPayment->project_id,
+                        'project_name' => $existingPayment->project ? $existingPayment->project->name : null,
+                        'paid_amount' => number_format($existingPayment->paid_amount, 2),
+                    ],
+                ]);
+            }
+            
+            return redirect()->route('admin.salary-payments.index')
+                ->with('success', 'Payment amount added to existing partial payment successfully.');
+        }
+
+        // Calculate amounts for new payment
         $baseSalary = $validated['base_salary'];
         
         // If partial month, calculate prorated salary
@@ -444,7 +624,8 @@ class SalaryPaymentController extends Controller
                     'net_amount' => number_format($salaryPayment->net_amount, 2),
                     'status' => $salaryPayment->status,
                     'payment_date' => $salaryPayment->payment_date->format('M d, Y'),
-                    'project_name' => $salaryPayment->project ? $salaryPayment->project->name : 'N/A',
+                    'project_id' => $salaryPayment->project_id,
+                    'project_name' => $salaryPayment->project ? $salaryPayment->project->name : null,
                     'paid_amount' => number_format($salaryPayment->paid_amount, 2),
                 ],
             ]);
@@ -457,7 +638,7 @@ class SalaryPaymentController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(SalaryPayment $salaryPayment)
+    public function show(SalaryPayment $salaryPayment, Request $request)
     {
         if ($salaryPayment->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
@@ -470,11 +651,77 @@ class SalaryPaymentController extends Controller
         $paymentModes = PaymentMode::orderBy('name')->get();
         $salaryPayment->load(['staff', 'project', 'expense', 'bankAccount', 'creator', 'updater', 'transactions.bankAccount', 'transactions.creator']);
         
+        // Get date filters from request
+        $fromDate = $request->get('from_date');
+        $toDate = $request->get('to_date');
+        
+        \Log::info('Filtering salary payments (show)', [
+            'staff_id' => $salaryPayment->staff_id,
+            'from_date' => $fromDate,
+            'to_date' => $toDate
+        ]);
+        
+        // Get all payment history for this staff member
+        $allPaymentsQuery = SalaryPayment::where('staff_id', $salaryPayment->staff_id)
+            ->where('company_id', $companyId)
+            ->with(['project']);
+        
+        // Apply month filters if provided (format: YYYY-MM)
+        if ($fromDate) {
+            $fromMonth = Carbon::parse($fromDate)->startOfMonth();
+            $allPaymentsQuery->where('payment_month', '>=', $fromMonth);
+            \Log::info('Applied from_date filter (show)', ['from_date' => $fromDate, 'from_month' => $fromMonth]);
+        }
+        if ($toDate) {
+            $toMonth = Carbon::parse($toDate)->endOfMonth();
+            $allPaymentsQuery->where('payment_month', '<=', $toMonth);
+            \Log::info('Applied to_date filter (show)', ['to_date' => $toDate, 'to_month' => $toMonth]);
+        }
+        
+        $allPayments = $allPaymentsQuery->orderBy('payment_month', 'desc')->get();
+        
+        \Log::info('Filtered payments count (show)', ['count' => $allPayments->count()]);
+        
+        // Group payments by month and calculate totals
+        $monthlyPayments = $allPayments->groupBy(function($payment) {
+            return $payment->payment_month->format('Y-m');
+        })->map(function($payments, $monthKey) {
+            $firstPayment = $payments->first();
+            $totalPaid = $payments->sum('paid_amount');
+            $totalRemaining = $payments->sum('balance_amount');
+            $totalNet = $payments->sum('net_amount');
+            
+            return [
+                'month' => $firstPayment->payment_month->format('F Y'),
+                'month_key' => $monthKey,
+                'payments' => $payments->map(function($payment) {
+                    return [
+                        'id' => $payment->id,
+                        'payment_date' => $payment->payment_date->format('M d, Y'),
+                        'payment_date_raw' => $payment->payment_date->format('Y-m-d'),
+                        'net_amount' => number_format($payment->net_amount, 2),
+                        'paid_amount' => number_format($payment->paid_amount, 2),
+                        'balance_amount' => number_format($payment->balance_amount, 2),
+                        'status' => $payment->status,
+                        'project_name' => $payment->project ? $payment->project->name : null,
+                    ];
+                })->toArray(),
+                'total_paid' => number_format($totalPaid, 2),
+                'total_remaining' => number_format($totalRemaining, 2),
+                'total_net' => number_format($totalNet, 2),
+            ];
+        })->values();
+        
+        // Calculate overall totals
+        $overallTotalPaid = $allPayments->sum('paid_amount');
+        $overallTotalRemaining = $allPayments->sum('balance_amount');
+        
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
             return response()->json([
                 'payment' => [
                     'id' => $salaryPayment->id,
+                    'staff_id' => $salaryPayment->staff_id,
                     'staff_name' => $salaryPayment->staff->name,
                     'staff_position' => $salaryPayment->staff->position ? $salaryPayment->staff->position->name : null,
                     'project_name' => $salaryPayment->project ? $salaryPayment->project->name : null,
@@ -506,10 +753,113 @@ class SalaryPaymentController extends Controller
                     'created_at' => $salaryPayment->created_at ? $salaryPayment->created_at->format('M d, Y H:i') : '',
                     'updated_at' => $salaryPayment->updated_at ? $salaryPayment->updated_at->format('M d, Y H:i') : '',
                 ],
+                'monthly_payments' => $monthlyPayments,
+                'overall_total_paid' => number_format($overallTotalPaid, 2),
+                'overall_total_remaining' => number_format($overallTotalRemaining, 2),
             ]);
         }
         
         // Redirect to index page since popup handles everything
+        return redirect()->route('admin.salary-payments.index');
+    }
+
+    /**
+     * View staff payment details by staff ID (for staff without payments)
+     */
+    public function viewByStaff($staffId, Request $request)
+    {
+        $companyId = CompanyContext::getActiveCompanyId();
+        $staff = Staff::where('id', $staffId)
+            ->where('company_id', $companyId)
+            ->firstOrFail();
+        
+        // Get date filters from request
+        $fromDate = $request->get('from_date');
+        $toDate = $request->get('to_date');
+        
+        \Log::info('Filtering salary payments', [
+            'staff_id' => $staffId,
+            'from_date' => $fromDate,
+            'to_date' => $toDate
+        ]);
+        
+        // Get all payment history for this staff member
+        $allPaymentsQuery = SalaryPayment::where('staff_id', $staffId)
+            ->where('company_id', $companyId)
+            ->with(['project']);
+        
+        // Apply month filters if provided (format: YYYY-MM)
+        if ($fromDate) {
+            $fromMonth = Carbon::parse($fromDate)->startOfMonth();
+            $allPaymentsQuery->where('payment_month', '>=', $fromMonth);
+            \Log::info('Applied from_date filter', ['from_date' => $fromDate, 'from_month' => $fromMonth]);
+        }
+        if ($toDate) {
+            $toMonth = Carbon::parse($toDate)->endOfMonth();
+            $allPaymentsQuery->where('payment_month', '<=', $toMonth);
+            \Log::info('Applied to_date filter', ['to_date' => $toDate, 'to_month' => $toMonth]);
+        }
+        
+        $allPayments = $allPaymentsQuery->orderBy('payment_month', 'desc')->get();
+        
+        \Log::info('Filtered payments count', ['count' => $allPayments->count()]);
+        
+        // Group payments by month and calculate totals
+        $monthlyPayments = $allPayments->groupBy(function($payment) {
+            return $payment->payment_month->format('Y-m');
+        })->map(function($payments, $monthKey) {
+            $firstPayment = $payments->first();
+            $totalPaid = $payments->sum('paid_amount');
+            $totalRemaining = $payments->sum('balance_amount');
+            $totalNet = $payments->sum('net_amount');
+            
+            return [
+                'month' => $firstPayment->payment_month->format('F Y'),
+                'month_key' => $monthKey,
+                'payments' => $payments->map(function($payment) {
+                    return [
+                        'id' => $payment->id,
+                        'payment_date' => $payment->payment_date->format('M d, Y'),
+                        'payment_date_raw' => $payment->payment_date->format('Y-m-d'),
+                        'net_amount' => number_format($payment->net_amount, 2),
+                        'paid_amount' => number_format($payment->paid_amount, 2),
+                        'balance_amount' => number_format($payment->balance_amount, 2),
+                        'status' => $payment->status,
+                        'project_name' => $payment->project ? $payment->project->name : null,
+                    ];
+                })->toArray(),
+                'total_paid' => number_format($totalPaid, 2),
+                'total_remaining' => number_format($totalRemaining, 2),
+                'total_net' => number_format($totalNet, 2),
+            ];
+        })->values();
+        
+        // Calculate overall totals
+        $overallTotalPaid = $allPayments->sum('paid_amount');
+        $overallTotalRemaining = $allPayments->sum('balance_amount');
+        
+        // Get latest payment for edit button
+        $latestPayment = $allPayments->first();
+        
+        // Return JSON for AJAX requests
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'payment' => [
+                    'id' => $latestPayment ? $latestPayment->id : null,
+                    'staff_id' => $staff->id,
+                    'staff_name' => $staff->name,
+                    'staff_position' => $staff->position ? $staff->position->name : null,
+                    'project_name' => $staff->project ? $staff->project->name : null,
+                    'payment_month_name' => $latestPayment ? $latestPayment->payment_month_name : null,
+                    'payment_date' => $latestPayment ? $latestPayment->payment_date->format('Y-m-d') : null,
+                    'formatted_payment_date' => $latestPayment ? $latestPayment->payment_date->format('M d, Y') : null,
+                ],
+                'monthly_payments' => $monthlyPayments,
+                'overall_total_paid' => number_format($overallTotalPaid, 2),
+                'overall_total_remaining' => number_format($overallTotalRemaining, 2),
+            ]);
+        }
+        
         return redirect()->route('admin.salary-payments.index');
     }
 
@@ -795,7 +1145,8 @@ class SalaryPaymentController extends Controller
                     'net_amount' => number_format($salaryPayment->net_amount, 2),
                     'status' => $salaryPayment->status,
                     'payment_date' => $salaryPayment->payment_date->format('M d, Y'),
-                    'project_name' => $salaryPayment->project ? $salaryPayment->project->name : 'N/A',
+                    'project_id' => $salaryPayment->project_id,
+                    'project_name' => $salaryPayment->project ? $salaryPayment->project->name : null,
                     'paid_amount' => number_format($salaryPayment->paid_amount, 2),
                 ],
             ]);

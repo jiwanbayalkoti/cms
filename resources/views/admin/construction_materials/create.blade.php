@@ -153,14 +153,7 @@
 </div>
                 <div class="col-md-4">
                     <label class="form-label">Work Type</label>
-                    <select name="work_type" class="form-select">
-                        <option value="">Select work type</option>
-                        @foreach($workTypes as $workType)
-                            <option value="{{ $workType->name }}" {{ old('work_type') === $workType->name ? 'selected' : '' }}>
-                                {{ $workType->name }}
-                            </option>
-                        @endforeach
-                    </select>
+                    <input type="text" name="work_type" class="form-control" value="{{ old('work_type') }}" placeholder="e.g., PCC, Soling, Masonry">
                 </div>
 
                 <div class="col-md-12">

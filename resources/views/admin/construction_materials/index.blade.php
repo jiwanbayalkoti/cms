@@ -433,10 +433,7 @@ function buildMaterialForm(data, material) {
                 
                 <div class="col-md-4">
                     <label class="form-label">Work Type</label>
-                    <select name="work_type" class="form-select">
-                        <option value="">Select work type</option>
-                        ${data.workTypes.map(wt => `<option value="${wt.name}" ${materialData.work_type === wt.name ? 'selected' : ''}>${wt.name}</option>`).join('')}
-                    </select>
+                    <input type="text" name="work_type" class="form-control" value="${materialData.work_type || ''}" placeholder="Work Type">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Status *</label>

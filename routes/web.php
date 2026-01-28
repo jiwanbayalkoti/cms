@@ -13,7 +13,6 @@ use App\Http\Controllers\Admin\ConstructionMaterialController;
 use App\Http\Controllers\Admin\MaterialCategoryController;
 use App\Http\Controllers\Admin\MaterialUnitController;
 use App\Http\Controllers\Admin\SupplierController;
-use App\Http\Controllers\Admin\WorkTypeController;
 use App\Http\Controllers\Admin\IncomeController;
 use App\Http\Controllers\Admin\ExpenseController;
 use App\Http\Controllers\Admin\ExpenseTypeController;
@@ -21,7 +20,6 @@ use App\Http\Controllers\Admin\PaymentTypeController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\UserController;
-use App\Http\Controllers\Admin\BillModuleController;
 use App\Http\Controllers\Admin\MaterialCalculatorController;
 
 /*
@@ -191,7 +189,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
         Route::post('suppliers/validate', [SupplierController::class, 'validateSupplier'])->name('suppliers.validate');
         Route::post('suppliers/{supplier}/validate', [SupplierController::class, 'validateSupplier'])->name('suppliers.validate.edit');
-        Route::resource('work-types', WorkTypeController::class)->except(['show']);
         Route::resource('material-names', \App\Http\Controllers\Admin\MaterialNameController::class);
         Route::resource('payment-modes', \App\Http\Controllers\Admin\PaymentModeController::class)->except(['show']);
         Route::resource('purchased-bies', \App\Http\Controllers\Admin\PurchasedByController::class)->except(['show']);
@@ -228,22 +225,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('expenses/validate', [ExpenseController::class, 'validateExpense'])->name('expenses.validate');
         Route::resource('expense-types', ExpenseTypeController::class);
         
-        // Bill Modules (Construction Final Bill / Estimate) (Admin only - not accessible to regular users)
+        // Billing (Admin only - not accessible to regular users)
         Route::middleware(['admin_only'])->group(function () {
-        Route::resource('bill-modules', BillModuleController::class);
-        Route::resource('bill-categories', \App\Http\Controllers\Admin\BillCategoryController::class);
-        Route::resource('bill-subcategories', \App\Http\Controllers\Admin\BillSubcategoryController::class);
-        
-        // Completed Works
-        Route::resource('completed-works', \App\Http\Controllers\Admin\CompletedWorkController::class);
-        Route::get('completed-works/generate/bill', [\App\Http\Controllers\Admin\CompletedWorkController::class, 'generateBillForm'])->name('completed-works.generate-bill');
-        Route::post('completed-works/generate/bill', [\App\Http\Controllers\Admin\CompletedWorkController::class, 'generateBill'])->name('completed-works.generate-bill.store');
-        Route::post('bill-modules/{bill_module}/submit', [BillModuleController::class, 'submit'])->name('bill-modules.submit');
-        Route::post('bill-modules/{bill_module}/approve', [BillModuleController::class, 'approve'])->name('bill-modules.approve');
-        Route::get('bill-modules/{bill_module}/export/excel', [BillModuleController::class, 'exportExcel'])->name('bill-modules.export.excel');
-        Route::get('bill-modules/{bill_module}/export/pdf', [BillModuleController::class, 'exportPdf'])->name('bill-modules.export.pdf');
-        Route::get('bill-modules/{bill_module}/report', [BillModuleController::class, 'report'])->name('bill-modules.report');
-        Route::get('bill-modules/{bill_module}/items', [BillModuleController::class, 'getItems'])->name('bill-modules.items');
+        // Measurement Book (kaam k vayo ra kati vayo record) - new module
+        Route::get('measurement-books/{measurement_book}/export/excel', [\App\Http\Controllers\Admin\MeasurementBookController::class, 'exportExcel'])->name('measurement-books.export.excel');
+        Route::resource('measurement-books', \App\Http\Controllers\Admin\MeasurementBookController::class);
+        // Running Bill / Bill Statement (total bill with BOQ, 13% tax) - new module
+        Route::get('running-bills/{running_bill}/export/excel', [\App\Http\Controllers\Admin\RunningBillController::class, 'exportExcel'])->name('running-bills.export.excel');
+        Route::get('running-bills/measurement-book-items', [\App\Http\Controllers\Admin\RunningBillController::class, 'getMeasurementBookItems'])->name('running-bills.measurement-book-items');
+        Route::resource('running-bills', \App\Http\Controllers\Admin\RunningBillController::class);
         });
 
         // Material calculator
@@ -304,6 +294,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware(['admin_only'])->group(function () {
             Route::get('salary-payments', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'index'])->name('salary-payments.index');
             Route::get('salary-payments/create', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'create'])->name('salary-payments.create');
+            Route::get('salary-payments/staff/{staff}', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'viewByStaff'])->name('salary-payments.view-by-staff');
             Route::get('salary-payments/{salary_payment}', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'show'])->name('salary-payments.show');
             Route::get('salary-payments/{salary_payment}/edit', [\App\Http\Controllers\Admin\SalaryPaymentController::class, 'edit'])->name('salary-payments.edit');
             Route::middleware(['throttle:forms'])->group(function () {

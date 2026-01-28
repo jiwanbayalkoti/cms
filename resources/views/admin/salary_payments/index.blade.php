@@ -11,7 +11,7 @@
 </div>
 
 <div class="mb-4 bg-white shadow-lg rounded-lg p-4">
-    <form id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <form id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         <div>
             <label for="filter_staff_id" class="block text-sm font-medium text-gray-700 mb-2">Staff</label>
             <select name="staff_id" id="filter_staff_id" onchange="applyFiltersDebounced()"
@@ -51,10 +51,19 @@
         </div>
         
         <div>
-            <label for="filter_payment_month" class="block text-sm font-medium text-gray-700 mb-2">Month</label>
-            <input type="month" name="payment_month" id="filter_payment_month" value="{{ request('payment_month') ?: '' }}"
+            <label for="filter_from_date" class="block text-sm font-medium text-gray-700 mb-2">From Month</label>
+            <input type="month" name="from_date" id="filter_from_date" value="{{ request('from_date') ?: '' }}"
                    onchange="applyFiltersDebounced()"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                   pattern="[0-9]{4}-[0-9]{2}">
+        </div>
+        
+        <div>
+            <label for="filter_to_date" class="block text-sm font-medium text-gray-700 mb-2">To Month</label>
+            <input type="month" name="to_date" id="filter_to_date" value="{{ request('to_date') ?: '' }}"
+                   onchange="applyFiltersDebounced()"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                   pattern="[0-9]{4}-[0-9]{2}">
         </div>
         
         <div class="flex items-end">
@@ -66,105 +75,68 @@
 </div>
 
 <div class="bg-white shadow-lg rounded-lg overflow-hidden">
-    <div id="salary-payments-loading" class="hidden p-8 text-center">
-        <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p class="mt-2 text-gray-600">Loading salary payments...</p>
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900">Staff Payment Summary</h2>
+        <p class="text-sm text-gray-600 mt-1">Summary of all staff members and their payment status</p>
     </div>
-    <div id="salary-payments-table-container">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Payments</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Paid</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Remaining</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Latest Payment</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                @foreach($staffSummaries as $summary)
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Salary</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gross Amount</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tax Amount</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net Amount</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Date</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-nowrap">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="salaryPaymentsTableBody" class="bg-white divide-y divide-gray-200">
-                @forelse($salaryPayments as $payment)
-                    <tr data-payment-id="{{ $payment->id }}">
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium text-gray-900">{{ $payment->staff->name }}</div>
-                            @if($payment->project)
-                                <div class="text-sm text-gray-500">{{ $payment->project->name }}</div>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ $payment->payment_month_name }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            Rs. {{ number_format($payment->base_salary, 2) }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            Rs. {{ number_format($payment->gross_amount, 2) }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-orange-600 font-medium">
-                            Rs. {{ number_format($payment->tax_amount ?? 0, 2) }}
-                            @if($payment->tax_amount > 0)
-                                <div class="text-xs text-gray-500 mt-1">
-                                    {{ ucfirst($payment->assessment_type ?? 'single') }}
-                                </div>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            Rs. {{ number_format($payment->net_amount, 2) }}
+                            <div class="text-sm font-medium text-gray-900">{{ $summary['staff_name'] }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full
-                                @if($payment->status === 'paid') bg-green-100 text-green-800
-                                @elseif($payment->status === 'partial') bg-blue-100 text-blue-800
-                                @elseif($payment->status === 'pending') bg-yellow-100 text-yellow-800
-                                @else bg-red-100 text-red-800
-                                @endif">
-                                {{ ucfirst($payment->status) }}
-                            </span>
-                            @if($payment->status === 'partial')
-                                <div class="text-xs text-gray-500 mt-1">
-                                    Paid: Rs. {{ number_format($payment->paid_amount, 2) }}
-                                </div>
+                            <div class="text-sm text-gray-500">{{ $summary['position_name'] ?? '-' }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-500">{{ $summary['project_name'] ?? '-' }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="text-sm font-medium text-gray-900">{{ $summary['payment_count'] }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm font-semibold text-green-600">Rs. {{ $summary['total_paid'] }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <span class="text-sm font-semibold text-red-600">Rs. {{ $summary['total_remaining'] }}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @if($summary['latest_payment_id'])
+                                <div class="text-sm text-gray-900">{{ $summary['latest_payment_month'] }}</div>
+                                <div class="text-xs text-gray-500">{{ $summary['latest_payment_date'] }}</div>
+                            @else
+                                <span class="text-sm text-gray-400">No payments</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ $payment->payment_date->format('M d, Y') }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div class="d-flex gap-1 text-nowrap">
-                                <button onclick="openViewSalaryPaymentModal({{ $payment->id }})" class="btn btn-sm btn-outline-primary" title="View">
-                                    <i class="bi bi-eye"></i>
-                                </button>
-                                <button onclick="openEditSalaryPaymentModal({{ $payment->id }})" class="btn btn-sm btn-outline-warning" title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button onclick="showDeleteSalaryPaymentConfirmation({{ $payment->id }}, '{{ addslashes($payment->staff->name) }}', '{{ $payment->payment_month_name }}')" class="btn btn-sm btn-outline-danger" title="Delete">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <button onclick="openViewStaffPaymentModal({{ $summary['staff_id'] }})" class="btn btn-sm btn-outline-primary" title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </button>
                         </td>
                     </tr>
-                @empty
-                    <tr>
-                        <td colspan="9" class="px-6 py-4 text-center text-gray-500">
-                            No salary payments found.
-                        </td>
-                    </tr>
-                @endforelse
-                </tbody>
-            </table>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    @if(!isset($staffSummaries) || $staffSummaries->count() === 0)
+        <div class="px-6 py-8 text-center text-gray-500">
+            No staff members found.
         </div>
-    </div>
-    
-    <div id="salaryPaymentsPagination" class="mt-4">
-        <x-pagination :paginator="$salaryPayments" wrapper-class="mt-4" />
-    </div>
+    @endif
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -314,12 +286,37 @@ function openViewSalaryPaymentModal(paymentId) {
     })
     .then(response => response.json())
     .then(data => {
-        buildSalaryPaymentView(data.payment);
+        // Store staffId for filtering
+        if (data.payment && data.payment.staff_id) {
+            window.currentStaffId = data.payment.staff_id;
+        }
+        buildSalaryPaymentView(data);
         document.getElementById('viewSalaryPaymentModal').classList.remove('hidden');
     })
     .catch(error => {
         console.error('Error:', error);
         showNotification('Error loading payment details', 'error');
+    });
+}
+
+function openViewStaffPaymentModal(staffId) {
+    // Store staffId for filtering
+    window.currentStaffId = staffId;
+    
+    fetch(`/admin/salary-payments/staff/${staffId}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        buildSalaryPaymentView(data);
+        document.getElementById('viewSalaryPaymentModal').classList.remove('hidden');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error loading staff payment details', 'error');
     });
 }
 
@@ -843,11 +840,8 @@ function submitSalaryPaymentForm(e) {
             showNotification(data.message, 'success');
             closeSalaryPaymentModal();
             
-            if (currentPaymentId) {
-                updatePaymentRow(data.payment);
-            } else {
-                addPaymentRow(data.payment);
-            }
+            // Reload page to refresh staff summary
+            window.location.reload();
         } else {
             if (data.errors) {
                 Object.keys(data.errors).forEach(field => {
@@ -871,69 +865,391 @@ function submitSalaryPaymentForm(e) {
     });
 }
 
-function buildSalaryPaymentView(payment) {
+function buildSalaryPaymentView(data, skipInitialFilter = false) {
+    const payment = data.payment;
+    let monthlyPayments = data.monthly_payments || [];
+    const overallTotalPaid = data.overall_total_paid || '0.00';
+    const overallTotalRemaining = data.overall_total_remaining || '0.00';
+    
+    // Store original data for filtering
+    window.salaryPaymentViewData = {
+        originalMonthlyPayments: JSON.parse(JSON.stringify(monthlyPayments)),
+        originalTotalPaid: overallTotalPaid,
+        originalTotalRemaining: overallTotalRemaining
+    };
+    
     const container = document.getElementById('viewSalaryPaymentContent');
-    container.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-white shadow rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
-                <dl class="space-y-4">
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Staff Member</dt>
-                        <dd class="mt-1 text-sm font-semibold text-gray-900">${payment.staff_name}</dd>
-                        ${payment.staff_position ? `<dd class="text-sm text-gray-600">${payment.staff_position}</dd>` : ''}
+    
+    function renderPayments(filteredPayments = monthlyPayments) {
+        let monthlyPaymentsHtml = '';
+        if (filteredPayments.length > 0) {
+            monthlyPaymentsHtml = filteredPayments.map(monthData => {
+            if (!monthData || !monthData.payments) return '';
+            let paymentsHtml = monthData.payments.map(p => {
+                const statusClass = p.status === 'paid' ? 'bg-green-100 text-green-800' :
+                                  p.status === 'partial' ? 'bg-blue-100 text-blue-800' :
+                                  p.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-red-100 text-red-800';
+                return `
+                    <tr class="border-b border-gray-200">
+                        <td class="px-4 py-2 text-sm text-gray-600">${p.payment_date}</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">${p.project_name || '-'}</td>
+                        <td class="px-4 py-2 text-sm text-right font-medium text-gray-900">Rs. ${p.net_amount}</td>
+                        <td class="px-4 py-2 text-sm text-right font-medium text-green-600">Rs. ${p.paid_amount}</td>
+                        <td class="px-4 py-2 text-sm text-right font-medium text-red-600">Rs. ${p.balance_amount}</td>
+                        <td class="px-4 py-2 text-sm">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">
+                                ${p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                            </span>
+                        </td>
+                        <td class="px-4 py-2 text-sm text-center">
+                            <button onclick="closeViewSalaryPaymentModal(); openEditSalaryPaymentModal(${p.id})" class="btn btn-sm btn-outline-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            return `
+                <div class="mb-6 bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-3">${monthData.month}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Payment Date</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Project</th>
+                                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-700 uppercase">Net Amount</th>
+                                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-700 uppercase">Paid</th>
+                                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-700 uppercase">Remaining</th>
+                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase">Status</th>
+                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${paymentsHtml}
+                                <tr class="bg-gray-100 font-semibold">
+                                    <td colspan="2" class="px-4 py-2 text-sm text-gray-900">Month Total:</td>
+                                    <td class="px-4 py-2 text-sm text-right text-gray-900">Rs. ${monthData.total_net}</td>
+                                    <td class="px-4 py-2 text-sm text-right text-green-600">Rs. ${monthData.total_paid}</td>
+                                    <td class="px-4 py-2 text-sm text-right text-red-600">Rs. ${monthData.total_remaining}</td>
+                                    <td class="px-4 py-2"></td>
+                                    <td class="px-4 py-2"></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                    ${payment.project_name ? `
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Project</dt>
-                        <dd class="mt-1 text-sm text-gray-900">${payment.project_name}</dd>
+                </div>
+            `;
+            }).join('');
+        } else {
+            monthlyPaymentsHtml = '<div class="text-center text-gray-500 py-8">No payment history found for the selected date range.</div>';
+        }
+        
+        // Calculate filtered totals
+        let filteredTotalPaid = 0;
+        let filteredTotalRemaining = 0;
+        filteredPayments.forEach(monthData => {
+            if (monthData && monthData.payments) {
+                monthData.payments.forEach(p => {
+                    const paid = parseFloat(String(p.paid_amount || '0').replace(/,/g, '')) || 0;
+                    const remaining = parseFloat(String(p.balance_amount || '0').replace(/,/g, '')) || 0;
+                    filteredTotalPaid += paid;
+                    filteredTotalRemaining += remaining;
+                });
+            }
+        });
+        
+        const filteredTotalPaidFormatted = filteredTotalPaid.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const filteredTotalRemainingFormatted = filteredTotalRemaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        
+        container.innerHTML = `
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white shadow rounded-lg p-6">
+                        <h2 class="text-xl font-semibold text-gray-900 mb-4">Staff Information</h2>
+                        <dl class="space-y-4">
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Staff Member</dt>
+                                <dd class="mt-1 text-sm font-semibold text-gray-900">${payment.staff_name}</dd>
+                                ${payment.staff_position ? `<dd class="text-sm text-gray-600">${payment.staff_position}</dd>` : ''}
+                            </div>
+                        </dl>
                     </div>
-                    ` : ''}
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Payment Month</dt>
-                        <dd class="mt-1 text-sm font-semibold text-gray-900">${payment.payment_month_name}</dd>
+                    <div class="bg-white shadow rounded-lg p-6">
+                        <h2 class="text-xl font-semibold text-gray-900 mb-4">Payment Summary</h2>
+                        <dl class="space-y-4">
+                            <div class="border-b pb-3">
+                                <dt class="text-sm font-medium text-gray-500">Total Payment Made</dt>
+                                <dd class="mt-1 text-xl font-bold text-green-600" id="filteredTotalPaid">Rs. ${filteredTotalPaidFormatted}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Total Remaining Payment</dt>
+                                <dd class="mt-1 text-xl font-bold text-red-600" id="filteredTotalRemaining">Rs. ${filteredTotalRemainingFormatted}</dd>
+                            </div>
+                        </dl>
                     </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Payment Date</dt>
-                        <dd class="mt-1 text-sm text-gray-900">${payment.formatted_payment_date}</dd>
+                </div>
+                
+                <div class="bg-white shadow rounded-lg p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-900">Payment History by Month</h2>
                     </div>
-                </dl>
+                    <div class="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">From Month</label>
+                            <input type="month" id="filterFromDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" pattern="[0-9]{4}-[0-9]{2}" onchange="console.log('From month changed:', this.value); if(typeof filterSalaryPaymentsByDate === 'function') { filterSalaryPaymentsByDate(); } else { console.error('filterSalaryPaymentsByDate function not found'); }">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">To Month</label>
+                            <input type="month" id="filterToDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" value="${new Date().toISOString().slice(0, 7)}" pattern="[0-9]{4}-[0-9]{2}" onchange="console.log('To month changed:', this.value); if(typeof filterSalaryPaymentsByDate === 'function') { filterSalaryPaymentsByDate(); } else { console.error('filterSalaryPaymentsByDate function not found'); }">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="button" onclick="resetDateFilter()" class="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+                                Reset Filter
+                            </button>
+                        </div>
+                    </div>
+                    <div id="filteredPaymentsContainer">
+                        ${monthlyPaymentsHtml}
+                    </div>
+                </div>
             </div>
-            <div class="bg-white shadow rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4">Salary Details</h2>
-                <dl class="space-y-4">
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Base Salary</dt>
-                        <dd class="mt-1 text-sm font-semibold text-gray-900">Rs. ${payment.base_salary}</dd>
+        `;
+    }
+    
+    renderPayments(monthlyPayments);
+    
+    // Don't trigger initial filter - let user manually filter if needed
+    // The default "To Date" is just for display, not for automatic filtering
+}
+
+function updateFilteredPaymentsView(data) {
+    // Preserve current date filter values
+    const fromDateEl = document.getElementById('filterFromDate');
+    const toDateEl = document.getElementById('filterToDate');
+    const currentFromDate = fromDateEl ? fromDateEl.value : '';
+    const currentToDate = toDateEl ? toDateEl.value : '';
+    
+    const monthlyPayments = data.monthly_payments || [];
+    const overallTotalPaid = data.overall_total_paid || '0.00';
+    const overallTotalRemaining = data.overall_total_remaining || '0.00';
+    
+    // Generate HTML for filtered payments
+    let monthlyPaymentsHtml = '';
+    if (monthlyPayments.length > 0) {
+        monthlyPaymentsHtml = monthlyPayments.map(monthData => {
+            if (!monthData || !monthData.payments) return '';
+            let paymentsHtml = monthData.payments.map(p => {
+                const statusClass = p.status === 'paid' ? 'bg-green-100 text-green-800' :
+                                  p.status === 'partial' ? 'bg-blue-100 text-blue-800' :
+                                  p.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-red-100 text-red-800';
+                return `
+                    <tr class="border-b border-gray-200">
+                        <td class="px-4 py-2 text-sm text-gray-600">${p.payment_date}</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">${p.project_name || '-'}</td>
+                        <td class="px-4 py-2 text-sm text-right font-medium text-gray-900">Rs. ${p.net_amount}</td>
+                        <td class="px-4 py-2 text-sm text-right font-medium text-green-600">Rs. ${p.paid_amount}</td>
+                        <td class="px-4 py-2 text-sm text-right font-medium text-red-600">Rs. ${p.balance_amount}</td>
+                        <td class="px-4 py-2 text-sm">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">
+                                ${p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                            </span>
+                        </td>
+                        <td class="px-4 py-2 text-sm text-center">
+                            <button onclick="closeViewSalaryPaymentModal(); openEditSalaryPaymentModal(${p.id})" class="btn btn-sm btn-outline-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            return `
+                <div class="mb-6 bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-3">${monthData.month}</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Payment Date</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase">Project</th>
+                                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-700 uppercase">Net Amount</th>
+                                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-700 uppercase">Paid</th>
+                                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-700 uppercase">Remaining</th>
+                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase">Status</th>
+                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${paymentsHtml}
+                                <tr class="bg-gray-100 font-semibold">
+                                    <td colspan="2" class="px-4 py-2 text-sm text-gray-900">Month Total:</td>
+                                    <td class="px-4 py-2 text-sm text-right text-gray-900">Rs. ${monthData.total_net}</td>
+                                    <td class="px-4 py-2 text-sm text-right text-green-600">Rs. ${monthData.total_paid}</td>
+                                    <td class="px-4 py-2 text-sm text-right text-red-600">Rs. ${monthData.total_remaining}</td>
+                                    <td class="px-4 py-2"></td>
+                                    <td class="px-4 py-2"></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Gross Amount</dt>
-                        <dd class="mt-1 text-sm font-semibold text-gray-900">Rs. ${payment.gross_amount}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Tax Amount</dt>
-                        <dd class="mt-1 text-sm font-semibold text-orange-600">Rs. ${payment.tax_amount}</dd>
-                        <dd class="text-xs text-gray-500">${payment.assessment_type === 'couple' ? 'Couple' : 'Single'} Assessment</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Net Amount</dt>
-                        <dd class="mt-1 text-xl font-bold text-indigo-600">Rs. ${payment.net_amount}</dd>
-                    </div>
-                    <div>
-                        <dt class="text-sm font-medium text-gray-500">Status</dt>
-                        <dd class="mt-1">
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${
-                                payment.status === 'paid' ? 'bg-green-100 text-green-800' :
-                                payment.status === 'partial' ? 'bg-blue-100 text-blue-800' :
-                                payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-red-100 text-red-800'
-                            }">${payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}</span>
-                        </dd>
-                    </div>
-                </dl>
-            </div>
-        </div>
-    `;
+                </div>
+            `;
+        }).join('');
+    } else {
+        monthlyPaymentsHtml = '<div class="text-center text-gray-500 py-8">No payment history found for the selected date range.</div>';
+    }
+    
+    // Calculate totals from filtered data
+    let filteredTotalPaid = 0;
+    let filteredTotalRemaining = 0;
+    monthlyPayments.forEach(monthData => {
+        if (monthData && monthData.payments) {
+            monthData.payments.forEach(p => {
+                const paid = parseFloat(String(p.paid_amount || '0').replace(/,/g, '')) || 0;
+                const remaining = parseFloat(String(p.balance_amount || '0').replace(/,/g, '')) || 0;
+                filteredTotalPaid += paid;
+                filteredTotalRemaining += remaining;
+            });
+        }
+    });
+    
+    const filteredTotalPaidFormatted = filteredTotalPaid.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const filteredTotalRemainingFormatted = filteredTotalRemaining.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    
+    // Update only the payments container and totals (preserve date inputs)
+    const paymentsContainer = document.getElementById('filteredPaymentsContainer');
+    const totalPaidEl = document.getElementById('filteredTotalPaid');
+    const totalRemainingEl = document.getElementById('filteredTotalRemaining');
+    
+    if (paymentsContainer) {
+        paymentsContainer.innerHTML = monthlyPaymentsHtml;
+    }
+    if (totalPaidEl) {
+        totalPaidEl.textContent = `Rs. ${filteredTotalPaidFormatted}`;
+    }
+    if (totalRemainingEl) {
+        totalRemainingEl.textContent = `Rs. ${filteredTotalRemainingFormatted}`;
+    }
+    
+    // Restore date filter values (in case they were lost)
+    if (fromDateEl && currentFromDate) {
+        fromDateEl.value = currentFromDate;
+    }
+    if (toDateEl && currentToDate) {
+        toDateEl.value = currentToDate;
+    }
+}
+
+// Debounce timer for filter
+let filterDebounceTimer = null;
+let isFiltering = false;
+
+function filterSalaryPaymentsByDate() {
+    // Clear existing debounce timer
+    if (filterDebounceTimer) {
+        clearTimeout(filterDebounceTimer);
+    }
+    
+    // Prevent concurrent filter requests
+    if (isFiltering) {
+        console.log('Filter already in progress, skipping...');
+        return;
+    }
+    
+        // Debounce the filter call
+        filterDebounceTimer = setTimeout(() => {
+            const fromDateEl = document.getElementById('filterFromDate');
+            const toDateEl = document.getElementById('filterToDate');
+            
+            if (!fromDateEl || !toDateEl) {
+                console.error('Date filter elements not found');
+                return;
+            }
+            
+            const fromDate = fromDateEl.value;
+            const toDate = toDateEl.value;
+            
+            console.log('Filter triggered with dates:', { fromDate, toDate });
+            
+            // Get staffId from stored value
+            const staffId = window.currentStaffId;
+            
+            if (!staffId) {
+                console.error('Staff ID not found');
+                return;
+            }
+            
+            // Set filtering flag
+            isFiltering = true;
+            
+            // Show loading state
+            const paymentsContainer = document.getElementById('filteredPaymentsContainer');
+            if (paymentsContainer) {
+                paymentsContainer.innerHTML = '<div class="text-center text-gray-500 py-8">Loading...</div>';
+            }
+            
+            // Build query string
+            const params = new URLSearchParams();
+            if (fromDate) {
+                params.append('from_date', fromDate);
+                console.log('Adding from_date:', fromDate);
+            }
+            if (toDate) {
+                params.append('to_date', toDate);
+                console.log('Adding to_date:', toDate);
+            }
+            
+            const url = `/admin/salary-payments/staff/${staffId}?${params.toString()}`;
+            console.log('Fetching from URL:', url);
+            
+            // Fetch filtered data from server
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Filter response data:', data);
+                console.log('Monthly payments count:', data.monthly_payments ? data.monthly_payments.length : 0);
+                
+                // Update only the payments container and totals, not the entire modal
+                updateFilteredPaymentsView(data);
+                
+                console.log('Filter applied successfully:', { fromDate, toDate });
+                isFiltering = false;
+            })
+            .catch(error => {
+                console.error('Error filtering payments:', error);
+                showNotification('Error filtering payment data', 'error');
+                if (paymentsContainer) {
+                    paymentsContainer.innerHTML = '<div class="text-center text-red-500 py-8">Error loading filtered data</div>';
+                }
+                isFiltering = false;
+            });
+        }, 300); // 300ms debounce
+}
+
+function resetDateFilter() {
+    const fromDateEl = document.getElementById('filterFromDate');
+    const toDateEl = document.getElementById('filterToDate');
+    if (fromDateEl) fromDateEl.value = '';
+    if (toDateEl) {
+        // Reset to current month
+        toDateEl.value = new Date().toISOString().slice(0, 7);
+    }
+    filterSalaryPaymentsByDate();
 }
 
 function addPaymentRow(payment) {
@@ -949,7 +1265,7 @@ function addPaymentRow(payment) {
     row.innerHTML = `
         <td class="px-6 py-4 whitespace-nowrap">
             <div class="text-sm font-medium text-gray-900">${payment.staff_name}</div>
-            <div class="text-sm text-gray-500">${payment.project_name}</div>
+            ${payment.project_name ? `<div class="text-sm text-gray-500">${payment.project_name}</div>` : ''}
         </td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${payment.payment_month_name}</td>
         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Rs. ${payment.base_salary}</td>
@@ -1074,41 +1390,8 @@ function applyFilters(page = 1) {
         params.append('page', page);
     }
     
-    // Show loading state
-    document.getElementById('salary-payments-loading').classList.remove('hidden');
-    document.getElementById('salary-payments-table-container').style.opacity = '0.5';
-    
-    // Fetch filtered salary payments via AJAX
-    fetch(`{{ route('admin.salary-payments.index') }}?${params.toString()}`, {
-        method: 'GET',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json',
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
-    })
-    .then(data => {
-        updateSalaryPaymentsTable(data.salaryPayments);
-        updateSalaryPagination(data.pagination);
-        updateSalaryURL(params.toString());
-        
-        // Hide loading state
-        document.getElementById('salary-payments-loading').classList.add('hidden');
-        document.getElementById('salary-payments-table-container').style.opacity = '1';
-        isLoadingSalaryPayments = false;
-    })
-    .catch(error => {
-        console.error('Error loading salary payments:', error);
-        document.getElementById('salary-payments-loading').classList.add('hidden');
-        document.getElementById('salary-payments-table-container').style.opacity = '1';
-        alert('Failed to load salary payments. Please refresh the page.');
-        isLoadingSalaryPayments = false;
-    });
+    // Reload page with filters
+    window.location.href = `{{ route('admin.salary-payments.index') }}?${params.toString()}`;
 }
 
 function updateSalaryPaymentsTable(salaryPayments) {
@@ -1221,7 +1504,8 @@ function resetFilters() {
     document.getElementById('filter_staff_id').value = '';
     document.getElementById('filter_project_id').value = '';
     document.getElementById('filter_status').value = '';
-    document.getElementById('filter_payment_month').value = '';
+    document.getElementById('filter_from_date').value = '';
+    document.getElementById('filter_to_date').value = '';
     applyFilters();
 }
 
