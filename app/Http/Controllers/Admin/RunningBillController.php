@@ -40,6 +40,12 @@ class RunningBillController extends Controller
         $bills = $query->latest('bill_date')->paginate(15)->withQueryString();
         $projects = $this->getAccessibleProjects();
 
+        if ($request->ajax() || $request->wantsJson()) {
+            $tbody = view('admin.running_bills._tbody', compact('bills'))->render();
+            $pagination = $bills->hasPages() ? $bills->links()->render() : '';
+            return response()->json(['tbody' => $tbody, 'pagination' => $pagination]);
+        }
+
         return view('admin.running_bills.index', compact('bills', 'projects'));
     }
 

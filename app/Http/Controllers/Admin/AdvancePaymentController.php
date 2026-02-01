@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\AdvancePaymentExport;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Models\AdvancePayment;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Models\Supplier;
 use App\Models\Project;
 use App\Models\BankAccount;
@@ -210,6 +212,41 @@ class AdvancePaymentController extends Controller
         }
         
         return view('admin.advance_payments.index', compact('advancePayments', 'projects', 'suppliers', 'totalAmount'));
+    }
+
+    /**
+     * Export advance payments to Excel.
+     */
+    public function exportExcel(Request $request)
+    {
+        $companyId = CompanyContext::getActiveCompanyId();
+
+        $query = AdvancePayment::where('company_id', $companyId);
+
+        $this->filterByAccessibleProjects($query, 'project_id');
+
+        if ($request->filled('project_id')) {
+            $projectId = (int) $request->project_id;
+            if ($this->canAccessProject($projectId)) {
+                $query->where('project_id', $projectId);
+            }
+        }
+        if ($request->filled('payment_type')) {
+            $query->where('payment_type', $request->payment_type);
+        }
+        if ($request->filled('supplier_id')) {
+            $query->where('supplier_id', $request->supplier_id);
+        }
+        if ($request->filled('start_date')) {
+            $query->where('payment_date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->where('payment_date', '<=', $request->end_date);
+        }
+
+        $filename = 'advance_payments_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new AdvancePaymentExport($query), $filename);
     }
 
     /**

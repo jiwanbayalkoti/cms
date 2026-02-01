@@ -11,10 +11,10 @@
     </a>
 </div>
 
-<form method="GET" class="mb-3 row g-2 align-items-end">
+<form id="runningBillsFilterForm" method="GET" class="mb-3 row g-2 align-items-end">
     <div class="col-auto">
         <label class="form-label small mb-0">Project</label>
-        <select name="project_id" class="form-select form-select-sm" onchange="this.form.submit()" style="width:220px">
+        <select name="project_id" class="form-select form-select-sm" style="width:220px">
             <option value="">All</option>
             @foreach($projects as $p)
                 <option value="{{ $p->id }}" {{ request('project_id') == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
@@ -37,7 +37,7 @@
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="runningBillsTbody">
                 @forelse($bills as $b)
                 <tr>
                     <td>{{ $b->id }}</td>
@@ -61,8 +61,36 @@
             </tbody>
         </table>
     </div>
-    @if($bills->hasPages())
-    <div class="card-footer">{{ $bills->links() }}</div>
-    @endif
+    <div id="runningBillsPagination" class="card-footer">
+        @if($bills->hasPages())
+        {{ $bills->links() }}
+        @endif
+    </div>
 </div>
+
+@push('scripts')
+<script>
+document.getElementById('runningBillsFilterForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var form = this;
+    var params = new URLSearchParams(new FormData(form));
+    var url = '{{ route("admin.running-bills.index") }}?' + params.toString();
+    var tbody = document.getElementById('runningBillsTbody');
+    var pagination = document.getElementById('runningBillsPagination');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading...</td></tr>';
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            tbody.innerHTML = data.tbody || '';
+            pagination.innerHTML = data.pagination || '';
+        })
+        .catch(function() {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Error loading data.</td></tr>';
+        });
+});
+document.querySelector('#runningBillsFilterForm select[name="project_id"]').addEventListener('change', function() {
+    document.getElementById('runningBillsFilterForm').dispatchEvent(new Event('submit'));
+});
+</script>
+@endpush
 @endsection

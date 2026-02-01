@@ -8,9 +8,14 @@
         <h1 class="h3 mb-0">Advance Payments</h1>
         <p class="text-muted mb-0">Manage advance payments for vehicle rent and materials</p>
     </div>
-    <button onclick="openCreateAdvancePaymentModal()" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i> <span class="advance-payment-btn-text">Add Advance Payment</span>
-    </button>
+    <div class="d-flex gap-2">
+        <a href="{{ route('admin.advance-payments.export') }}" id="advancePaymentsExportLink" class="btn btn-outline-success" title="Export with current filters">
+            <i class="bi bi-file-earmark-excel me-0 me-md-1"></i><span class="d-none d-md-inline">Export Excel</span>
+        </a>
+        <button onclick="openCreateAdvancePaymentModal()" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> <span class="advance-payment-btn-text">Add Advance Payment</span>
+        </button>
+    </div>
 </div>
 
 <div class="card mb-4">
@@ -938,6 +943,21 @@ function updateAdvancePaymentsSummary(summaryData) {
 function updateAdvancePaymentsURL(params) {
     const newURL = window.location.pathname + (params ? '?' + params : '');
     window.history.pushState({path: newURL}, '', newURL);
+    updateAdvancePaymentsExportLink();
+}
+
+function updateAdvancePaymentsExportLink() {
+    const link = document.getElementById('advancePaymentsExportLink');
+    if (!link) return;
+    const form = document.getElementById('filterForm');
+    const formData = new FormData(form);
+    const params = new URLSearchParams();
+    const exportParams = ['project_id', 'payment_type', 'supplier_id', 'start_date', 'end_date'];
+    for (const key of exportParams) {
+        const val = formData.get(key);
+        if (val) params.append(key, val);
+    }
+    link.href = '{{ route("admin.advance-payments.export") }}' + (params.toString() ? '?' + params.toString() : '');
 }
 
 function resetFilters() {
@@ -951,6 +971,7 @@ function resetFilters() {
 
 // Load pagination handlers on page load
 document.addEventListener('DOMContentLoaded', function() {
+    updateAdvancePaymentsExportLink();
     // Attach click handlers to existing pagination links
     const paginationContainer = document.getElementById('advancePaymentsPagination');
     if (paginationContainer) {

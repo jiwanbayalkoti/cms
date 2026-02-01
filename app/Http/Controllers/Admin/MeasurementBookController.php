@@ -40,6 +40,12 @@ class MeasurementBookController extends Controller
         $books = $query->latest('measurement_date')->paginate(15)->withQueryString();
         $projects = $this->getAccessibleProjects();
 
+        if ($request->ajax() || $request->wantsJson()) {
+            $tbody = view('admin.measurement_books._tbody', compact('books'))->render();
+            $pagination = $books->hasPages() ? $books->links()->render() : '';
+            return response()->json(['tbody' => $tbody, 'pagination' => $pagination]);
+        }
+
         return view('admin.measurement_books.index', compact('books', 'projects'));
     }
 

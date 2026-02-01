@@ -287,6 +287,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::delete('advance-payments/{advance_payment}', [\App\Http\Controllers\Admin\AdvancePaymentController::class, 'destroy'])->name('advance-payments.destroy');
             });
             Route::post('advance-payments/validate', [\App\Http\Controllers\Admin\AdvancePaymentController::class, 'validateAdvancePayment'])->name('advance-payments.validate');
+            Route::get('advance-payments/export/excel', [\App\Http\Controllers\Admin\AdvancePaymentController::class, 'exportExcel'])->name('advance-payments.export');
         });
         Route::resource('payment-types', PaymentTypeController::class);
 
