@@ -149,6 +149,10 @@ class ConstructionMaterialController extends Controller
             $query->where('purchased_by_id', $request->purchased_by_id);
         }
 
+        if ($request->filled('payment_status')) {
+            $query->where('payment_status', $request->payment_status);
+        }
+
         if ($request->filled('from_date')) {
             $query->whereDate('delivery_date', '>=', $request->from_date);
         }
@@ -500,6 +504,9 @@ class ConstructionMaterialController extends Controller
         }
         if ($request->filled('purchased_by_id')) {
             $query->where('purchased_by_id', $request->purchased_by_id);
+        }
+        if ($request->filled('payment_status')) {
+            $query->where('payment_status', $request->payment_status);
         }
         if ($request->filled('from_date')) {
             $query->whereDate('delivery_date', '>=', $request->from_date);

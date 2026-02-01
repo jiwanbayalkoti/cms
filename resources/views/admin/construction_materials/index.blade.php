@@ -84,6 +84,15 @@
                 </select>
             </div>
             <div class="col-md-3">
+                <label class="form-label small mb-1">Payment Status</label>
+                <select name="payment_status" id="filter_payment_status" class="form-select form-select-sm" onchange="applyFiltersDebounced()">
+                    <option value="" {{ !request('payment_status') ? 'selected' : '' }}>All</option>
+                    <option value="Paid" {{ request('payment_status') === 'Paid' ? 'selected' : '' }}>Paid</option>
+                    <option value="Unpaid" {{ request('payment_status') === 'Unpaid' ? 'selected' : '' }}>Unpaid</option>
+                    <option value="Partial" {{ request('payment_status') === 'Partial' ? 'selected' : '' }}>Partial</option>
+                </select>
+            </div>
+            <div class="col-md-3">
                 <label class="form-label small mb-1">From Delivery Date</label>
                 <input type="date" name="from_date" id="filter_from_date" value="{{ request('from_date') ?: '' }}" class="form-control form-control-sm" onchange="applyFiltersDebounced()">
             </div>
