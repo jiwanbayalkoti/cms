@@ -18,7 +18,7 @@
         <table class="table table-striped mb-0">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>SN</th>
                     <th>Name</th>
                     <th>Description</th>
                     <th>Status</th>
@@ -28,7 +28,7 @@
             <tbody>
                 @forelse($categories as $category)
                     <tr data-category-id="{{ $category->id }}">
-                        <td>{{ $category->id }}</td>
+                        <td>{{ ($categories->currentPage() - 1) * $categories->perPage() + $loop->iteration }}</td>
                         <td>{{ $category->name }}</td>
                         <td>{{ Str::limit($category->description, 80) }}</td>
                         <td>
@@ -38,11 +38,11 @@
                         </td>
                         <td class="text-end">
                             <div class="d-flex gap-1 justify-content-end text-nowrap">
-                                <button onclick="openEditMaterialCategoryModal({{ $category->id }})" class="btn btn-sm btn-outline-warning">
-                                    <i class="bi bi-pencil me-1"></i> Edit
+                                <button onclick="openEditMaterialCategoryModal({{ $category->id }})" class="btn btn-sm btn-outline-warning material-category-action-btn" title="Edit">
+                                    <i class="bi bi-pencil me-1"></i><span class="btn-text">Edit</span>
                                 </button>
-                                <button onclick="showDeleteMaterialCategoryConfirmation({{ $category->id }}, '{{ addslashes($category->name) }}')" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-trash me-1"></i> Delete
+                                <button onclick="showDeleteMaterialCategoryConfirmation({{ $category->id }}, '{{ addslashes($category->name) }}')" class="btn btn-sm btn-outline-danger material-category-action-btn" title="Delete">
+                                    <i class="bi bi-trash me-1"></i><span class="btn-text">Delete</span>
                                 </button>
                             </div>
                         </td>
@@ -138,6 +138,16 @@
         .material-category-btn-text {
             display: none;
         }
+        .material-category-action-btn .btn-text {
+            display: none;
+        }
+        .material-category-action-btn i {
+            margin-right: 0 !important;
+        }
+        .material-category-action-btn {
+            padding: 0.4rem 0.5rem !important;
+            min-width: 36px;
+        }
     }
 </style>
 
@@ -159,6 +169,7 @@ function openCreateMaterialCategoryModal() {
     title.textContent = 'Add Material Category';
     methodInput.value = 'POST';
     submitBtn.textContent = 'Save Category';
+    submitBtn.disabled = false;
     form.reset();
     document.getElementById('material-category-is-active').checked = true;
     
@@ -180,6 +191,7 @@ function openEditMaterialCategoryModal(categoryId) {
     title.textContent = 'Edit Material Category';
     methodInput.value = 'PUT';
     submitBtn.textContent = 'Update Category';
+    submitBtn.disabled = false;
     
     document.querySelectorAll('.field-error').forEach(el => {
         el.style.display = 'none';
@@ -214,12 +226,13 @@ function submitMaterialCategoryForm(e) {
     submitBtn.textContent = 'Saving...';
     
     const formData = new FormData(form);
+    formData.set('_token', csrfToken);
     const url = currentMaterialCategoryId 
         ? `/admin/material-categories/${currentMaterialCategoryId}`
         : '/admin/material-categories';
     
     if (currentMaterialCategoryId) {
-        formData.append('_method', 'PUT');
+        formData.set('_method', 'PUT');
     }
     
     fetch(url, {
@@ -235,6 +248,8 @@ function submitMaterialCategoryForm(e) {
     .then(data => {
         if (data.success) {
             showNotification(data.message, 'success');
+            submitBtn.disabled = false;
+            submitBtn.textContent = currentMaterialCategoryId ? 'Update Category' : 'Save Category';
             closeMaterialCategoryModal();
             
             if (currentMaterialCategoryId) {
@@ -271,6 +286,14 @@ function closeMaterialCategoryModal() {
     document.getElementById('materialCategoryForm').reset();
 }
 
+function renumberMaterialCategorySerials() {
+    const rows = document.querySelectorAll('table tbody tr[data-category-id]');
+    rows.forEach((row, idx) => {
+        const firstTd = row.querySelector('td');
+        if (firstTd) firstTd.textContent = idx + 1;
+    });
+}
+
 function addMaterialCategoryRow(category) {
     const tbody = document.querySelector('table tbody');
     const emptyRow = tbody.querySelector('tr td[colspan]');
@@ -282,7 +305,7 @@ function addMaterialCategoryRow(category) {
     const row = document.createElement('tr');
     row.setAttribute('data-category-id', category.id);
     row.innerHTML = `
-        <td>${category.id}</td>
+        <td>1</td>
         <td>${category.name}</td>
         <td>${(category.description || '').substring(0, 80)}</td>
         <td>
@@ -292,24 +315,26 @@ function addMaterialCategoryRow(category) {
         </td>
         <td class="text-end">
             <div class="d-flex gap-1 justify-content-end text-nowrap">
-                <button onclick="openEditMaterialCategoryModal(${category.id})" class="btn btn-sm btn-outline-warning">
-                    <i class="bi bi-pencil me-1"></i> Edit
+                <button onclick="openEditMaterialCategoryModal(${category.id})" class="btn btn-sm btn-outline-warning material-category-action-btn" title="Edit">
+                    <i class="bi bi-pencil me-1"></i><span class="btn-text">Edit</span>
                 </button>
-                <button onclick="showDeleteMaterialCategoryConfirmation(${category.id}, '${(category.name || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-danger">
-                    <i class="bi bi-trash me-1"></i> Delete
+                <button onclick="showDeleteMaterialCategoryConfirmation(${category.id}, '${(category.name || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-danger material-category-action-btn" title="Delete">
+                    <i class="bi bi-trash me-1"></i><span class="btn-text">Delete</span>
                 </button>
             </div>
         </td>
     `;
     
     tbody.insertBefore(row, tbody.firstChild);
+    renumberMaterialCategorySerials();
 }
 
 function updateMaterialCategoryRow(category) {
     const row = document.querySelector(`tr[data-category-id="${category.id}"]`);
     if (row) {
+        const serial = Array.from(document.querySelectorAll('table tbody tr[data-category-id]')).findIndex(r => r.getAttribute('data-category-id') == category.id) + 1;
         row.innerHTML = `
-            <td>${category.id}</td>
+            <td>${serial || 1}</td>
             <td>${category.name}</td>
             <td>${(category.description || '').substring(0, 80)}</td>
             <td>
@@ -319,11 +344,11 @@ function updateMaterialCategoryRow(category) {
             </td>
             <td class="text-end">
                 <div class="d-flex gap-1 justify-content-end text-nowrap">
-                    <button onclick="openEditMaterialCategoryModal(${category.id})" class="btn btn-sm btn-outline-warning">
-                        <i class="bi bi-pencil me-1"></i> Edit
+                    <button onclick="openEditMaterialCategoryModal(${category.id})" class="btn btn-sm btn-outline-warning material-category-action-btn" title="Edit">
+                        <i class="bi bi-pencil me-1"></i><span class="btn-text">Edit</span>
                     </button>
-                    <button onclick="showDeleteMaterialCategoryConfirmation(${category.id}, '${(category.name || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-danger">
-                        <i class="bi bi-trash me-1"></i> Delete
+                    <button onclick="showDeleteMaterialCategoryConfirmation(${category.id}, '${(category.name || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-danger material-category-action-btn" title="Delete">
+                        <i class="bi bi-trash me-1"></i><span class="btn-text">Delete</span>
                     </button>
                 </div>
             </td>
@@ -379,6 +404,8 @@ function confirmDeleteMaterialCategory() {
                                 <td colspan="5" class="text-center text-muted py-3">No categories found.</td>
                             </tr>
                         `;
+                    } else {
+                        renumberMaterialCategorySerials();
                     }
                 }, 300);
             }
