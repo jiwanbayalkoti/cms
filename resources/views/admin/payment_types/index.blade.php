@@ -13,6 +13,7 @@
             <table class="table table-bordered mb-0">
                 <thead>
                     <tr>
+                        <th>SN</th>
                         <th>Name</th>
                         <th>Code</th>
                         <th class="text-nowrap">Actions</th>
@@ -21,6 +22,7 @@
                 <tbody>
                 @foreach($paymentTypes as $type)
                     <tr data-payment-type-id="{{ $type->id }}">
+                        <td>{{ $loop->iteration }}</td>
                         <td>{{ $type->name }}</td>
                         <td>{{ $type->code ?? '-' }}</td>
                         <td>

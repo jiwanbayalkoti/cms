@@ -13,7 +13,7 @@
             <table class="table table-bordered">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th>SN</th>
                         <th>Name</th>
                         <th class="text-nowrap">Actions</th>
                     </tr>
@@ -21,7 +21,7 @@
                 <tbody>
                     @forelse($paymentModes as $paymentMode)
                         <tr data-payment-mode-id="{{ $paymentMode->id }}">
-                            <td>{{ $paymentMode->id }}</td>
+                            <td>{{ ($paymentModes->currentPage() - 1) * $paymentModes->perPage() + $loop->iteration }}</td>
                             <td>{{ $paymentMode->name }}</td>
                             <td>
                                 <div class="d-flex gap-1 text-nowrap">
@@ -258,7 +258,7 @@ function addPaymentModeRow(paymentMode) {
     const row = document.createElement('tr');
     row.setAttribute('data-payment-mode-id', paymentMode.id);
     row.innerHTML = `
-        <td>${paymentMode.id}</td>
+        <td>1</td>
         <td>${paymentMode.name}</td>
         <td>
             <div class="d-flex gap-1 text-nowrap">
@@ -273,13 +273,23 @@ function addPaymentModeRow(paymentMode) {
     `;
     
     tbody.insertBefore(row, tbody.firstChild);
+    renumberPaymentModeSerials();
+}
+
+function renumberPaymentModeSerials() {
+    const rows = document.querySelectorAll('table tbody tr[data-payment-mode-id]');
+    rows.forEach((row, idx) => {
+        const firstTd = row.querySelector('td');
+        if (firstTd) firstTd.textContent = idx + 1;
+    });
 }
 
 function updatePaymentModeRow(paymentMode) {
     const row = document.querySelector(`tr[data-payment-mode-id="${paymentMode.id}"]`);
     if (row) {
+        const serial = Array.from(document.querySelectorAll('table tbody tr[data-payment-mode-id]')).findIndex(r => r.getAttribute('data-payment-mode-id') == paymentMode.id) + 1;
         row.innerHTML = `
-            <td>${paymentMode.id}</td>
+            <td>${serial || 1}</td>
             <td>${paymentMode.name}</td>
             <td>
                 <div class="d-flex gap-1 text-nowrap">
@@ -341,6 +351,8 @@ function confirmDeletePaymentMode() {
                         tbody.innerHTML = `
                             <tr><td colspan="3" class="text-center text-muted py-3">No payment modes found.</td></tr>
                         `;
+                    } else {
+                        renumberPaymentModeSerials();
                     }
                 }, 300);
             }

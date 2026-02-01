@@ -18,6 +18,7 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SN</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salary Range</th>
@@ -29,6 +30,7 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse($positions as $position)
                     <tr data-position-id="{{ $position->id }}">
+                        <td class="px-6 py-4 whitespace-nowrap">{{ ($positions->currentPage() - 1) * $positions->perPage() + $loop->iteration }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">{{ $position->name }}</div>
                         </td>

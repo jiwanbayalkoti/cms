@@ -13,7 +13,7 @@
             <table class="table table-bordered">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th>SN</th>
                         <th>Name</th>
                         <th>Contact</th>
                         <th>Email</th>
@@ -24,7 +24,7 @@
                 <tbody>
                     @forelse($purchasedBies as $purchasedBy)
                         <tr data-purchased-by-id="{{ $purchasedBy->id }}">
-                            <td>{{ $purchasedBy->id }}</td>
+                            <td>{{ ($purchasedBies->currentPage() - 1) * $purchasedBies->perPage() + $loop->iteration }}</td>
                             <td>{{ $purchasedBy->name }}</td>
                             <td>{{ $purchasedBy->contact ?? '—' }}</td>
                             <td>{{ $purchasedBy->email ?? '—' }}</td>
@@ -290,7 +290,7 @@ function addPurchasedByRow(purchasedBy) {
     const row = document.createElement('tr');
     row.setAttribute('data-purchased-by-id', purchasedBy.id);
     row.innerHTML = `
-        <td>${purchasedBy.id}</td>
+        <td>1</td>
         <td>${purchasedBy.name}</td>
         <td>${purchasedBy.contact || '—'}</td>
         <td>${purchasedBy.email || '—'}</td>
@@ -312,13 +312,23 @@ function addPurchasedByRow(purchasedBy) {
     `;
     
     tbody.insertBefore(row, tbody.firstChild);
+    renumberPurchasedBySerials();
+}
+
+function renumberPurchasedBySerials() {
+    const rows = document.querySelectorAll('table tbody tr[data-purchased-by-id]');
+    rows.forEach((row, idx) => {
+        const firstTd = row.querySelector('td');
+        if (firstTd) firstTd.textContent = idx + 1;
+    });
 }
 
 function updatePurchasedByRow(purchasedBy) {
     const row = document.querySelector(`tr[data-purchased-by-id="${purchasedBy.id}"]`);
     if (row) {
+        const serial = Array.from(document.querySelectorAll('table tbody tr[data-purchased-by-id]')).findIndex(r => r.getAttribute('data-purchased-by-id') == purchasedBy.id) + 1;
         row.innerHTML = `
-            <td>${purchasedBy.id}</td>
+            <td>${serial || 1}</td>
             <td>${purchasedBy.name}</td>
             <td>${purchasedBy.contact || '—'}</td>
             <td>${purchasedBy.email || '—'}</td>
@@ -387,6 +397,8 @@ function confirmDeletePurchasedBy() {
                         tbody.innerHTML = `
                             <tr><td colspan="6" class="text-center text-muted py-3">No persons found.</td></tr>
                         `;
+                    } else {
+                        renumberPurchasedBySerials();
                     }
                 }, 300);
             }

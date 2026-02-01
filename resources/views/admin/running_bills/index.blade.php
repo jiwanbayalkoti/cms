@@ -29,7 +29,7 @@
         <table class="table table-hover mb-0">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>SN</th>
                     <th>Bill Date</th>
                     <th>Bill Title</th>
                     <th>Project</th>
@@ -40,7 +40,7 @@
             <tbody id="runningBillsTbody">
                 @forelse($bills as $b)
                 <tr>
-                    <td>{{ $b->id }}</td>
+                    <td>{{ ($bills->currentPage() - 1) * $bills->perPage() + $loop->iteration }}</td>
                     <td>{{ $b->bill_date->format('Y-m-d') }}</td>
                     <td>{{ $b->bill_title }}</td>
                     <td>{{ $b->project->name ?? '—' }}</td>

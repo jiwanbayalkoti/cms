@@ -1,7 +1,7 @@
 <tbody id="materialsTableBody">
     @forelse($materials as $material)
         <tr data-material-id="{{ $material->id }}">
-            <td>{{ $material->id }}</td>
+            <td>{{ ($materials->currentPage() - 1) * $materials->perPage() + $loop->iteration }}</td>
             <td>
                 <div class="fw-semibold">{{ $material->material_name }}</div>
                 <small class="text-muted">{{ $material->material_category }}</small>

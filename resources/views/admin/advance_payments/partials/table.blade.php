@@ -1,6 +1,7 @@
 <tbody id="advancePaymentsTableBody">
     @forelse($advancePayments as $payment)
     <tr data-advance-payment-id="{{ $payment->id }}">
+        <td>{{ ($advancePayments->currentPage() - 1) * $advancePayments->perPage() + $loop->iteration }}</td>
         <td>{{ $payment->payment_date->format('Y-m-d') }}</td>
         <td>
             <span class="badge bg-info">
@@ -28,7 +29,7 @@
     </tr>
     @empty
     <tr>
-        <td colspan="8" class="text-center text-muted py-4">No advance payments found.</td>
+        <td colspan="9" class="text-center text-muted py-4">No advance payments found.</td>
     </tr>
     @endforelse
 </tbody>

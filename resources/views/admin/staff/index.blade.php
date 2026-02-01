@@ -34,6 +34,7 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SN</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
@@ -47,6 +48,7 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse($staff as $member)
                     <tr data-staff-id="{{ $member->id }}">
+                        <td class="px-6 py-4 whitespace-nowrap">{{ ($staff->currentPage() - 1) * $staff->perPage() + $loop->iteration }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">{{ $member->name }}</div>
                         </td>
@@ -86,7 +88,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">
+                        <td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">
                             No staff members found. <button onclick="openCreateStaffModal()" class="text-indigo-600 hover:text-indigo-900">Add one now</button>
                         </td>
                     </tr>
@@ -697,7 +699,7 @@ function confirmDeleteStaff() {
                     if (tbody && tbody.children.length === 0) {
                         tbody.innerHTML = `
                             <tr>
-                                <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">
+                                <td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">
                                     No staff members found. <button onclick="openCreateStaffModal()" class="text-indigo-600 hover:text-indigo-900">Add one now</button>
                                 </td>
                             </tr>

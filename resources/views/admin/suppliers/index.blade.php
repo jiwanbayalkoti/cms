@@ -18,7 +18,7 @@
         <table class="table table-striped mb-0">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>SN</th>
                     <th>Name</th>
                     <th>Contact</th>
                     <th>Email</th>
@@ -29,7 +29,7 @@
             <tbody>
                 @forelse($suppliers as $supplier)
                     <tr data-supplier-id="{{ $supplier->id }}">
-                        <td>{{ $supplier->id }}</td>
+                        <td>{{ ($suppliers->currentPage() - 1) * $suppliers->perPage() + $loop->iteration }}</td>
                         <td>{{ $supplier->name }}</td>
                         <td>{{ $supplier->contact }}</td>
                         <td>{{ $supplier->email }}</td>

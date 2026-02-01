@@ -208,6 +208,8 @@ class AdvancePaymentController extends Controller
                 'advancePayments' => $advancePaymentsData,
                 'pagination' => $advancePayments->links()->render(),
                 'summary' => $summaryData,
+                'currentPage' => $advancePayments->currentPage(),
+                'perPage' => $advancePayments->perPage(),
             ]);
         }
         

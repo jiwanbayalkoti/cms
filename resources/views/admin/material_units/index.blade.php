@@ -18,7 +18,7 @@
         <table class="table table-striped mb-0">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>SN</th>
                     <th>Name</th>
                     <th>Description</th>
                     <th class="text-end text-nowrap">Actions</th>
@@ -266,7 +266,7 @@ function addMaterialUnitRow(unit) {
     const row = document.createElement('tr');
     row.setAttribute('data-unit-id', unit.id);
     row.innerHTML = `
-        <td>${unit.id}</td>
+        <td>1</td>
         <td>${unit.name}</td>
         <td>${(unit.description || '').substring(0, 80)}</td>
         <td class="text-end">
@@ -282,13 +282,23 @@ function addMaterialUnitRow(unit) {
     `;
     
     tbody.insertBefore(row, tbody.firstChild);
+    renumberMaterialUnitSerials();
+}
+
+function renumberMaterialUnitSerials() {
+    const rows = document.querySelectorAll('table tbody tr[data-unit-id]');
+    rows.forEach((row, idx) => {
+        const firstTd = row.querySelector('td');
+        if (firstTd) firstTd.textContent = idx + 1;
+    });
 }
 
 function updateMaterialUnitRow(unit) {
     const row = document.querySelector(`tr[data-unit-id="${unit.id}"]`);
     if (row) {
+        const serial = Array.from(document.querySelectorAll('table tbody tr[data-unit-id]')).findIndex(r => r.getAttribute('data-unit-id') == unit.id) + 1;
         row.innerHTML = `
-            <td>${unit.id}</td>
+            <td>${serial || 1}</td>
             <td>${unit.name}</td>
             <td>${(unit.description || '').substring(0, 80)}</td>
             <td class="text-end">
@@ -353,6 +363,8 @@ function confirmDeleteMaterialUnit() {
                                 <td colspan="4" class="text-center text-muted py-3">No units found.</td>
                             </tr>
                         `;
+                    } else {
+                        renumberMaterialUnitSerials();
                     }
                 }, 300);
             }

@@ -98,6 +98,7 @@
             <table class="table table-hover">
                 <thead>
                     <tr>
+                        <th>SN</th>
                         <th>Date</th>
                         <th>Type</th>
                         <th>Reference</th>
@@ -111,6 +112,7 @@
                 <tbody id="advancePaymentsTableBody">
                     @forelse($advancePayments as $payment)
                         <tr data-advance-payment-id="{{ $payment->id }}">
+                            <td>{{ ($advancePayments->currentPage() - 1) * $advancePayments->perPage() + $loop->iteration }}</td>
                             <td>{{ $payment->payment_date->format('Y-m-d') }}</td>
                             <td>
                                 <span class="badge bg-info">
@@ -138,7 +140,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">No advance payments found.</td>
+                            <td colspan="9" class="text-center text-muted py-4">No advance payments found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -607,7 +609,17 @@ function confirmDeleteAdvancePayment() {
             if (row) {
                 row.style.transition = 'opacity 0.3s';
                 row.style.opacity = '0';
-                setTimeout(() => row.remove(), 300);
+                setTimeout(() => {
+                    row.remove();
+                    const tbody = document.querySelector('#advancePaymentsTableBody');
+                    if (tbody) {
+                        if (tbody.children.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No advance payments found.</td></tr>';
+                        } else {
+                            renumberAdvancePaymentSerials();
+                        }
+                    }
+                }, 300);
             }
             showNotification(data.message || 'Advance payment deleted successfully', 'success');
         } else {
@@ -704,6 +716,7 @@ function addAdvancePaymentRow(payment) {
     const paymentMethod = payment.payment_method ? ucfirst(payment.payment_method.replace(/_/g, ' ')) : 'N/A';
     
     row.innerHTML = `
+        <td>1</td>
         <td>${new Date(payment.payment_date).toISOString().split('T')[0]}</td>
         <td><span class="badge bg-info">${paymentType}</span></td>
         <td>N/A</td>
@@ -727,6 +740,15 @@ function addAdvancePaymentRow(payment) {
     `;
     
     tbody.insertBefore(row, tbody.firstChild);
+    renumberAdvancePaymentSerials();
+}
+
+function renumberAdvancePaymentSerials() {
+    const rows = document.querySelectorAll('#advancePaymentsTableBody tr[data-advance-payment-id]');
+    rows.forEach((row, idx) => {
+        const firstTd = row.querySelector('td');
+        if (firstTd) firstTd.textContent = idx + 1;
+    });
 }
 
 function updateAdvancePaymentRow(payment) {
@@ -736,7 +758,9 @@ function updateAdvancePaymentRow(payment) {
     const paymentType = payment.payment_type ? ucfirst(payment.payment_type.replace(/_/g, ' ')) : 'N/A';
     const paymentMethod = payment.payment_method ? ucfirst(payment.payment_method.replace(/_/g, ' ')) : 'N/A';
     
+    const serial = Array.from(document.querySelectorAll('#advancePaymentsTableBody tr[data-advance-payment-id]')).findIndex(r => r.getAttribute('data-advance-payment-id') == payment.id) + 1;
     row.innerHTML = `
+        <td>${serial || 1}</td>
         <td>${new Date(payment.payment_date).toISOString().split('T')[0]}</td>
         <td><span class="badge bg-info">${paymentType}</span></td>
         <td>N/A</td>
@@ -813,7 +837,7 @@ function applyFilters(page = 1) {
         return response.json();
     })
     .then(data => {
-        updateAdvancePaymentsTable(data.advancePayments);
+        updateAdvancePaymentsTable(data.advancePayments, data);
         updateAdvancePaymentsPagination(data.pagination);
         updateAdvancePaymentsSummary(data.summary);
         updateAdvancePaymentsURL(params.toString());
@@ -834,24 +858,26 @@ function applyFilters(page = 1) {
     });
 }
 
-function updateAdvancePaymentsTable(advancePayments) {
+function updateAdvancePaymentsTable(advancePayments, data) {
     const tbody = document.getElementById('advancePaymentsTableBody');
     
     if (!advancePayments || advancePayments.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center text-muted py-4">No advance payments found.</td>
+                <td colspan="9" class="text-center text-muted py-4">No advance payments found.</td>
             </tr>
         `;
         return;
     }
     
-    tbody.innerHTML = advancePayments.map(payment => {
+    const startSn = (data && data.currentPage) ? (data.currentPage - 1) * (data.perPage || 15) : 0;
+    tbody.innerHTML = advancePayments.map((payment, idx) => {
         const supplierName = payment.supplier_name || 'N/A';
         const escapedSupplierName = supplierName.replace(/'/g, "\\'");
-        
+        const sn = startSn + idx + 1;
         return `
             <tr data-advance-payment-id="${payment.id}">
+                <td>${sn}</td>
                 <td>${payment.payment_date}</td>
                 <td>
                     <span class="badge bg-info">${payment.payment_type}</span>

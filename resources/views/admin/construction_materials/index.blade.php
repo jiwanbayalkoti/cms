@@ -128,7 +128,7 @@
         <table class="table table-striped mb-0">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>SN</th>
                     <th>Material</th>
                     <th>Project</th>
                     <th>Supplier</th>

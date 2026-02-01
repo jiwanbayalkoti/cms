@@ -13,6 +13,7 @@
             <table class="table table-bordered mb-0">
                 <thead>
                     <tr>
+                        <th>SN</th>
                         <th>Name</th>
                         <th class="text-nowrap">Actions</th>
                     </tr>
@@ -20,6 +21,7 @@
                 <tbody>
                 @foreach($expenseTypes as $type)
                     <tr data-expense-type-id="{{ $type->id }}">
+                        <td>{{ $loop->iteration }}</td>
                         <td>{{ $type->name }}</td>
                         <td>
                             <div class="d-flex gap-1 text-nowrap">

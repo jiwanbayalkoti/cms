@@ -1,6 +1,6 @@
 @forelse($books as $b)
 <tr>
-    <td>{{ $b->id }}</td>
+    <td>{{ ($books->currentPage() - 1) * $books->perPage() + $loop->iteration }}</td>
     <td>{{ $b->measurement_date->format('Y-m-d') }}</td>
     <td>{{ $b->project->name ?? '—' }}</td>
     <td>{{ $b->contract_no ?? '—' }}</td>

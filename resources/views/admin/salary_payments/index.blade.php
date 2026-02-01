@@ -83,6 +83,7 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SN</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
@@ -96,6 +97,7 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @foreach($staffSummaries as $summary)
                     <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ $loop->iteration }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">{{ $summary['staff_name'] }}</div>
                         </td>
@@ -1400,7 +1402,7 @@ function updateSalaryPaymentsTable(salaryPayments) {
     if (!salaryPayments || salaryPayments.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" class="px-6 py-4 text-center text-gray-500">
+                <td colspan="10" class="px-6 py-4 text-center text-gray-500">
                     No salary payments found.
                 </td>
             </tr>

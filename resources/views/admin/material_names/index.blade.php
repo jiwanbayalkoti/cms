@@ -13,7 +13,7 @@
             <table class="table table-bordered">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th>SN</th>
                         <th>Name</th>
                         <th class="text-nowrap">Actions</th>
                     </tr>
@@ -21,7 +21,7 @@
                 <tbody>
                     @forelse($materialNames as $materialName)
                         <tr data-material-name-id="{{ $materialName->id }}">
-                            <td>{{ $materialName->id }}</td>
+                            <td>{{ ($materialNames->currentPage() - 1) * $materialNames->perPage() + $loop->iteration }}</td>
                             <td>{{ $materialName->name }}</td>
                             <td>
                                 <div class="d-flex gap-1 text-nowrap">
@@ -352,7 +352,7 @@ function addMaterialNameRow(materialName) {
     const row = document.createElement('tr');
     row.setAttribute('data-material-name-id', materialName.id);
     row.innerHTML = `
-        <td>${materialName.id}</td>
+        <td>1</td>
         <td>${materialName.name}</td>
         <td>
             <div class="d-flex gap-1 text-nowrap">
@@ -370,13 +370,23 @@ function addMaterialNameRow(materialName) {
     `;
     
     tbody.insertBefore(row, tbody.firstChild);
+    renumberMaterialNameSerials();
+}
+
+function renumberMaterialNameSerials() {
+    const rows = document.querySelectorAll('table tbody tr[data-material-name-id]');
+    rows.forEach((row, idx) => {
+        const firstTd = row.querySelector('td');
+        if (firstTd) firstTd.textContent = idx + 1;
+    });
 }
 
 function updateMaterialNameRow(materialName) {
     const row = document.querySelector(`tr[data-material-name-id="${materialName.id}"]`);
     if (row) {
+        const serial = Array.from(document.querySelectorAll('table tbody tr[data-material-name-id]')).findIndex(r => r.getAttribute('data-material-name-id') == materialName.id) + 1;
         row.innerHTML = `
-            <td>${materialName.id}</td>
+            <td>${serial || 1}</td>
             <td>${materialName.name}</td>
             <td>
                 <div class="d-flex gap-1 text-nowrap">
@@ -441,6 +451,8 @@ function confirmDeleteMaterialName() {
                         tbody.innerHTML = `
                             <tr><td colspan="3" class="text-center text-muted py-3">No material names found.</td></tr>
                         `;
+                    } else {
+                        renumberMaterialNameSerials();
                     }
                 }, 300);
             }

@@ -18,6 +18,7 @@
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SN</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
@@ -28,6 +29,7 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @forelse($subcategories as $subcategory)
                     <tr data-subcategory-id="{{ $subcategory->id }}">
+                        <td class="px-6 py-4 whitespace-nowrap">{{ ($subcategories->currentPage() - 1) * $subcategories->perPage() + $loop->iteration }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">{{ $subcategory->name }}</div>
                         </td>
@@ -60,7 +62,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+                        <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
                             No subcategories found. <button onclick="openCreateSubcategoryModal()" class="text-indigo-600 hover:text-indigo-900">Create one now</button>
                         </td>
                     </tr>

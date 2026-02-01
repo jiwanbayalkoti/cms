@@ -15,6 +15,7 @@
     <table class="min-w-full">
       <thead>
         <tr class="bg-gray-50 text-left">
+          <th class="px-4 py-2">SN</th>
           <th class="px-4 py-2">Name</th>
           <th class="px-4 py-2">Email</th>
           <th class="px-4 py-2">Company</th>
@@ -25,6 +26,7 @@
       <tbody>
         @forelse($users as $user)
           <tr class="border-t" data-user-id="{{ $user->id }}">
+            <td class="px-4 py-2">{{ ($users->currentPage() - 1) * $users->perPage() + $loop->iteration }}</td>
             <td class="px-4 py-2">{{ $user->name }}</td>
             <td class="px-4 py-2">{{ $user->email }}</td>
             <td class="px-4 py-2">{{ optional($user->company)->name ?: '-' }}</td>
@@ -69,7 +71,7 @@
           </tr>
         @empty
           <tr>
-            <td colspan="5" class="px-4 py-6 text-center text-gray-500">No users found.</td>
+            <td colspan="6" class="px-4 py-6 text-center text-gray-500">No users found.</td>
           </tr>
         @endforelse
       </tbody>
@@ -646,7 +648,7 @@ function confirmDeleteUser() {
                     if (tbody && tbody.children.length === 0) {
                         tbody.innerHTML = `
                             <tr>
-                                <td colspan="5" class="px-4 py-6 text-center text-gray-500">No users found.</td>
+                                <td colspan="6" class="px-4 py-6 text-center text-gray-500">No users found.</td>
                             </tr>
                         `;
                     }

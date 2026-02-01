@@ -1,6 +1,6 @@
 @forelse($bills as $b)
 <tr>
-    <td>{{ $b->id }}</td>
+    <td>{{ ($bills->currentPage() - 1) * $bills->perPage() + $loop->iteration }}</td>
     <td>{{ $b->bill_date->format('Y-m-d') }}</td>
     <td>{{ $b->bill_title }}</td>
     <td>{{ $b->project->name ?? '—' }}</td>

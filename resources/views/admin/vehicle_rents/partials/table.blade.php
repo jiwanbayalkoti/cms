@@ -1,5 +1,6 @@
 @forelse($vehicleRents as $rent)
     <tr data-rent-id="{{ $rent->id }}">
+        <td>{{ ($vehicleRents->currentPage() - 1) * $vehicleRents->perPage() + $loop->iteration }}</td>
         <td>{{ $rent->rent_date->format('Y-m-d') }}</td>
         <td>
             <span class="badge bg-info">{{ $vehicleTypes[$rent->vehicle_type] ?? $rent->vehicle_type }}</span>
@@ -68,7 +69,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="12" class="text-center py-4">
+        <td colspan="13" class="text-center py-4">
             <p class="text-muted mb-0">No vehicle rent records found.</p>
         </td>
     </tr>
