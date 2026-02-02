@@ -10,7 +10,9 @@ use App\Models\Category;
 use App\Models\Subcategory;
 use App\Models\Staff;
 use App\Models\Project;
+use App\Exports\ExpenseExport;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Support\CompanyContext;
@@ -125,6 +127,44 @@ class ExpenseController extends Controller
         }
         
         return view('admin.expenses.index', compact('expenses', 'projects', 'expenseTypes', 'categories', 'subcategories'));
+    }
+
+    /**
+     * Export expenses to Excel.
+     */
+    public function exportExcel(Request $request)
+    {
+        $companyId = CompanyContext::getActiveCompanyId();
+
+        $query = Expense::where('company_id', $companyId);
+
+        $this->filterByAccessibleProjects($query, 'project_id');
+
+        if ($request->filled('project_id')) {
+            $projectId = (int) $request->project_id;
+            if ($this->canAccessProject($projectId)) {
+                $query->where('project_id', $projectId);
+            }
+        }
+        if ($request->filled('expense_type_id')) {
+            $query->where('expense_type_id', $request->expense_type_id);
+        }
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+        if ($request->filled('subcategory_id')) {
+            $query->where('subcategory_id', $request->subcategory_id);
+        }
+        if ($request->filled('start_date')) {
+            $query->where('date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->where('date', '<=', $request->end_date);
+        }
+
+        $filename = 'expenses_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new ExpenseExport($query), $filename);
     }
 
     /**

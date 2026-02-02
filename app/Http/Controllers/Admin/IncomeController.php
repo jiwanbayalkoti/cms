@@ -9,8 +9,10 @@ use App\Models\Income;
 use App\Models\Category;
 use App\Models\Subcategory;
 use App\Models\Project;
+use App\Exports\IncomeExport;
 use Illuminate\Http\Request;
 use App\Support\CompanyContext;
+use Maatwebsite\Excel\Facades\Excel;
 
 class IncomeController extends Controller
 {
@@ -123,6 +125,41 @@ class IncomeController extends Controller
         }
         
         return view('admin.incomes.index', compact('incomes', 'projects', 'categories', 'subcategories'));
+    }
+
+    /**
+     * Export incomes to Excel.
+     */
+    public function exportExcel(Request $request)
+    {
+        $companyId = CompanyContext::getActiveCompanyId();
+
+        $query = Income::where('company_id', $companyId);
+
+        $this->filterByAccessibleProjects($query, 'project_id');
+
+        if ($request->filled('project_id')) {
+            $projectId = (int) $request->project_id;
+            if ($this->canAccessProject($projectId)) {
+                $query->where('project_id', $projectId);
+            }
+        }
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+        if ($request->filled('subcategory_id')) {
+            $query->where('subcategory_id', $request->subcategory_id);
+        }
+        if ($request->filled('start_date')) {
+            $query->where('date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->where('date', '<=', $request->end_date);
+        }
+
+        $filename = 'incomes_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new IncomeExport($query), $filename);
     }
 
     /**

@@ -5,10 +5,16 @@
 @section('content')
 <div class="mb-6 flex justify-between items-center">
     <h1 class="text-3xl font-bold text-gray-900">Expense Records</h1>
-    <button onclick="openCreateExpenseModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2">
-        <i class="bi bi-plus-circle"></i>
-        <span class="expense-btn-text">Add New Expense</span>
-    </button>
+    <div class="flex gap-2">
+        <a href="{{ route('admin.expenses.export') }}" id="expensesExportLink" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2" title="Export with current filters">
+            <i class="bi bi-file-earmark-excel me-0 me-md-1"></i>
+            <span class="d-none d-md-inline expense-btn-text">Export Excel</span>
+        </a>
+        <button onclick="openCreateExpenseModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2">
+            <i class="bi bi-plus-circle"></i>
+            <span class="expense-btn-text">Add New Expense</span>
+        </button>
+    </div>
 </div>
 
 <div class="mb-4 bg-white shadow-lg rounded-lg p-4">
@@ -123,6 +129,7 @@
             updateExpensesTable(data.expenses);
             updatePagination(data.pagination);
             updateURL(params.toString());
+            updateExpensesExportLink();
             
             // Hide loading state
             document.getElementById('expenses-loading').classList.add('hidden');
@@ -239,6 +246,21 @@
     function updateURL(params) {
         const newURL = window.location.pathname + (params ? '?' + params : '');
         window.history.pushState({path: newURL}, '', newURL);
+    }
+    
+    function updateExpensesExportLink() {
+        const link = document.getElementById('expensesExportLink');
+        if (!link) return;
+        const form = document.getElementById('filterForm');
+        if (!form) return;
+        const formData = new FormData(form);
+        const params = new URLSearchParams();
+        const exportParams = ['project_id', 'expense_type_id', 'category_id', 'subcategory_id'];
+        for (const key of exportParams) {
+            const val = formData.get(key);
+            if (val) params.append(key, val);
+        }
+        link.href = '{{ route("admin.expenses.export") }}' + (params.toString() ? '?' + params.toString() : '');
     }
     
     function loadSubcategoriesAndFilter() {
@@ -367,6 +389,7 @@
     
     // Load subcategories on page load if category is pre-selected
     document.addEventListener('DOMContentLoaded', function() {
+        updateExpensesExportLink();
         const categoryId = document.getElementById('category_id').value;
         if (categoryId) {
             // Don't auto-submit, just load the subcategories

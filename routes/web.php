@@ -197,6 +197,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::middleware(['admin_only'])->group(function () {
             Route::get('incomes', [IncomeController::class, 'index'])->name('incomes.index');
             Route::get('incomes/create', [IncomeController::class, 'create'])->name('incomes.create');
+            Route::get('incomes/export/excel', [IncomeController::class, 'exportExcel'])->name('incomes.export');
             Route::get('incomes/{income}', [IncomeController::class, 'show'])->name('incomes.show');
             Route::get('incomes/{income}/edit', [IncomeController::class, 'edit'])->name('incomes.edit');
             Route::middleware(['throttle:forms'])->group(function () {
@@ -211,6 +212,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Expenses CRUD
         Route::get('expenses', [ExpenseController::class, 'index'])->name('expenses.index');
         Route::get('expenses/create', [ExpenseController::class, 'create'])->name('expenses.create');
+        Route::get('expenses/export/excel', [ExpenseController::class, 'exportExcel'])->name('expenses.export');
         Route::get('expenses/{expense}', [ExpenseController::class, 'show'])->name('expenses.show');
         Route::get('expenses/{expense}/edit', [ExpenseController::class, 'edit'])->name('expenses.edit');
         Route::middleware(['throttle:uploads'])->group(function () {
