@@ -65,6 +65,16 @@ class ExpenseController extends Controller
             $query->where('subcategory_id', $request->subcategory_id);
         }
         
+        // Filter by keyword (item name, description, notes)
+        if ($request->filled('keyword')) {
+            $keyword = trim($request->keyword);
+            $query->where(function ($q) use ($keyword) {
+                $q->where('item_name', 'like', '%' . $keyword . '%')
+                    ->orWhere('description', 'like', '%' . $keyword . '%')
+                    ->orWhere('notes', 'like', '%' . $keyword . '%');
+            });
+        }
+        
         $expenses = $query->latest('date')->paginate(15)->withQueryString();
         
         // Get only accessible projects for dropdown
@@ -156,6 +166,14 @@ class ExpenseController extends Controller
         }
         if ($request->filled('subcategory_id')) {
             $query->where('subcategory_id', $request->subcategory_id);
+        }
+        if ($request->filled('keyword')) {
+            $keyword = trim($request->keyword);
+            $query->where(function ($q) use ($keyword) {
+                $q->where('item_name', 'like', '%' . $keyword . '%')
+                    ->orWhere('description', 'like', '%' . $keyword . '%')
+                    ->orWhere('notes', 'like', '%' . $keyword . '%');
+            });
         }
         if ($request->filled('start_date')) {
             $query->where('date', '>=', $request->start_date);

@@ -86,6 +86,16 @@ class IncomeController extends Controller
             $query->where('date', '<=', $request->end_date);
         }
         
+        // Filter by keyword (source, description, notes)
+        if ($request->filled('keyword')) {
+            $keyword = trim($request->keyword);
+            $query->where(function ($q) use ($keyword) {
+                $q->where('source', 'like', '%' . $keyword . '%')
+                    ->orWhere('description', 'like', '%' . $keyword . '%')
+                    ->orWhere('notes', 'like', '%' . $keyword . '%');
+            });
+        }
+        
         $incomes = $query->latest('date')->paginate(15)->withQueryString();
         
         // Get only accessible projects for dropdown
@@ -157,6 +167,14 @@ class IncomeController extends Controller
         }
         if ($request->filled('end_date')) {
             $query->where('date', '<=', $request->end_date);
+        }
+        if ($request->filled('keyword')) {
+            $keyword = trim($request->keyword);
+            $query->where(function ($q) use ($keyword) {
+                $q->where('source', 'like', '%' . $keyword . '%')
+                    ->orWhere('description', 'like', '%' . $keyword . '%')
+                    ->orWhere('notes', 'like', '%' . $keyword . '%');
+            });
         }
 
         $filename = 'incomes_' . now()->format('Ymd_His') . '.xlsx';

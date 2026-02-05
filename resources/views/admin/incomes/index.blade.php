@@ -18,7 +18,7 @@
 </div>
 
 <div class="mb-4 bg-white shadow-lg rounded-lg p-4">
-    <form method="GET" action="{{ route('admin.incomes.index') }}" id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+    <form method="GET" action="{{ route('admin.incomes.index') }}" id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
         @if($projects->count() > 0)
         <div>
             <label for="project_id" class="block text-sm font-medium text-gray-700 mb-2">Project</label>
@@ -70,6 +70,12 @@
             <label for="end_date" class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
             <input type="date" name="end_date" id="end_date" value="{{ request('end_date') }}" onchange="applyFilters()"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        
+        <div>
+            <label for="keyword" class="block text-sm font-medium text-gray-700 mb-2">Keyword</label>
+            <input type="text" name="keyword" id="keyword" value="{{ request('keyword') }}" placeholder="Source, description..."
+                   onkeyup="applyFilters()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
         </div>
         
         <div class="flex items-end">
@@ -1059,7 +1065,7 @@ function updateIncomesExportLink() {
     if (!form) return;
     const formData = new FormData(form);
     const params = new URLSearchParams();
-    const exportParams = ['project_id', 'category_id', 'subcategory_id', 'start_date', 'end_date'];
+    const exportParams = ['project_id', 'category_id', 'subcategory_id', 'start_date', 'end_date', 'keyword'];
     for (const key of exportParams) {
         const val = formData.get(key);
         if (val) params.append(key, val);
@@ -1180,7 +1186,7 @@ function loadSubcategories() {
 }
 
 function clearFilters() {
-    // Reset all filter selects
+    // Reset all filter selects and keyword
     if (document.getElementById('project_id')) {
         document.getElementById('project_id').value = '';
     }
@@ -1189,6 +1195,7 @@ function clearFilters() {
     document.getElementById('subcategory_id').value = '';
     document.getElementById('start_date').value = '';
     document.getElementById('end_date').value = '';
+    document.getElementById('keyword').value = '';
     
     // Apply filters (which will load all incomes)
     applyFilters();
