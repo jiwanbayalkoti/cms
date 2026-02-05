@@ -126,7 +126,7 @@
             return response.json();
         })
         .then(data => {
-            updateExpensesTable(data.expenses);
+            updateExpensesTable(data.expenses, data.current_page, data.per_page);
             updatePagination(data.pagination);
             updateURL(params.toString());
             updateExpensesExportLink();
@@ -145,13 +145,13 @@
         });
     }
     
-    function updateExpensesTable(expenses) {
+    function updateExpensesTable(expenses, currentPage, perPage) {
         const tbody = document.getElementById('expenses-tbody');
         
         if (!expenses || expenses.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colspan="10" class="px-6 py-4 text-center text-sm text-gray-500">
                         No expense records found. <button onclick="openCreateExpenseModal()" class="text-indigo-600 hover:text-indigo-900">Add one now</button>
                     </td>
                 </tr>
@@ -159,12 +159,14 @@
             return;
         }
         
-        tbody.innerHTML = expenses.map(expense => {
+        const startSn = (currentPage && perPage) ? (currentPage - 1) * perPage : 0;
+        tbody.innerHTML = expenses.map((expense, idx) => {
             const itemName = expense.item_name || 'N/A';
             const escapedItemName = itemName.replace(/'/g, "\\'");
-            
+            const sn = startSn + idx + 1;
             return `
                 <tr data-expense-id="${expense.id}">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${sn}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm text-gray-900">${expense.date}</div>
                     </td>
@@ -449,6 +451,7 @@
             <tbody class="bg-white divide-y divide-gray-200" id="expenses-tbody">
                 @forelse($expenses as $expense)
                     <tr data-expense-id="{{ $expense->id }}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ ($expenses->currentPage() - 1) * $expenses->perPage() + $loop->iteration }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-900">{{ $expense->date->format('M d, Y') }}</div>
                         </td>
@@ -528,7 +531,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">
+                        <td colspan="10" class="px-6 py-4 text-center text-sm text-gray-500">
                             No expense records found. <button onclick="openCreateExpenseModal()" class="text-indigo-600 hover:text-indigo-900">Add one now</button>
                         </td>
                     </tr>

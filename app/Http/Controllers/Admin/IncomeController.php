@@ -121,6 +121,8 @@ class IncomeController extends Controller
             return response()->json([
                 'incomes' => $incomesData,
                 'pagination' => $incomes->links()->render(),
+                'current_page' => $incomes->currentPage(),
+                'per_page' => $incomes->perPage(),
             ]);
         }
         

@@ -107,6 +107,7 @@
             <tbody class="bg-white divide-y divide-gray-200" id="incomes-tbody">
                 @forelse($incomes as $income)
                     <tr data-income-id="{{ $income->id }}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ ($incomes->currentPage() - 1) * $incomes->perPage() + $loop->iteration }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-900">{{ $income->date->format('M d, Y') }}</div>
                         </td>
@@ -147,7 +148,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">
+                        <td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">
                             No income records found. <button onclick="openCreateIncomeModal()" class="text-indigo-600 hover:text-indigo-900">Add one now</button>
                         </td>
                     </tr>
@@ -947,7 +948,7 @@ function applyFilters(page = 1) {
         return response.json();
     })
     .then(data => {
-        updateIncomesTable(data.incomes);
+        updateIncomesTable(data.incomes, data.current_page, data.per_page);
         updateIncomesPagination(data.pagination);
         updateIncomeURL(params.toString());
         updateIncomesExportLink();
@@ -966,13 +967,13 @@ function applyFilters(page = 1) {
     });
 }
 
-function updateIncomesTable(incomes) {
+function updateIncomesTable(incomes, currentPage, perPage) {
     const tbody = document.getElementById('incomes-tbody');
     
     if (!incomes || incomes.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
+                <td colspan="9" class="px-6 py-4 text-center text-sm text-gray-500">
                     No income records found. <button onclick="openCreateIncomeModal()" class="text-indigo-600 hover:text-indigo-900">Add one now</button>
                 </td>
             </tr>
@@ -980,13 +981,15 @@ function updateIncomesTable(incomes) {
         return;
     }
     
-    tbody.innerHTML = incomes.map(income => {
+    const startSn = (currentPage && perPage) ? (currentPage - 1) * perPage : 0;
+    tbody.innerHTML = incomes.map((income, idx) => {
         const source = income.source || 'N/A';
         const escapedSource = source.replace(/'/g, "\\'");
         const description = income.description ? `<div class="text-sm text-gray-500">${income.description.substring(0, 30)}${income.description.length > 30 ? '...' : ''}</div>` : '';
-        
+        const sn = startSn + idx + 1;
         return `
             <tr data-income-id="${income.id}">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${sn}</td>
                 <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm text-gray-900">${income.date}</div>
                 </td>

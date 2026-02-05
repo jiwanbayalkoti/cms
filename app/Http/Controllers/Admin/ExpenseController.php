@@ -123,6 +123,8 @@ class ExpenseController extends Controller
             return response()->json([
                 'expenses' => $expensesData,
                 'pagination' => $expenses->links()->render(),
+                'current_page' => $expenses->currentPage(),
+                'per_page' => $expenses->perPage(),
             ]);
         }
         
