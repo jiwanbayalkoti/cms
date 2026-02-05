@@ -1124,16 +1124,15 @@ class ProjectController extends Controller
             // Check if this is an existing file
             if (isset($existingFileIndices[$nameIndex])) {
                 $existingIndex = (int) $existingFileIndices[$nameIndex];
+                // This row has one file input (replace or leave empty); advance after so next row gets correct input
+                $newFile = null;
+                if (isset($fileInputs[$fileInputIndex]) && $fileInputs[$fileInputIndex]->isValid()) {
+                    $newFile = $fileInputs[$fileInputIndex];
+                }
+                $fileInputIndex++;
+
                 if (isset($existingFiles[$existingIndex])) {
                     $existingFile = $existingFiles[$existingIndex];
-                    
-                    // Check if a new file was uploaded for this existing file
-                    $newFile = null;
-                    if (isset($fileInputs[$fileInputIndex]) && $fileInputs[$fileInputIndex]->isValid()) {
-                        $newFile = $fileInputs[$fileInputIndex];
-                        $fileInputIndex++;
-                    }
-                    
                     if ($newFile) {
                         // Delete old file
                         $oldPath = $existingFile['path'] ?? null;
@@ -1177,7 +1176,9 @@ class ProjectController extends Controller
             }
         }
 
-        return !empty($updatedFiles) ? $updatedFiles : null;
+        // If form had file name inputs, return result (even if empty after deletes); otherwise leave files unchanged
+        $hadFileFields = !empty($fileNames);
+        return $hadFileFields ? $updatedFiles : null;
     }
 
     /**

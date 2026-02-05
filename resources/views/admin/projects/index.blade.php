@@ -577,10 +577,11 @@ document.getElementById('projectForm').addEventListener('submit', function(e) {
             
             if (isEdit) {
                 console.log('Updating project card:', data.project);
-                updateProjectCard(data.project);
+                showNotification('Project updated successfully!', 'success');
+                // Reload page so list shows all updated data (including files)
                 setTimeout(() => {
-                    showNotification('Project updated successfully!', 'success');
-                }, 100);
+                    window.location.reload();
+                }, 600);
             } else {
                 console.log('Adding project card:', data.project);
                 addProjectCard(data.project);
