@@ -130,26 +130,37 @@
 </div>
 
 <!-- Lightbox Modal -->
-<div id="lightbox" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4" onclick="closeLightbox()">
-    <div class="max-w-6xl w-full relative" onclick="event.stopPropagation()">
-        <button onclick="closeLightbox()" class="absolute top-4 right-4 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-2">
-            <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-        </button>
+<div id="lightbox" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex flex-col items-center justify-center p-4" onclick="closeLightbox()">
+    <div class="w-full max-w-6xl flex-1 flex flex-col min-h-0 relative" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-end gap-2 absolute top-2 right-2 z-20">
+            <button type="button" onclick="event.stopPropagation(); lightboxZoom(0.25)" class="text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70" title="Zoom In">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path></svg>
+            </button>
+            <button type="button" onclick="event.stopPropagation(); lightboxZoom(-0.25)" class="text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70" title="Zoom Out">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+            </button>
+            <button type="button" onclick="event.stopPropagation(); lightboxRotate(-90)" class="text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70" title="Rotate Left">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+            </button>
+            <button type="button" onclick="event.stopPropagation(); lightboxRotate(90)" class="text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70" title="Rotate Right">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"></path></svg>
+            </button>
+            <button onclick="closeLightbox()" class="text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-70">
+                <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
         <button id="lightbox-prev" onclick="event.stopPropagation(); navigateLightbox(-1)" class="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-3 hover:bg-opacity-70 transition">
-            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-            </svg>
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
         </button>
         <button id="lightbox-next" onclick="event.stopPropagation(); navigateLightbox(1)" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-3 hover:bg-opacity-70 transition">
-            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-            </svg>
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
         </button>
-        <img id="lightbox-image" src="" alt="" class="max-w-full max-h-screen mx-auto rounded-lg">
-        <p id="lightbox-caption" class="text-white text-center mt-4 text-sm md:text-base lg:text-lg"></p>
-        <p id="lightbox-counter" class="text-white text-center mt-2 text-sm opacity-75"></p>
+        <div id="lightbox-image-wrap" class="flex-1 overflow-auto flex items-center justify-center min-h-0 my-2">
+            <img id="lightbox-image" src="" alt="" class="max-w-full max-h-full rounded-lg transition-transform duration-200 origin-center">
+        </div>
+        <div id="lightbox-thumbnails" class="flex gap-2 justify-center overflow-x-auto py-2 px-2 shrink-0" style="max-height: 70px; min-height: 56px;"></div>
+        <p id="lightbox-caption" class="text-white text-center mt-2 text-sm md:text-base lg:text-lg"></p>
+        <p id="lightbox-counter" class="text-white text-center mt-1 text-sm opacity-75"></p>
     </div>
 </div>
 
@@ -418,6 +429,7 @@ function deletePhoto(albumIndex, photoIndex) {
 
 // Lightbox photo collection and navigation
 let allPhotos = [];
+let currentAlbumPhotos = []; // photos of the album currently open in lightbox
 let currentPhotoIndex = -1;
 
 // Initialize photos collection on page load
@@ -438,39 +450,96 @@ function initializePhotoCollection() {
     });
 }
 
+let lightboxScale = 1;
+let lightboxRotateDeg = 0;
+
+function applyLightboxTransform() {
+    const img = document.getElementById('lightbox-image');
+    if (img) {
+        img.style.transform = `scale(${lightboxScale}) rotate(${lightboxRotateDeg}deg)`;
+    }
+}
+
+function lightboxZoom(delta) {
+    lightboxScale = Math.min(4, Math.max(0.5, lightboxScale + delta));
+    applyLightboxTransform();
+}
+
+function lightboxRotate(deg) {
+    lightboxRotateDeg = (lightboxRotateDeg + deg) % 360;
+    applyLightboxTransform();
+}
+
 function openLightbox(imageSrc, caption, albumIndex, photoIndex) {
     // Initialize collection if not done
     if (allPhotos.length === 0) {
         initializePhotoCollection();
     }
     
-    // Find current photo index
-    currentPhotoIndex = allPhotos.findIndex(photo => photo.src === imageSrc);
+    // Only show photos from the same album
+    currentAlbumPhotos = allPhotos.filter(function(p) { return p.albumIndex === albumIndex; });
+    currentPhotoIndex = currentAlbumPhotos.findIndex(function(p) { return p.src === imageSrc; });
     if (currentPhotoIndex === -1) {
         currentPhotoIndex = 0;
     }
     
+    lightboxScale = 1;
+    lightboxRotateDeg = 0;
     updateLightboxDisplay();
     document.getElementById('lightbox').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 }
 
+function goToLightboxIndex(idx) {
+    if (idx >= 0 && idx < currentAlbumPhotos.length) {
+        currentPhotoIndex = idx;
+        updateLightboxDisplay();
+    }
+}
+
+function updateLightboxThumbnails() {
+    var container = document.getElementById('lightbox-thumbnails');
+    if (!container || !currentAlbumPhotos.length) return;
+    container.innerHTML = '';
+    currentAlbumPhotos.forEach(function(photo, idx) {
+        var el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'shrink-0 rounded overflow-hidden border-2 transition-all focus:outline-none focus:ring-2 focus:ring-white ' + (idx === currentPhotoIndex ? 'border-white opacity-100 ring-2 ring-white' : 'border-transparent opacity-60 hover:opacity-90');
+        el.style.width = '56px';
+        el.style.height = '56px';
+        el.onclick = function(e) { e.stopPropagation(); goToLightboxIndex(idx); };
+        var thumb = document.createElement('img');
+        thumb.src = photo.src;
+        thumb.alt = photo.caption || '';
+        thumb.className = 'w-full h-full object-cover';
+        el.appendChild(thumb);
+        container.appendChild(el);
+    });
+}
+
 function updateLightboxDisplay() {
-    if (currentPhotoIndex >= 0 && currentPhotoIndex < allPhotos.length) {
-        const photo = allPhotos[currentPhotoIndex];
-        document.getElementById('lightbox-image').src = photo.src;
+    if (currentAlbumPhotos.length && currentPhotoIndex >= 0 && currentPhotoIndex < currentAlbumPhotos.length) {
+        const photo = currentAlbumPhotos[currentPhotoIndex];
+        const img = document.getElementById('lightbox-image');
+        img.src = photo.src;
+        img.style.transform = '';
+        lightboxScale = 1;
+        lightboxRotateDeg = 0;
+        applyLightboxTransform();
         document.getElementById('lightbox-caption').textContent = photo.caption;
-        document.getElementById('lightbox-counter').textContent = `${currentPhotoIndex + 1} / ${allPhotos.length}`;
+        document.getElementById('lightbox-counter').textContent = (currentPhotoIndex + 1) + ' / ' + currentAlbumPhotos.length;
         
-        // Show/hide navigation buttons
+        // Show/hide navigation buttons (within current album only)
         document.getElementById('lightbox-prev').style.display = currentPhotoIndex > 0 ? 'block' : 'none';
-        document.getElementById('lightbox-next').style.display = currentPhotoIndex < allPhotos.length - 1 ? 'block' : 'none';
+        document.getElementById('lightbox-next').style.display = currentPhotoIndex < currentAlbumPhotos.length - 1 ? 'block' : 'none';
+
+        updateLightboxThumbnails();
     }
 }
 
 function navigateLightbox(direction) {
-    const newIndex = currentPhotoIndex + direction;
-    if (newIndex >= 0 && newIndex < allPhotos.length) {
+    var newIndex = currentPhotoIndex + direction;
+    if (newIndex >= 0 && newIndex < currentAlbumPhotos.length) {
         currentPhotoIndex = newIndex;
         updateLightboxDisplay();
     }
@@ -480,6 +549,9 @@ function closeLightbox() {
     document.getElementById('lightbox').classList.add('hidden');
     document.body.style.overflow = 'auto';
     currentPhotoIndex = -1;
+    currentAlbumPhotos = [];
+    lightboxScale = 1;
+    lightboxRotateDeg = 0;
 }
 
 // Close modals on Escape key, navigate with arrow keys
@@ -493,6 +565,13 @@ document.addEventListener('keydown', function(e) {
         navigateLightbox(1);
     }
 });
+
+// Mouse wheel zoom on lightbox image
+document.getElementById('lightbox-image-wrap')?.addEventListener('wheel', function(e) {
+    if (document.getElementById('lightbox').classList.contains('hidden')) return;
+    e.preventDefault();
+    lightboxZoom(e.deltaY > 0 ? -0.15 : 0.15);
+}, { passive: false });
 
 // Initialize - first (latest) album open by default
 document.addEventListener('DOMContentLoaded', function() {
