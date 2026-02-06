@@ -133,6 +133,7 @@ class IncomeController extends Controller
                 'pagination' => $incomes->links()->render(),
                 'current_page' => $incomes->currentPage(),
                 'per_page' => $incomes->perPage(),
+                'total_amount' => $incomes->sum('amount'),
             ]);
         }
         

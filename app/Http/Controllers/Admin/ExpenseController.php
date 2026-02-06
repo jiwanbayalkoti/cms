@@ -135,6 +135,7 @@ class ExpenseController extends Controller
                 'pagination' => $expenses->links()->render(),
                 'current_page' => $expenses->currentPage(),
                 'per_page' => $expenses->perPage(),
+                'total_amount' => $expenses->sum('amount'),
             ]);
         }
         

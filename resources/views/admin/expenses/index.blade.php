@@ -132,7 +132,7 @@
             return response.json();
         })
         .then(data => {
-            updateExpensesTable(data.expenses, data.current_page, data.per_page);
+            updateExpensesTable(data.expenses, data.current_page, data.per_page, data.total_amount);
             updatePagination(data.pagination);
             updateURL(params.toString());
             updateExpensesExportLink();
@@ -151,8 +151,10 @@
         });
     }
     
-    function updateExpensesTable(expenses, currentPage, perPage) {
+    function updateExpensesTable(expenses, currentPage, perPage, totalAmount) {
         const tbody = document.getElementById('expenses-tbody');
+        const tfoot = document.getElementById('expenses-table-tfoot');
+        const totalCell = document.getElementById('expenses-table-total');
         
         if (!expenses || expenses.length === 0) {
             tbody.innerHTML = `
@@ -162,7 +164,13 @@
                     </td>
                 </tr>
             `;
+            if (tfoot) tfoot.style.display = 'none';
             return;
+        }
+        
+        if (tfoot && totalCell && totalAmount != null) {
+            totalCell.textContent = '$' + parseFloat(totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            tfoot.style.display = '';
         }
         
         const startSn = (currentPage && perPage) ? (currentPage - 1) * perPage : 0;
@@ -544,6 +552,13 @@
                     </tr>
                 @endforelse
             </tbody>
+            <tfoot class="bg-gray-50 border-t-2 border-gray-200" id="expenses-table-tfoot" style="{{ $expenses->count() > 0 ? '' : 'display:none' }}">
+                <tr>
+                    <td colspan="8" class="px-6 py-3 text-right text-sm font-semibold text-gray-900">Total</td>
+                    <td class="px-6 py-3 text-right text-sm font-bold text-red-600" id="expenses-table-total">${{ number_format($expenses->sum('amount'), 2) }}</td>
+                    <td class="px-6 py-3"></td>
+                </tr>
+            </tfoot>
         </table>
             </div>
         </div>

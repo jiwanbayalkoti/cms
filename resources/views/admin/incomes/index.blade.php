@@ -160,6 +160,13 @@
                     </tr>
                 @endforelse
             </tbody>
+            <tfoot class="bg-gray-50 border-t-2 border-gray-200" id="incomes-table-tfoot" style="{{ $incomes->count() > 0 ? '' : 'display:none' }}">
+                <tr>
+                    <td colspan="7" class="px-6 py-3 text-right text-sm font-semibold text-gray-900">Total</td>
+                    <td class="px-6 py-3 text-right text-sm font-bold text-green-600" id="incomes-table-total">${{ number_format($incomes->sum('amount'), 2) }}</td>
+                    <td class="px-6 py-3"></td>
+                </tr>
+            </tfoot>
         </table>
             </div>
         </div>
@@ -954,7 +961,7 @@ function applyFilters(page = 1) {
         return response.json();
     })
     .then(data => {
-        updateIncomesTable(data.incomes, data.current_page, data.per_page);
+        updateIncomesTable(data.incomes, data.current_page, data.per_page, data.total_amount);
         updateIncomesPagination(data.pagination);
         updateIncomeURL(params.toString());
         updateIncomesExportLink();
@@ -973,8 +980,10 @@ function applyFilters(page = 1) {
     });
 }
 
-function updateIncomesTable(incomes, currentPage, perPage) {
+function updateIncomesTable(incomes, currentPage, perPage, totalAmount) {
     const tbody = document.getElementById('incomes-tbody');
+    const tfoot = document.getElementById('incomes-table-tfoot');
+    const totalCell = document.getElementById('incomes-table-total');
     
     if (!incomes || incomes.length === 0) {
         tbody.innerHTML = `
@@ -984,7 +993,13 @@ function updateIncomesTable(incomes, currentPage, perPage) {
                 </td>
             </tr>
         `;
+        if (tfoot) tfoot.style.display = 'none';
         return;
+    }
+    
+    if (tfoot && totalCell && totalAmount != null) {
+        totalCell.textContent = '$' + parseFloat(totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        tfoot.style.display = '';
     }
     
     const startSn = (currentPage && perPage) ? (currentPage - 1) * perPage : 0;

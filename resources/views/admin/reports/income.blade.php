@@ -112,6 +112,12 @@
                 </tr>
             @endforelse
         </tbody>
+        <tfoot class="bg-gray-50 border-t-2 border-gray-200" id="income-table-tfoot" style="{{ $incomes->count() > 0 ? '' : 'display:none' }}">
+            <tr>
+                <td colspan="4" class="px-6 py-3 text-right text-sm font-semibold text-gray-900">Total</td>
+                <td class="px-6 py-3 text-right text-sm font-bold text-green-600" id="income-table-total">${{ number_format($totalIncome, 2) }}</td>
+            </tr>
+        </tfoot>
     </table>
     </div>
 </div>
@@ -139,6 +145,12 @@
             var endStr = new Date(data.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
             document.getElementById('income-date-range').textContent = startStr + ' to ' + endStr;
             document.getElementById('income-record-count').textContent = data.recordCount + ' record(s)';
+            var tfoot = document.getElementById('income-table-tfoot');
+            var totalCell = document.getElementById('income-table-total');
+            if (tfoot && totalCell) {
+                totalCell.textContent = '$' + parseFloat(data.totalIncome).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                tfoot.style.display = data.incomeRows.length > 0 ? '' : 'none';
+            }
             var tbody = document.getElementById('income-tbody');
             if (data.incomeRows.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">No income records found</td></tr>';
