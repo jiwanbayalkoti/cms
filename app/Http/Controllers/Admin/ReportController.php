@@ -43,7 +43,9 @@ class ReportController extends Controller
      */
     public function financialSummary(Request $request)
     {
-        $startDate = $request->get('start_date', date('Y-m-01'));
+        // Default: current year from Jan 1 to today
+        $currentYear = date('Y');
+        $startDate = $request->get('start_date', $currentYear . '-01-01');
         $endDate = $request->get('end_date', date('Y-m-d'));
         $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
@@ -164,7 +166,9 @@ class ReportController extends Controller
      */
     public function incomeReport(Request $request)
     {
-        $startDate = $request->get('start_date', date('Y-m-01'));
+        // Default: current year from Jan 1 to today
+        $currentYear = date('Y');
+        $startDate = $request->get('start_date', $currentYear . '-01-01');
         $endDate = $request->get('end_date', date('Y-m-d'));
         $categoryId = $request->get('category_id');
         $projectId = $request->get('project_id');
@@ -220,6 +224,27 @@ class ReportController extends Controller
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
 
+        if ($request->ajax() || $request->wantsJson()) {
+            $incomeRows = $incomes->map(function ($i) {
+                return [
+                    'date' => $i->date->format('M d, Y'),
+                    'source' => $i->source,
+                    'category' => $i->category->name,
+                    'description' => \Illuminate\Support\Str::limit($i->description, 40),
+                    'amount' => number_format($i->amount, 2),
+                ];
+            });
+            return response()->json([
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'totalIncome' => $totalIncome,
+                'incomeByCategory' => $incomeByCategory,
+                'incomeBySource' => $incomeBySource,
+                'incomeRows' => $incomeRows,
+                'recordCount' => $incomes->count(),
+            ]);
+        }
+
         return view('admin.reports.income', compact(
             'startDate',
             'endDate',
@@ -239,14 +264,16 @@ class ReportController extends Controller
      */
     public function expenseReport(Request $request)
     {
-        $startDate = $request->get('start_date', date('Y-m-01'));
+        // Default: current year from Jan 1 to today
+        $currentYear = date('Y');
+        $startDate = $request->get('start_date', $currentYear . '-01-01');
         $endDate = $request->get('end_date', date('Y-m-d'));
         $categoryId = $request->get('category_id');
         $expenseType = $request->get('expense_type');
         $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
 
-        $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'constructionMaterial', 'advancePayment'])
+        $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'expenseType', 'constructionMaterial', 'advancePayment'])
             ->where('expenses.company_id', $companyId)
             ->whereBetween('expenses.date', [$startDate, $endDate]);
         
@@ -302,6 +329,34 @@ class ReportController extends Controller
         $categories = Category::where('type', 'expense')->where('is_active', true)->orderBy('name')->get();
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            $expenseRows = $expenses->map(function ($e) {
+                $typeName = $e->expenseType ? $e->expenseType->name : 'Other';
+                $typeCode = $e->expenseType ? strtolower($e->expenseType->code ?? $e->expenseType->name) : '';
+                $typeClass = ($typeCode === 'salary') ? 'bg-blue-100 text-blue-800' :
+                    (($typeCode === 'advance') ? 'bg-yellow-100 text-yellow-800' :
+                    (($typeCode === 'rent') ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'));
+                return [
+                    'date' => $e->date->format('M d, Y'),
+                    'expense_type' => $typeName,
+                    'type_class' => $typeClass,
+                    'item' => $e->item_name ?? \Illuminate\Support\Str::limit($e->description, 30),
+                    'category' => $e->category->name,
+                    'staff' => $e->staff ? $e->staff->name : 'N/A',
+                    'amount' => number_format($e->amount, 2),
+                ];
+            });
+            return response()->json([
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'totalExpenses' => $totalExpenses,
+                'expensesByCategory' => $expensesByCategory,
+                'expensesByType' => $expensesByType,
+                'expenseRows' => $expenseRows,
+                'recordCount' => $expenses->count(),
+            ]);
+        }
 
         return view('admin.reports.expense', compact(
             'startDate',
