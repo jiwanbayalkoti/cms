@@ -1393,10 +1393,11 @@ window.openGalleryModal = function(projectId) {
                 if (typeof initializePhotoCollection === 'function') {
                     initializePhotoCollection();
                 }
-                // Open first album by default
-                const firstIcon = document.getElementById('toggle-icon-0');
-                if (firstIcon && typeof toggleAlbum === 'function') {
-                    toggleAlbum(0);
+                // Open first (latest) album by default
+                const firstAlbum = content.querySelector('[data-album-index]');
+                if (firstAlbum && typeof toggleAlbum === 'function') {
+                    const albumIndex = parseInt(firstAlbum.getAttribute('data-album-index'), 10);
+                    toggleAlbum(albumIndex);
                 }
             }, 100);
         } else {

@@ -17,7 +17,7 @@
                     <span class="text-sm text-gray-500">{{ count($album['photos'] ?? []) }} {{ Str::plural('photo', count($album['photos'] ?? [])) }}</span>
                 </div>
             </div>
-            <svg id="toggle-icon-{{ $albumIndex }}" class="h-6 w-6 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg id="toggle-icon-{{ $albumIndex }}" class="h-6 w-6 text-gray-400 transform transition-transform {{ ($isFirst ?? ($albumIndex === 0)) ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
         </button>
@@ -43,7 +43,7 @@
     </div>
     
     <!-- Album Content - Collapsible -->
-    <div id="album-content-{{ $albumIndex }}" class="px-6 pb-6 {{ $albumIndex === 0 ? '' : 'hidden' }}">
+    <div id="album-content-{{ $albumIndex }}" class="px-6 pb-6 {{ ($isFirst ?? ($albumIndex === 0)) ? '' : 'hidden' }}">
         @if(isset($album['photos']) && is_array($album['photos']) && count($album['photos']) > 0)
             @if(isset($isSiteEngineer) && $isSiteEngineer)
             <!-- Bulk Approval Controls for Site Engineers -->

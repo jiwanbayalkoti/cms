@@ -97,11 +97,12 @@
 
 <div id="albums-container" class="space-y-4">
     @if($project->photos && is_array($project->photos) && count($project->photos) > 0)
-        @foreach($project->photos as $albumIndex => $album)
+        @foreach(array_reverse($project->photos, true) as $albumIndex => $album)
             @include('admin.projects.partials.album-item', [
-                'album' => $album, 
-                'albumIndex' => $albumIndex, 
-                'project' => $project, 
+                'album' => $album,
+                'albumIndex' => $albumIndex,
+                'isFirst' => $loop->first,
+                'project' => $project,
                 'isAdmin' => $isAdmin,
                 'isSiteEngineer' => Auth::user()->role === 'site_engineer'
             ])
