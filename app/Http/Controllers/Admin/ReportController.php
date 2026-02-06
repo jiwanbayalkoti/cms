@@ -434,6 +434,18 @@ class ReportController extends Controller
         $materialName = $filters['material_name'];
         $supplierName = $filters['supplier_name'];
 
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'overall' => $overall,
+                'projectSummary' => $projectSummary,
+                'topMaterials' => $topMaterials,
+                'topSuppliers' => $topSuppliers,
+                'recentDeliveries' => $recentDeliveries,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ]);
+        }
+
         return view('admin.reports.project-materials', compact(
             'startDate',
             'endDate',
@@ -464,7 +476,7 @@ class ReportController extends Controller
     protected function materialReportFilters(Request $request): array
     {
         return [
-            'start_date' => $request->get('start_date', date('Y-m-01')),
+            'start_date' => $request->get('start_date', date('Y-01-01')),
             'end_date' => $request->get('end_date', date('Y-m-d')),
             'project_name' => $request->get('project_name'),
             'material_name' => $request->get('material_name'),
@@ -504,7 +516,7 @@ class ReportController extends Controller
      */
     public function staffPaymentReport(Request $request)
     {
-        $startDate = $request->get('start_date', date('Y-m-01'));
+        $startDate = $request->get('start_date', date('Y-01-01'));
         $endDate = $request->get('end_date', date('Y-m-d'));
         $staffId = $request->get('staff_id');
         $projectId = $request->get('project_id');
@@ -514,7 +526,7 @@ class ReportController extends Controller
         $salaryAdvanceTypes = \App\Models\ExpenseType::whereIn('name', ['Salary', 'Advance'])
             ->pluck('id');
 
-        $query = Expense::with(['staff', 'project'])
+        $query = Expense::with(['staff', 'project', 'expenseType'])
             ->whereIn('expense_type_id', $salaryAdvanceTypes)
             ->where('expenses.company_id', $companyId)
             ->whereBetween('expenses.date', [$startDate, $endDate]);
@@ -550,6 +562,9 @@ class ReportController extends Controller
         if ($projectId) {
             $totalByStaffQuery->where('expenses.project_id', $projectId);
         }
+        if ($staffId) {
+            $totalByStaffQuery->where('expenses.staff_id', $staffId);
+        }
         $totalByStaff = $totalByStaffQuery->join('staff', 'expenses.staff_id', '=', 'staff.id')
             ->select('staff.name', DB::raw('SUM(expenses.amount) as total'))
             ->groupBy('staff.id', 'staff.name')
@@ -559,6 +574,28 @@ class ReportController extends Controller
         $staff = Staff::where('is_active', true)->orderBy('name')->get();
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            $paymentsForJson = $payments->map(function ($p) {
+                return [
+                    'date' => $p->date ? $p->date->format('Y-m-d') : null,
+                    'date_formatted' => $p->date ? $p->date->format('M d, Y') : '-',
+                    'expense_type' => $p->expenseType ? strtolower($p->expenseType->name) : 'salary',
+                    'expense_type_label' => $p->expenseType ? ucfirst($p->expenseType->name) : 'Salary',
+                    'staff_name' => $p->staff ? $p->staff->name : 'N/A',
+                    'staff_id' => $p->staff_id,
+                    'description' => $p->description ? \Str::limit($p->description, 40) : '',
+                    'amount' => (float) $p->amount,
+                ];
+            });
+            return response()->json([
+                'totalPayments' => (float) $totalPayments,
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'totalByStaff' => $totalByStaff,
+                'payments' => $paymentsForJson,
+            ]);
+        }
 
         return view('admin.reports.staff-payment', compact(
             'startDate',
@@ -579,7 +616,7 @@ class ReportController extends Controller
      */
     public function balanceSheet(Request $request)
     {
-        $startDate = $request->get('start_date', date('Y-m-01'));
+        $startDate = $request->get('start_date', date('Y-01-01'));
         $endDate = $request->get('end_date', date('Y-m-d'));
         $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
@@ -657,6 +694,36 @@ class ReportController extends Controller
         
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            $debitRecordsForJson = $debitRecords->map(function ($r) {
+                return [
+                    'date_formatted' => $r->date ? $r->date->format('M d, Y') : '-',
+                    'description' => $r->item_name ?? ucfirst($r->expense_type ?? 'Expense'),
+                    'category_name' => $r->category ? $r->category->name : '',
+                    'amount' => (float) $r->amount,
+                ];
+            });
+            $creditRecordsForJson = $creditRecords->map(function ($r) {
+                return [
+                    'date_formatted' => $r->date ? $r->date->format('M d, Y') : '-',
+                    'description' => $r->source ?? 'Income',
+                    'category_name' => $r->category ? $r->category->name : '',
+                    'amount' => (float) $r->amount,
+                ];
+            });
+            return response()->json([
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'totalCredits' => (float) $totalCredits,
+                'totalDebits' => (float) $totalDebits,
+                'netProfit' => (float) $netProfit,
+                'debitByCategory' => $debitByCategory,
+                'creditByCategory' => $creditByCategory,
+                'debitRecords' => $debitRecordsForJson,
+                'creditRecords' => $creditRecordsForJson,
+            ]);
+        }
 
         return view('admin.reports.balance-sheet', compact(
             'startDate',
