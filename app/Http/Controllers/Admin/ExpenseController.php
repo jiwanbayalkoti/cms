@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Subcategory;
 use App\Models\Staff;
 use App\Models\Project;
+use App\Models\ConstructionMaterial;
 use App\Exports\ExpenseExport;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -334,8 +335,8 @@ class ExpenseController extends Controller
         
         $expense->load(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType']);
         
-        // Return JSON for AJAX requests
-        if (request()->ajax() || request()->wantsJson()) {
+        // Return JSON only when AJAX and expects JSON (view modal); normal browser visit gets HTML
+        if (request()->ajax() && request()->wantsJson()) {
             $typeName = '';
             if ($expense->constructionMaterial) {
                 $typeName = 'Purchase';
@@ -388,9 +389,19 @@ class ExpenseController extends Controller
                 ],
             ]);
         }
-        
-        // Redirect to index page since popup handles everything
-        return redirect()->route('admin.expenses.index');
+
+        // Materials that can be linked: no expense linked, or linked to this expense
+        $materialsForLinkQuery = ConstructionMaterial::where('company_id', $expense->company_id)
+            ->where(function ($q) use ($expense) {
+                $q->whereDoesntHave('expense')
+                    ->orWhereHas('expense', function ($q2) use ($expense) {
+                        $q2->where('expenses.id', $expense->id);
+                    });
+            });
+        $this->filterByAccessibleProjects($materialsForLinkQuery, 'project_id');
+        $materialsForLink = $materialsForLinkQuery->orderByDesc('delivery_date')->orderByDesc('id')->get();
+
+        return view('admin.expenses.show', compact('expense', 'materialsForLink'));
     }
 
     /**
