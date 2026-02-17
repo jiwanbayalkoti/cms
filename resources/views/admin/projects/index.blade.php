@@ -77,6 +77,27 @@
                             </div>
                         </div>
                         @endif
+
+                        @php($prog = $project->progress ?? ['progress_percent' => 0, 'total_completed_qty' => 0, 'total_boq_qty' => 0])
+                        @php($pct = (float)($prog['progress_percent'] ?? 0))
+                        @php($compQty = (float)($prog['total_completed_qty'] ?? 0))
+                        @php($boqQty = (float)($prog['total_boq_qty'] ?? 0))
+                        @php($barColor = $pct >= 100 ? 'bg-green-500' : ($pct >= 50 ? 'bg-blue-500' : ($pct > 0 ? 'bg-yellow-500' : 'bg-gray-300')))
+                        @php($textColor = $pct >= 100 ? 'text-green-600' : ($pct >= 50 ? 'text-blue-600' : 'text-gray-600'))
+                        @php($barWidth = min(100, $pct))
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-medium text-gray-600">Work Progress</span>
+                                <span class="text-xs font-semibold {{ $textColor }}">{{ number_format($pct, 1) }}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="{{ $barColor }} h-2 rounded-full transition-all duration-300" style="width: {{ $barWidth }}%"></div>
+                            </div>
+                            <div class="flex items-center justify-between mt-1 text-xs text-gray-500">
+                                <span>Completed: {{ number_format($compQty, 2) }}</span>
+                                <span>Total: {{ number_format($boqQty, 2) }}</span>
+                            </div>
+                        </div>
                         
                         <div class="flex items-center justify-end gap-1 pt-4 border-t">
                             @if(Auth::user()->role === 'site_engineer')

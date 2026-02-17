@@ -9,8 +9,16 @@ class Company extends Model
 {
     use HasFactory;
 
+    protected $casts = [
+        'bill_date' => 'date',
+    ];
+
     protected $fillable = [
         'name',
+        'client',
+        'project',
+        'contract_no',
+        'bill_date',
         'address',
         'email',
         'phone',

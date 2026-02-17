@@ -11,7 +11,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\App;
 
 class MaterialCalculatorController extends Controller
 {
@@ -97,7 +97,8 @@ class MaterialCalculatorController extends Controller
     {
         [$items, $summary] = $this->validatePayload($request);
 
-        $pdf = Pdf::loadView('admin.material_calculator.pdf', [
+        $pdf = App::make('dompdf.wrapper');
+        $pdf->loadView('admin.material_calculator.pdf', [
             'items' => $items,
             'summary' => $summary,
             'generatedAt' => now(),

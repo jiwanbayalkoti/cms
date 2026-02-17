@@ -4,7 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\ValidatesForms;
+use App\Models\BoqItem;
+use App\Models\BoqWork;
 use App\Models\Company;
+use App\Models\CompletedWorkRecord;
+use App\Models\CompletedWorkRecordItem;
 use App\Models\Project;
 use App\Support\CompanyContext;
 use App\Support\ProjectContext;
@@ -95,15 +99,59 @@ class ProjectController extends Controller
         $companyIds = $projectsByCompany->keys()->filter()->toArray();
         $companies = Company::whereIn('id', $companyIds)->get()->keyBy('id');
         
+        // Calculate progress for each project (BOQ Work vs Completed Work)
+        // BOQ Work is at company level, but Completed Work can be linked to projects
+        $projectProgress = [];
+        $allProjectIds = $allProjects->pluck('id')->toArray();
+        
+        // Get total BOQ qty per company (since BOQ doesn't have project_id)
+        $companyBoqQty = [];
+        foreach ($projectsByCompany->keys()->filter() as $compId) {
+            $companyBoqQty[$compId] = (float) BoqItem::whereHas('work', function ($q) use ($compId) {
+                $q->where('company_id', $compId);
+            })->sum('qty');
+        }
+        
+        // Calculate project-specific completed qty
+        foreach ($allProjectIds as $projId) {
+            $project = $allProjects->firstWhere('id', $projId);
+            if (!$project) continue;
+            
+            $compId = $project->company_id;
+            $totalBoqQty = $companyBoqQty[$compId] ?? 0;
+            
+            // Get completed qty ONLY for this specific project
+            $totalCompletedQty = (float) CompletedWorkRecordItem::whereHas('completedWorkRecord', function ($q) use ($projId, $compId) {
+                $q->where('company_id', $compId)
+                  ->where('project_id', $projId);
+            })->sum('completed_qty');
+            
+            $progress = $totalBoqQty > 0 ? min(100, round(($totalCompletedQty / $totalBoqQty) * 100, 1)) : 0;
+            $projectProgress[$projId] = [
+                'total_boq_qty' => $totalBoqQty,
+                'total_completed_qty' => $totalCompletedQty,
+                'progress_percent' => $progress,
+            ];
+        }
+
         // Get companies with their projects
         $companiesWithProjects = collect();
         foreach ($projectsByCompany as $compId => $projects) {
             $company = $compId ? ($companies[$compId] ?? null) : null;
+            $defaultProgress = ['total_boq_qty' => 0, 'total_completed_qty' => 0, 'progress_percent' => 0];
+            
+            // Add progress to each project
+            $projectsWithProgress = $projects->map(function ($project) use ($projectProgress, $defaultProgress) {
+                $project->progress = $projectProgress[$project->id] ?? $defaultProgress;
+                return $project;
+            });
+            
             $companiesWithProjects->push([
                 'company' => $company,
                 'company_id' => $compId,
                 'company_name' => $company ? $company->name : 'No Company',
-                'projects' => $projects
+                'projects' => $projectsWithProgress,
+                'progress' => $defaultProgress, // Keep for backward compatibility, but projects have their own progress
             ]);
         }
 

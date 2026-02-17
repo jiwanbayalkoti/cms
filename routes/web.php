@@ -173,6 +173,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('construction-materials/{construction_material}/clone', [ConstructionMaterialController::class, 'clone'])->name('construction-materials.clone');
         });
         Route::post('construction-materials/validate', [ConstructionMaterialController::class, 'validateMaterial'])->name('construction-materials.validate');
+        Route::get('materials-report', [\App\Http\Controllers\Admin\MaterialsReportController::class, 'index'])->name('materials-report.index');
+        Route::get('materials-report/export/excel', [\App\Http\Controllers\Admin\MaterialsReportController::class, 'exportExcel'])->name('materials-report.export.excel');
         Route::resource('material-categories', MaterialCategoryController::class)->except(['show']);
         Route::resource('material-units', MaterialUnitController::class)->except(['show']);
         Route::get('suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
@@ -236,6 +238,39 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('running-bills/{running_bill}/export/excel', [\App\Http\Controllers\Admin\RunningBillController::class, 'exportExcel'])->name('running-bills.export.excel');
         Route::get('running-bills/measurement-book-items', [\App\Http\Controllers\Admin\RunningBillController::class, 'getMeasurementBookItems'])->name('running-bills.measurement-book-items');
         Route::resource('running-bills', \App\Http\Controllers\Admin\RunningBillController::class);
+        // BoQ / Work (Types, Works, Items)
+        Route::get('boq/work', [\App\Http\Controllers\Admin\BoqTypeController::class, 'index'])->name('boq.work-index');
+        Route::get('boq/work/export/excel', [\App\Http\Controllers\Admin\BoqTypeController::class, 'exportExcel'])->name('boq.work-index.export.excel');
+        Route::get('boq/work/export/pdf', [\App\Http\Controllers\Admin\BoqTypeController::class, 'exportPdf'])->name('boq.work-index.export.pdf');
+        Route::put('company-bill-details', [\App\Http\Controllers\Admin\BoqTypeController::class, 'updateCompanyBillDetails'])->name('company-bill-details.update');
+        Route::post('boq/types', [\App\Http\Controllers\Admin\BoqTypeController::class, 'store'])->name('boq.types.store');
+        Route::put('boq/types/{boq_type}', [\App\Http\Controllers\Admin\BoqTypeController::class, 'update'])->name('boq.types.update');
+        Route::delete('boq/types/{boq_type}', [\App\Http\Controllers\Admin\BoqTypeController::class, 'destroy'])->name('boq.types.destroy');
+        Route::get('boq', [\App\Http\Controllers\Admin\BoqWorkController::class, 'index'])->name('boq.index');
+        Route::post('boq/works', [\App\Http\Controllers\Admin\BoqWorkController::class, 'store'])->name('boq.works.store');
+        Route::get('boq/works/{boq_work}/edit', [\App\Http\Controllers\Admin\BoqWorkController::class, 'edit'])->name('boq.works.edit');
+        Route::get('boq/works/{boq_work}', [\App\Http\Controllers\Admin\BoqWorkController::class, 'show'])->name('boq.works.show');
+        Route::put('boq/works/{boq_work}', [\App\Http\Controllers\Admin\BoqWorkController::class, 'update'])->name('boq.works.update');
+        Route::delete('boq/works/{boq_work}', [\App\Http\Controllers\Admin\BoqWorkController::class, 'destroy'])->name('boq.works.destroy');
+        Route::post('boq/works/{boq_work}/items', [\App\Http\Controllers\Admin\BoqWorkController::class, 'updateItems'])->name('boq.works.items.update');
+        // Completed Work
+        Route::get('completed-work', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'index'])->name('completed-work.index');
+        Route::get('completed-work/create', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'create'])->name('completed-work.create');
+        Route::post('completed-work', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'store'])->name('completed-work.store');
+        Route::get('completed-work/{completed_work_record}/edit', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'edit'])->name('completed-work.edit');
+        Route::get('completed-work/{completed_work_record}/materials', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'materialsData'])->name('completed-work.materials-data');
+        Route::post('completed-work/{completed_work_record}/materials', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'storeMaterials'])->name('completed-work.store-materials');
+        Route::delete('completed-work/{completed_work_record}/materials/{usage}', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'destroyMaterialUsage'])->name('completed-work.destroy-material-usage');
+        Route::delete('completed-work/{completed_work_record}/materials-by-name', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'destroyMaterialUsageByName'])->name('completed-work.destroy-material-usage-by-name');
+        Route::get('completed-work/{completed_work_record}', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'show'])->name('completed-work.show');
+        Route::put('completed-work/{completed_work_record}', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'update'])->name('completed-work.update');
+        Route::delete('completed-work/{completed_work_record}', [\App\Http\Controllers\Admin\CompletedWorkRecordController::class, 'destroy'])->name('completed-work.destroy');
+        // Measurement Book (BoQ) – सबै completed work एउटै
+        Route::get('boq-measurement-books', [\App\Http\Controllers\Admin\BoqMeasurementBookController::class, 'index'])->name('boq-measurement-books.index');
+        Route::get('boq-measurement-books/export/excel', [\App\Http\Controllers\Admin\BoqMeasurementBookController::class, 'exportExcel'])->name('boq-measurement-books.export.excel');
+        // Bill Statement (BoQ) – सबै completed work एउटै
+        Route::get('boq-bill-statements', [\App\Http\Controllers\Admin\BoqBillStatementController::class, 'index'])->name('boq-bill-statements.index');
+        Route::get('boq-bill-statements/export/excel', [\App\Http\Controllers\Admin\BoqBillStatementController::class, 'exportExcel'])->name('boq-bill-statements.export.excel');
         });
 
         // Material calculator

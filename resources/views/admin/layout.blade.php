@@ -658,9 +658,27 @@
             }
             
             /* Hide text in all btn-sm buttons, show only icons */
-            .btn-sm {
+            .btn-sm:not(.btn-keep-text) {
                 font-size: 0 !important; /* Hide all text nodes */
                 line-height: 0 !important;
+            }
+            
+            .btn-sm.btn-keep-text {
+                font-size: 0.75rem !important;
+                line-height: 1.25 !important;
+            }
+            .btn-sm.btn-keep-text svg,
+            .btn-sm.btn-keep-text .bi,
+            .btn-sm.btn-keep-text i {
+                flex-shrink: 0;
+            }
+            .btn-sm.btn-keep-text .bi + *,
+            .btn-sm.btn-keep-text i + *,
+            .btn-sm.btn-keep-text svg + *,
+            .btn-sm.btn-keep-text .bi ~ span,
+            .btn-sm.btn-keep-text i ~ span {
+                display: inline !important;
+                font-size: inherit !important;
             }
             
             .btn-sm .bi,
@@ -679,23 +697,28 @@
                 color: inherit;
             }
             
-            /* Hide any text or spans after icons */
-            .btn-sm .bi + *,
-            .btn-sm i + *,
-            .btn-sm span:not(.bi):not(i),
-            .btn-sm .bi ~ span,
-            .btn-sm i ~ span,
-            .btn-sm .bi ~ *:not(.bi):not(i) {
+            /* Hide any text or spans after icons (except btn-keep-text) */
+            .btn-sm:not(.btn-keep-text) .bi + *,
+            .btn-sm:not(.btn-keep-text) i + *,
+            .btn-sm:not(.btn-keep-text) span:not(.bi):not(i),
+            .btn-sm:not(.btn-keep-text) .bi ~ span,
+            .btn-sm:not(.btn-keep-text) i ~ span,
+            .btn-sm:not(.btn-keep-text) .bi ~ *:not(.bi):not(i) {
                 display: none !important;
                 font-size: 0 !important;
             }
             
-            /* Ensure buttons in tables are icon-only */
-            table .btn-sm {
+            /* Ensure buttons in tables are icon-only (except btn-keep-text) */
+            table .btn-sm:not(.btn-keep-text) {
                 padding: 0.5rem !important;
                 min-width: 38px !important;
                 width: 38px !important;
                 height: 38px !important;
+            }
+            table .btn-sm.btn-keep-text {
+                min-width: auto !important;
+                width: auto !important;
+                height: auto !important;
             }
             
             table .btn-sm .bi,
@@ -706,11 +729,15 @@
             
             /* Mobile button optimization - show icons only or smaller text */
             @media (max-width: 768px) {
-                /* Hide text in small buttons, show only icons */
-                .btn-sm .bi + *,
-                .btn-sm span:not(.bi),
-                .btn-sm:not(:has(.bi)) {
+                /* Hide text in small buttons, show only icons (except btn-keep-text) */
+                .btn-sm:not(.btn-keep-text) .bi + *,
+                .btn-sm:not(.btn-keep-text) span:not(.bi),
+                .btn-sm:not(.btn-keep-text):not(:has(.bi)) {
                     display: none !important;
+                }
+                .btn-sm.btn-keep-text {
+                    min-width: auto !important;
+                    width: auto !important;
                 }
                 
                 /* Show icons in buttons */
@@ -907,8 +934,8 @@
                 <nav class="space-y-1 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800" id="sidebar-nav" style="scrollbar-width: thin; scrollbar-color: #4b5563 #1f2937;">
                     @php
                         $projectsOpen = $projectsOpen ?? request()->routeIs('admin.projects.*');
-                        $materialsOpen = $materialsOpen ?? (request()->routeIs('admin.construction-materials.*') || request()->routeIs('admin.material-*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.payment-modes.*') || request()->routeIs('admin.purchased-bies.*'));
-                        $billingOpen = $billingOpen ?? (request()->routeIs('admin.bill-*') || request()->routeIs('admin.measurement-books.*') || request()->routeIs('admin.running-bills.*'));
+                        $materialsOpen = $materialsOpen ?? (request()->routeIs('admin.construction-materials.*') || request()->routeIs('admin.materials-report.*') || request()->routeIs('admin.material-*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.payment-modes.*') || request()->routeIs('admin.purchased-bies.*'));
+                        $billingOpen = $billingOpen ?? (request()->routeIs('admin.bill-*') || request()->routeIs('admin.measurement-books.*') || request()->routeIs('admin.running-bills.*') || request()->routeIs('admin.boq.*') || request()->routeIs('admin.completed-work.*') || request()->routeIs('admin.boq-measurement-books.*') || request()->routeIs('admin.boq-bill-statements.*'));
                         $staffOpen = $staffOpen ?? (request()->routeIs('admin.staff.*') || request()->routeIs('admin.positions.*') || request()->routeIs('admin.users.*'));
                         $financeOpen = $financeOpen ?? (request()->routeIs('admin.incomes.*') || request()->routeIs('admin.expenses.*') || request()->routeIs('admin.reports.*') || request()->routeIs('admin.categories.*') || request()->routeIs('admin.subcategories.*'));
                         $accountingOpen = $accountingOpen ?? (request()->routeIs('admin.chart-of-accounts.*') || request()->routeIs('admin.journal-entries.*') || request()->routeIs('admin.bank-accounts.*') || request()->routeIs('admin.purchase-invoices.*') || request()->routeIs('admin.sales-invoices.*') || request()->routeIs('admin.customers.*'));
@@ -973,6 +1000,9 @@
                     <a href="{{ route('admin.construction-materials.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.construction-materials.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Construction Materials</span>
                         </a>
+                        <a href="{{ route('admin.materials-report.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.materials-report.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Materials Report</span>
+                        </a>
                         <a href="{{ route('admin.material-categories.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.material-categories.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Material Categories</span>
                         </a>
@@ -1007,10 +1037,23 @@
                         </svg>
                     </button>
                     <div id="billing-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $billingOpen ? 'mt-2' : 'mt-2 hidden' }}">
-                        <a href="{{ route('admin.measurement-books.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.measurement-books.*') ? 'bg-gray-700 text-white' : '' }}">
+                        <a href="{{ route('admin.boq.work-index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.boq.work-index') || request()->routeIs('admin.boq.works.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Work & BoQ</span>
+                        </a>
+                        <a href="{{ route('admin.completed-work.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.completed-work.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Completed Work</span>
+                        </a>
+                        <a href="{{ route('admin.boq-measurement-books.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.boq-measurement-books.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Measurement Book (BoQ)</span>
+                        </a>
+                        <a href="{{ route('admin.boq-bill-statements.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.boq-bill-statements.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Bill Statement (BoQ)</span>
+                        </a>
+                        {{-- Old Measurement Book & Bill Statement (hidden; use BoQ versions above) --}}
+                        <a href="{{ route('admin.measurement-books.index') }}" class="hidden flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.measurement-books.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Measurement Book</span>
                         </a>
-                        <a href="{{ route('admin.running-bills.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.running-bills.*') ? 'bg-gray-700 text-white' : '' }}">
+                        <a href="{{ route('admin.running-bills.index') }}" class="hidden flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.running-bills.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Bill Statement</span>
                         </a>
                     </div>
@@ -2036,10 +2079,9 @@
             }
         }
         
-        // Remove text from action buttons, keep only icons
+        // Remove text from action buttons, keep only icons (skip .btn-keep-text)
         document.addEventListener('DOMContentLoaded', function() {
-            // Remove text nodes from all btn-sm buttons, keep only icons
-            document.querySelectorAll('.btn-sm').forEach(function(button) {
+            document.querySelectorAll('.btn-sm:not(.btn-keep-text)').forEach(function(button) {
                 // Get all child nodes
                 const childNodes = Array.from(button.childNodes);
                 

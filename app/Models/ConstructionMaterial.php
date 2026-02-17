@@ -63,6 +63,11 @@ class ConstructionMaterial extends Model
         return $this->hasOne(Expense::class);
     }
 
+    public function completedWorkUsages()
+    {
+        return $this->hasMany(CompletedWorkMaterialUsage::class, 'construction_material_id');
+    }
+
     protected $casts = [
         'quantity_received' => 'decimal:2',
         'rate_per_unit' => 'decimal:2',
