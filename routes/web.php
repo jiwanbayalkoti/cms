@@ -382,7 +382,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             });
             Route::post('users/validate', [UserController::class, 'validateUser'])->name('users.validate');
             Route::post('users/{user}/validate', [UserController::class, 'validateUser'])->name('users.validate.edit');
+            Route::post('users/{user}/switch', [UserController::class, 'switchToUser'])->name('users.switch');
         });
+        // Switch-back: outside admin_only so impersonated user (e.g. site_engineer) can switch back
+        Route::post('users/switch-back', [UserController::class, 'switchBack'])->name('users.switch-back');
 
         // Companies CRUD (super admin only)
         Route::middleware(['super_admin'])->group(function () {

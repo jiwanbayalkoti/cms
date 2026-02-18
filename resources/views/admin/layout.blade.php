@@ -1256,6 +1256,15 @@
                             @endif
                             
                             <span class="inline text-gray-700 text-xs sm:text-sm truncate max-w-[60px] sm:max-w-[100px]">{{ Auth::user()->name }}</span>
+                            @if(session('impersonate_original_user_id'))
+                            <form method="POST" action="{{ route('admin.users.switch-back') }}" class="inline">
+                                @csrf
+                                <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition duration-200 text-xs sm:text-sm font-medium">
+                                    <span class="hidden sm:inline">Back to Super Admin</span>
+                                    <span class="sm:hidden">Back</span>
+                                </button>
+                            </form>
+                            @endif
                             <form method="POST" action="{{ route('admin.logout') }}">
                                 @csrf
                                 <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg transition duration-200 text-sm sm:text-base">

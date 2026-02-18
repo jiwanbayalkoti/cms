@@ -49,7 +49,8 @@ class CompletedWorkRecordController extends Controller
 
         $records = $query->paginate(15)->withQueryString();
         
-        // Calculate progress for each record (work-wise)
+        // Calculate progress for each record (work-wise) using rate-based formula
+        // Overall Progress % = SUM (Done Qty × Rate) / SUM (Total Qty × Rate) × 100
         $records->getCollection()->transform(function ($record) use ($projectId) {
             $work = $record->work;
             if (!$work) {
@@ -57,10 +58,32 @@ class CompletedWorkRecordController extends Controller
                 return $record;
             }
             
-            // Get total BOQ qty for this work
-            $totalBoqQty = (float) $work->items->sum('qty');
+            // Get total BOQ amount: SUM (Total Qty × Rate) for this work
+            $totalBoqAmount = (float) BoqItem::where('boq_work_id', $work->id)
+                ->selectRaw('SUM(qty * rate) as total')
+                ->value('total') ?? 0;
             
-            // Get total completed qty for this work (project-wise if project_id is set)
+            // Get completed amount: SUM (Done Qty × Rate) for this work (project-wise if project_id is set)
+            $totalCompletedAmount = (float) CompletedWorkRecordItem::query()
+                ->join('completed_work_records', 'completed_work_records.id', '=', 'completed_work_record_items.completed_work_record_id')
+                ->join('boq_items', 'boq_items.id', '=', 'completed_work_record_items.boq_item_id')
+                ->where('completed_work_records.boq_work_id', $work->id)
+                ->where('completed_work_records.company_id', $record->company_id)
+                ->where(function ($q) use ($projectId) {
+                    if ($projectId) {
+                        $q->where('completed_work_records.project_id', $projectId);
+                    } else {
+                        $q->whereNull('completed_work_records.project_id');
+                    }
+                })
+                ->selectRaw('SUM(completed_work_record_items.completed_qty * boq_items.rate) as total')
+                ->value('total') ?? 0;
+            
+            // Calculate progress percentage
+            $progress = $totalBoqAmount > 0 ? min(100, round(($totalCompletedAmount / $totalBoqAmount) * 100, 1)) : 0;
+            
+            // Also calculate quantities for display (backward compatibility)
+            $totalBoqQty = (float) $work->items->sum('qty');
             $totalCompletedQty = (float) CompletedWorkRecordItem::query()
                 ->join('completed_work_records', 'completed_work_records.id', '=', 'completed_work_record_items.completed_work_record_id')
                 ->where('completed_work_records.boq_work_id', $work->id)
@@ -74,11 +97,11 @@ class CompletedWorkRecordController extends Controller
                 })
                 ->sum('completed_work_record_items.completed_qty');
             
-            $progress = $totalBoqQty > 0 ? min(100, round(($totalCompletedQty / $totalBoqQty) * 100, 1)) : 0;
-            
             $record->progress = [
                 'total_boq_qty' => $totalBoqQty,
                 'total_completed_qty' => $totalCompletedQty,
+                'total_boq_amount' => $totalBoqAmount,
+                'total_completed_amount' => $totalCompletedAmount,
                 'progress_percent' => $progress,
             ];
             

@@ -28,6 +28,7 @@ class SiteEngineerMiddleware
             $routeName = $request->route() ? $request->route()->getName() : null;
             
             // Allow access to project index and gallery routes only (no project details)
+            // Also allow switch-back when super admin is impersonating (session has impersonate_original_user_id)
             $allowedRoutes = [
                 'admin.projects.index',
                 'admin.projects.gallery',
@@ -41,6 +42,7 @@ class SiteEngineerMiddleware
                 'admin.projects.gallery.photo.disapprove',
                 'admin.projects.gallery.photos.bulk-approve',
                 'admin.logout',
+                'admin.users.switch-back', // Super admin impersonation: return to super admin from any role
                 null, // Allow routes without names (like root redirect)
             ];
             

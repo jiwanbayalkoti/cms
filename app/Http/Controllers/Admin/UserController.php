@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Company;
 use App\Models\Project;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Support\CompanyContext;
 use App\Rules\StrongPassword;
@@ -584,6 +585,51 @@ class UserController extends Controller
         }
 
         return redirect()->route('admin.users.index')->with('success', 'User deleted successfully.');
+    }
+
+    /**
+     * Switch login to another user (super admin only).
+     * The super admin will see the app as that user's role; can switch back later.
+     */
+    public function switchToUser(User $user)
+    {
+        $currentUser = auth()->user();
+        if (!$currentUser->isSuperAdmin()) {
+            abort(403, 'Only super admin can switch to another user.');
+        }
+        if ($currentUser->id === $user->id) {
+            return redirect()->route('admin.users.index')->with('error', 'You cannot switch to yourself.');
+        }
+
+        session()->put('impersonate_original_user_id', $currentUser->id);
+        Auth::login($user);
+
+        if ($user->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+        return redirect()->route('admin.projects.index');
+    }
+
+    /**
+     * Switch back to super admin (only when impersonating).
+     */
+    public function switchBack()
+    {
+        $originalId = session('impersonate_original_user_id');
+        if (!$originalId) {
+            return redirect()->route('admin.dashboard')->with('error', 'Not impersonating.');
+        }
+
+        $originalUser = User::find($originalId);
+        if (!$originalUser) {
+            session()->forget('impersonate_original_user_id');
+            return redirect()->route('admin.login')->with('error', 'Original session expired.');
+        }
+
+        session()->forget('impersonate_original_user_id');
+        Auth::login($originalUser);
+
+        return redirect()->route('admin.users.index')->with('success', 'Switched back to Super Admin.');
     }
 }
 

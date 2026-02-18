@@ -112,27 +112,88 @@ class ProjectController extends Controller
             })->sum('qty');
         }
         
-        // Calculate project-specific completed qty
+        // Calculate project-specific progress using rate-based formula
+        // Overall Progress % = SUM (Done Qty × Rate) / SUM (Total Qty × Rate) × 100
         foreach ($allProjectIds as $projId) {
             $project = $allProjects->firstWhere('id', $projId);
             if (!$project) continue;
             
             $compId = $project->company_id;
-            $totalBoqQty = $companyBoqQty[$compId] ?? 0;
             
-            // Get completed qty ONLY for this specific project
+            // Get total BOQ amount: SUM (Total Qty × Rate)
+            $totalBoqAmount = (float) BoqItem::whereHas('work', function ($q) use ($compId) {
+                $q->where('company_id', $compId);
+            })->selectRaw('SUM(qty * rate) as total')
+              ->value('total') ?? 0;
+            
+            // Get completed amount: SUM (Done Qty × Rate) for this specific project
+            $totalCompletedAmount = (float) CompletedWorkRecordItem::query()
+                ->join('completed_work_records', 'completed_work_records.id', '=', 'completed_work_record_items.completed_work_record_id')
+                ->join('boq_items', 'boq_items.id', '=', 'completed_work_record_items.boq_item_id')
+                ->where('completed_work_records.company_id', $compId)
+                ->where('completed_work_records.project_id', $projId)
+                ->selectRaw('SUM(completed_work_record_items.completed_qty * boq_items.rate) as total')
+                ->value('total') ?? 0;
+            
+            // Calculate progress percentage
+            $progress = $totalBoqAmount > 0 ? min(100, round(($totalCompletedAmount / $totalBoqAmount) * 100, 1)) : 0;
+            
+            // Also calculate quantities for display (backward compatibility)
+            $totalBoqQty = (float) BoqItem::whereHas('work', function ($q) use ($compId) {
+                $q->where('company_id', $compId);
+            })->sum('qty');
+            
             $totalCompletedQty = (float) CompletedWorkRecordItem::whereHas('completedWorkRecord', function ($q) use ($projId, $compId) {
                 $q->where('company_id', $compId)
                   ->where('project_id', $projId);
             })->sum('completed_qty');
             
-            $progress = $totalBoqQty > 0 ? min(100, round(($totalCompletedQty / $totalBoqQty) * 100, 1)) : 0;
             $projectProgress[$projId] = [
                 'total_boq_qty' => $totalBoqQty,
                 'total_completed_qty' => $totalCompletedQty,
+                'total_boq_amount' => $totalBoqAmount,
+                'total_completed_amount' => $totalCompletedAmount,
                 'progress_percent' => $progress,
             ];
         }
+
+        // Calculate average progress from all completed work records using rate-based formula
+        // Overall Progress % = SUM (Done Qty × Rate) / SUM (Total Qty × Rate) × 100
+        // Get unique works that have completed work records
+        $uniqueWorkIds = CompletedWorkRecord::whereIn('company_id', $companyIds)
+            ->distinct()
+            ->pluck('boq_work_id')
+            ->filter()
+            ->unique();
+        
+        $progressValues = [];
+        foreach ($uniqueWorkIds as $workId) {
+            $work = BoqWork::find($workId);
+            if (!$work || !in_array($work->company_id, $companyIds)) continue;
+            
+            // Get total BOQ amount: SUM (Total Qty × Rate) for this work
+            $totalBoqAmount = (float) BoqItem::where('boq_work_id', $work->id)
+                ->selectRaw('SUM(qty * rate) as total')
+                ->value('total') ?? 0;
+            
+            if ($totalBoqAmount <= 0) continue;
+            
+            // Get completed amount: SUM (Done Qty × Rate) for this work (all projects combined)
+            $totalCompletedAmount = (float) CompletedWorkRecordItem::query()
+                ->join('completed_work_records', 'completed_work_records.id', '=', 'completed_work_record_items.completed_work_record_id')
+                ->join('boq_items', 'boq_items.id', '=', 'completed_work_record_items.boq_item_id')
+                ->where('completed_work_records.boq_work_id', $work->id)
+                ->where('completed_work_records.company_id', $work->company_id)
+                ->selectRaw('SUM(completed_work_record_items.completed_qty * boq_items.rate) as total')
+                ->value('total') ?? 0;
+            
+            $progress = min(100, round(($totalCompletedAmount / $totalBoqAmount) * 100, 1));
+            $progressValues[] = $progress;
+        }
+        
+        $averageProgress = count($progressValues) > 0 
+            ? round(array_sum($progressValues) / count($progressValues), 1) 
+            : 0;
 
         // Get companies with their projects
         $companiesWithProjects = collect();
@@ -157,6 +218,7 @@ class ProjectController extends Controller
 
         return view('admin.projects.index', [
             'companiesWithProjects' => $companiesWithProjects,
+            'averageProgress' => $averageProgress,
         ]);
     }
 

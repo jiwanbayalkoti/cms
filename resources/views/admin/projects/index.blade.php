@@ -37,6 +37,24 @@
     @endif
 </div>
 
+@if(isset($averageProgress))
+@php
+    $avgPct = (float)($averageProgress ?? 0);
+    $avgBarColor = $avgPct >= 100 ? 'bg-green-500' : ($avgPct >= 50 ? 'bg-blue-500' : ($avgPct > 0 ? 'bg-yellow-500' : 'bg-gray-300'));
+    $avgTextColor = $avgPct >= 100 ? 'text-green-600' : ($avgPct >= 50 ? 'text-blue-600' : 'text-gray-600');
+    $avgBarWidth = min(100, $avgPct);
+@endphp
+<div class="mb-6 bg-white rounded-lg shadow-md p-6">
+    <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-semibold text-gray-700">Average Work Progress (All Completed Work)</span>
+        <span class="text-sm font-bold {{ $avgTextColor }}">{{ number_format($avgPct, 1) }}%</span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-3">
+        <div class="{{ $avgBarColor }} h-3 rounded-full transition-all duration-300" style="width: {{ $avgBarWidth }}%"></div>
+    </div>
+</div>
+@endif
+
 @if($companiesWithProjects->count() > 0)
     @foreach($companiesWithProjects as $companyGroup)
         <!-- Company Section -->

@@ -40,14 +40,20 @@
               </span>
             </td>
             <td class="px-4 py-2 whitespace-nowrap">
-              <div class="d-flex gap-1 text-nowrap">
+              <div class="d-flex gap-1 text-nowrap flex-wrap align-items-center">
                 @php
                   $currentUser = auth()->user();
                   $canEdit = $currentUser->isSuperAdmin() || 
                             ($currentUser->isAdmin() && !$user->isSuperAdmin() && $user->company_id == $currentUser->company_id);
                   $canDelete = $currentUser->isSuperAdmin() || 
                               ($currentUser->isAdmin() && !$user->isSuperAdmin() && $user->company_id == $currentUser->company_id);
+                  $canSwitch = $currentUser->isSuperAdmin() && $currentUser->id !== $user->id;
                 @endphp
+                @if($canSwitch)
+                  <button type="button" onclick="showSwitchConfirmation({{ $user->id }}, '{{ addslashes($user->name) }}', '{{ addslashes($user->email) }}')" class="btn btn-sm btn-outline-primary" title="Switch to this user">
+                    <i class="bi bi-person-check me-0"></i> <span class="d-none d-sm-inline">Switch</span>
+                  </button>
+                @endif
                 @if($canEdit)
                   <button onclick="openEditUserModal({{ $user->id }})" class="btn btn-sm btn-outline-warning" title="Edit">
                     <i class="bi bi-pencil"></i>
@@ -78,6 +84,45 @@
     </table>
   </div>
   <x-pagination :paginator="$users" wrapper-class="p-4" />
+</div>
+
+<!-- Switch User Confirmation Modal -->
+<div id="switchUserConfirmationModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm" onclick="if (event.target === this) closeSwitchConfirmation();">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100" onclick="event.stopPropagation()">
+        <div class="bg-gradient-to-br from-indigo-500 to-indigo-600 px-6 py-8 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 text-white mb-4">
+                <i class="bi bi-person-check fs-2"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-1">Switch Login</h3>
+            <p class="text-indigo-100 text-sm">You will see the app as this user</p>
+        </div>
+        <div class="p-6">
+            <div class="flex items-center gap-4 p-4 rounded-xl bg-gray-50 border border-gray-100 mb-5">
+                <div class="flex-shrink-0 w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                    <i class="bi bi-person text-xl"></i>
+                </div>
+                <div class="min-w-0 flex-1 text-left">
+                    <p class="font-semibold text-gray-900 truncate" id="switch-user-name">—</p>
+                    <p class="text-sm text-gray-500 truncate" id="switch-user-email">—</p>
+                </div>
+            </div>
+            <p class="text-gray-600 text-sm text-center mb-6">
+                Use <span class="inline-flex items-center px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs font-medium">Back to Super Admin</span> in the header to return to your account.
+            </p>
+            <form id="switchUserForm" method="POST" action="">
+                @csrf
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeSwitchConfirmation()" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 font-medium transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" id="switchUserConfirmBtn" class="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium transition-colors flex items-center justify-center gap-2">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                        <span>Switch</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -212,6 +257,18 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribut
 let currentUserId = null;
 const currentAuthUserId = {{ auth()->user()->id ?? 'null' }};
 let deleteUserId = null;
+
+function showSwitchConfirmation(userId, userName, userEmail) {
+    document.getElementById('switch-user-name').textContent = userName || '—';
+    document.getElementById('switch-user-email').textContent = userEmail || '—';
+    document.getElementById('switchUserForm').action = `/admin/users/${userId}/switch`;
+    document.getElementById('switchUserConfirmationModal').classList.remove('hidden');
+}
+
+function closeSwitchConfirmation() {
+    document.getElementById('switchUserConfirmationModal').classList.add('hidden');
+    document.getElementById('switchUserForm').action = '';
+}
 let allProjects = [];
 let selectedProjects = new Set();
 let currentUserIsSuperAdmin = {{ auth()->user()->isSuperAdmin() ? 'true' : 'false' }};
@@ -707,6 +764,9 @@ document.addEventListener('keydown', function(e) {
         if (!document.getElementById('deleteUserConfirmationModal').classList.contains('hidden')) {
             closeDeleteUserConfirmation();
         }
+        if (!document.getElementById('switchUserConfirmationModal').classList.contains('hidden')) {
+            closeSwitchConfirmation();
+        }
     }
 });
 
@@ -716,6 +776,16 @@ document.getElementById('userModal').addEventListener('click', function(e) {
 
 document.getElementById('deleteUserConfirmationModal').addEventListener('click', function(e) {
     if (e.target === this) closeDeleteUserConfirmation();
+});
+
+document.getElementById('switchUserConfirmationModal').addEventListener('click', function(e) {
+    if (e.target === this) closeSwitchConfirmation();
+});
+
+document.getElementById('switchUserForm').addEventListener('submit', function() {
+    var btn = document.getElementById('switchUserConfirmBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i> Switching...';
 });
 </script>
 @endpush
