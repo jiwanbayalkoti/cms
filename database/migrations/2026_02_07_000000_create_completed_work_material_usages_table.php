@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('construction_material_id')->constrained('construction_materials')->cascadeOnDelete();
             $table->decimal('quantity', 12, 4)->default(0);
             $table->timestamps();
-            $table->unique(['completed_work_record_id', 'construction_material_id']);
+            $table->unique(['completed_work_record_id', 'construction_material_id'], 'cwmu_record_material_unique');
         });
     }
 
