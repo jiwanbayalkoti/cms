@@ -255,6 +255,29 @@
                         </tr>
                     @endforelse
                 </tbody>
+                @php
+                    $totalItemPrice = $works->sum(fn($w) => $w->items->sum('amount') + $w->children->sum(fn($c) => $c->items->sum('amount')));
+                    $vatPercent = 13;
+                    $vatAmount = round($totalItemPrice * ($vatPercent / 100), 2);
+                    $grandTotal = $totalItemPrice + $vatAmount;
+                @endphp
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="3" class="text-end py-2 fw-semibold">Total Item Price:</td>
+                        <td class="text-end py-2 fw-semibold">{{ number_format($totalItemPrice, 2) }}</td>
+                        <td class="py-2"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="text-end py-2">VAT ({{ $vatPercent }}%):</td>
+                        <td class="text-end py-2">{{ number_format($vatAmount, 2) }}</td>
+                        <td class="py-2"></td>
+                    </tr>
+                    <tr class="fw-bold">
+                        <td colspan="3" class="text-end py-2">Grand Total:</td>
+                        <td class="text-end py-2">{{ number_format($grandTotal, 2) }}</td>
+                        <td class="py-2"></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>

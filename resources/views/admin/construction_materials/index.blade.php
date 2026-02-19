@@ -229,7 +229,37 @@
     </div>
 </div>
 
+<!-- Confirm: Add vehicle rent? -->
+<div id="vehicleRentConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6" onclick="event.stopPropagation()">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Add vehicle rent?</h3>
+        <p class="text-gray-600 mb-4">Do you want to add vehicle rent? You can fill the required details in the popup.</p>
+        <div class="d-flex justify-content-end gap-2">
+            <button type="button" onclick="closeVehicleRentConfirmModal()" class="btn btn-secondary">No</button>
+            <button type="button" id="vehicleRentConfirmYesBtn" class="btn btn-primary">Yes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Vehicle rent form modal (from material) - same full form as Vehicle Rent page -->
+<div id="vehicleRentFromMaterialModal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[95vh] my-8 overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between p-4 border-b">
+            <h3 class="text-xl font-semibold text-gray-900">Add Vehicle Rent</h3>
+            <button type="button" onclick="closeVehicleRentFromMaterialModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4" id="vehicleRentFromMaterialContent">
+            <div class="flex items-center justify-center py-12">
+                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
+<script src="{{ asset('js/vehicle-rent-form.js') }}"></script>
 <script>
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
 let currentMaterialId = null;
@@ -501,10 +531,14 @@ function submitMaterialForm(e) {
     const url = currentMaterialId 
         ? `/admin/construction-materials/${currentMaterialId}`
         : '/admin/construction-materials';
-    const method = currentMaterialId ? 'POST' : 'POST';
     
     if (currentMaterialId) {
         formData.append('_method', 'PUT');
+    } else {
+        const addVehicleRentCheck = form.querySelector('#add_vehicle_rent');
+        if (addVehicleRentCheck && addVehicleRentCheck.checked) {
+            formData.append('add_vehicle_rent', '1');
+        }
     }
     
     fetch(url, {
@@ -526,6 +560,7 @@ function submitMaterialForm(e) {
                 updateMaterialRow(data.material);
             } else {
                 addMaterialRow(data.material);
+                showVehicleRentConfirmModal(data.material.project_id);
             }
         } else {
             showNotification(data.message || 'An error occurred', 'error');
@@ -555,6 +590,60 @@ function closeMaterialModal() {
             </div>
         `;
     }, 300);
+}
+
+// --- Vehicle rent from material (confirm + form modal) ---
+let pendingVehicleRentProjectId = null;
+
+function showVehicleRentConfirmModal(projectId) {
+    pendingVehicleRentProjectId = projectId;
+    const modal = document.getElementById('vehicleRentConfirmModal');
+    const yesBtn = document.getElementById('vehicleRentConfirmYesBtn');
+    yesBtn.onclick = function() {
+        const projectIdToOpen = pendingVehicleRentProjectId;
+        closeVehicleRentConfirmModal();
+        if (projectIdToOpen != null) {
+            openVehicleRentFromMaterialModal(projectIdToOpen);
+        }
+    };
+    modal.classList.remove('hidden');
+}
+
+function closeVehicleRentConfirmModal() {
+    document.getElementById('vehicleRentConfirmModal').classList.add('hidden');
+    pendingVehicleRentProjectId = null;
+}
+
+function closeVehicleRentFromMaterialModal() {
+    document.getElementById('vehicleRentFromMaterialModal').classList.add('hidden');
+    delete window.VR_FORM_CONTAINER;
+    delete window.VR_ON_CLOSE;
+    delete window.VR_ON_SUBMIT_SUCCESS;
+}
+
+function openVehicleRentFromMaterialModal(projectId) {
+    const modal = document.getElementById('vehicleRentFromMaterialModal');
+    const content = document.getElementById('vehicleRentFromMaterialContent');
+    modal.classList.remove('hidden');
+    content.innerHTML = '<div class="flex items-center justify-center py-12"><div class="spinner-border text-primary" role="status"></div></div>';
+
+    window.VR_FORM_CONTAINER = 'vehicleRentFromMaterialContent';
+    window.VR_ON_CLOSE = closeVehicleRentFromMaterialModal;
+    window.VR_ON_SUBMIT_SUCCESS = function(data) {
+        closeVehicleRentFromMaterialModal();
+        showNotification(data.message || 'Vehicle rent added successfully.', 'success');
+    };
+
+    fetch('/admin/vehicle-rents/create', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        buildVehicleRentForm(data, { project_id: projectId });
+    })
+    .catch(err => {
+        content.innerHTML = '<div class="alert alert-danger">Failed to load form. Please try again.</div>';
+    });
 }
 
 // Add Material Row
@@ -806,6 +895,12 @@ document.addEventListener('keydown', function(e) {
         if (!document.getElementById('viewMaterialModal').classList.contains('hidden')) {
             closeViewMaterialModal();
         }
+        if (!document.getElementById('vehicleRentConfirmModal').classList.contains('hidden')) {
+            closeVehicleRentConfirmModal();
+        }
+        if (!document.getElementById('vehicleRentFromMaterialModal').classList.contains('hidden')) {
+            closeVehicleRentFromMaterialModal();
+        }
     }
 });
 
@@ -820,6 +915,12 @@ document.getElementById('viewMaterialModal').addEventListener('click', function(
     if (e.target === this) {
         closeViewMaterialModal();
     }
+});
+document.getElementById('vehicleRentConfirmModal').addEventListener('click', function(e) {
+    if (e.target === this) closeVehicleRentConfirmModal();
+});
+document.getElementById('vehicleRentFromMaterialModal').addEventListener('click', function(e) {
+    if (e.target === this) closeVehicleRentFromMaterialModal();
 });
 
 // Delete Material Confirmation Functions

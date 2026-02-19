@@ -284,13 +284,14 @@ class ConstructionMaterialController extends Controller
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
             $material->load('project');
-            return response()->json([
+            $response = [
                 'success' => true,
                 'message' => 'Construction material record created successfully.',
                 'material' => [
                     'id' => $material->id,
                     'material_name' => $material->material_name,
                     'material_category' => $material->material_category,
+                    'project_id' => $material->project_id,
                     'project_name' => $material->project ? $material->project->name : ($material->project_name ?? ''),
                     'supplier_name' => $material->supplier_name,
                     'quantity_received' => $material->quantity_received,
@@ -300,7 +301,11 @@ class ConstructionMaterialController extends Controller
                     'total_cost' => $material->total_cost,
                     'status' => $material->status,
                 ],
-            ]);
+            ];
+            if ($request->boolean('add_vehicle_rent')) {
+                $response['offer_vehicle_rent'] = true;
+            }
+            return response()->json($response);
         }
 
         return redirect()->route('admin.construction-materials.index')

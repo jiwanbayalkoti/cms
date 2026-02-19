@@ -272,14 +272,14 @@
                                 </span>
                             </td>
                             <td>
-                                <div class="d-flex gap-1 text-nowrap">
-                                    <button onclick="openViewVehicleRentModal({{ $rent->id }})" class="btn btn-outline-primary btn-sm" title="View">
+                                <div class="d-flex gap-1 text-nowrap vehicle-rent-actions">
+                                    <button type="button" data-view-rent-id="{{ $rent->id }}" class="btn btn-outline-primary btn-sm" title="View">
                                         <i class="bi bi-eye"></i>
                                     </button>
-                                    <button onclick="openEditVehicleRentModal({{ $rent->id }})" class="btn btn-outline-warning btn-sm" title="Edit">
+                                    <button type="button" data-edit-rent-id="{{ $rent->id }}" class="btn btn-outline-warning btn-sm" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button onclick="showDeleteVehicleRentConfirmation({{ $rent->id }}, '{{ addslashes($rent->vehicle_number ?? 'Vehicle') }}', '{{ $rent->rent_date->format('Y-m-d') }}')" class="btn btn-outline-danger btn-sm" title="Delete">
+                                    <button type="button" data-delete-rent-id="{{ $rent->id }}" data-vehicle-number="{{ addslashes($rent->vehicle_number ?? 'Vehicle') }}" data-rent-date="{{ $rent->rent_date->format('Y-m-d') }}" class="btn btn-outline-danger btn-sm" title="Delete">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
@@ -338,7 +338,9 @@
 
 @push('scripts')
 <script>
-const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || {!! json_encode(csrf_token()) !!};
+const vehicleRentsCreateUrl = {!! json_encode(route('admin.vehicle-rents.create')) !!};
+const vehicleRentsIndexUrl = {!! json_encode(route('admin.vehicle-rents.index')) !!};
 let currentRentId = null;
 let deleteRentId = null;
 
@@ -376,7 +378,7 @@ function showNotification(message, type = 'success') {
 // Modal management functions
 function openCreateVehicleRentModal() {
     currentRentId = null;
-    fetch('{{ route("admin.vehicle-rents.create") }}', {
+    fetch(vehicleRentsCreateUrl, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
@@ -402,7 +404,7 @@ function openEditVehicleRentModal(rentId) {
                 'Accept': 'application/json'
             }
         }).then(r => r.json()),
-        fetch('{{ route("admin.vehicle-rents.create") }}', {
+        fetch(vehicleRentsCreateUrl, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json'
@@ -455,6 +457,31 @@ function showDeleteVehicleRentConfirmation(rentId, vehicleNumber, rentDate) {
     document.getElementById('deleteVehicleRentConfirmationModal').classList.remove('hidden');
 }
 
+// Event delegation for action buttons (avoids "is not defined" when scripts load in different order)
+document.addEventListener('click', function(e) {
+    var viewBtn = e.target.closest('[data-view-rent-id]');
+    if (viewBtn) {
+        e.preventDefault();
+        openViewVehicleRentModal(parseInt(viewBtn.getAttribute('data-view-rent-id'), 10));
+        return;
+    }
+    var editBtn = e.target.closest('[data-edit-rent-id]');
+    if (editBtn) {
+        e.preventDefault();
+        openEditVehicleRentModal(parseInt(editBtn.getAttribute('data-edit-rent-id'), 10));
+        return;
+    }
+    var deleteBtn = e.target.closest('[data-delete-rent-id]');
+    if (deleteBtn) {
+        e.preventDefault();
+        showDeleteVehicleRentConfirmation(
+            parseInt(deleteBtn.getAttribute('data-delete-rent-id'), 10),
+            deleteBtn.getAttribute('data-vehicle-number') || 'Vehicle',
+            deleteBtn.getAttribute('data-rent-date') || ''
+        );
+    }
+});
+
 function closeDeleteVehicleRentConfirmation() {
     document.getElementById('deleteVehicleRentConfirmationModal').classList.add('hidden');
     deleteRentId = null;
@@ -494,464 +521,14 @@ function confirmDeleteVehicleRent() {
         deleteBtn.textContent = 'Delete';
     });
 }
-
-// Form building - This will be a very large function due to complexity
-function buildVehicleRentForm(data, rent) {
-    const isEdit = !!rent;
-    const container = document.getElementById('vehicleRentFormContainer');
-    
-    // Build vehicle types options
-    const vehicleTypeOptions = Object.entries(data.vehicleTypes).map(([key, label]) => 
-        `<option value="${key}" ${rent && rent.vehicle_type === key ? 'selected' : ''}>${label}</option>`
-    ).join('');
-    
-    // Build projects options
-    const projectOptions = data.projects.map(p => 
-        `<option value="${p.id}" ${rent && rent.project_id == p.id ? 'selected' : ''}>${p.name}</option>`
-    ).join('');
-    
-    // Build suppliers options
-    const supplierOptions = data.suppliers.map(s => 
-        `<option value="${s.id}" ${rent && rent.supplier_id == s.id ? 'selected' : ''}>${s.name}</option>`
-    ).join('');
-    
-    // Build bank accounts options
-    const bankAccountOptions = data.bankAccounts.map(ba => 
-        `<option value="${ba.id}" ${rent && rent.bank_account_id == ba.id ? 'selected' : ''}>${ba.account_name} - ${ba.bank_name}</option>`
-    ).join('');
-    
-    container.innerHTML = `
-        <form id="vehicleRentForm" onsubmit="submitVehicleRentForm(event)">
-            <div class="row mb-4">
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Rent Date <span class="text-danger">*</span></label>
-                    <input type="date" name="rent_date" id="rent_date" class="form-control" value="${rent ? rent.rent_date : '{{ date("Y-m-d") }}'}" required>
-                    <div class="field-error text-danger small mt-1" data-field="rent_date" style="display: none;"></div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Project</label>
-                    <select name="project_id" id="project_id" class="form-select">
-                        <option value="">None</option>
-                        ${projectOptions}
-                    </select>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Supplier</label>
-                    <select name="supplier_id" id="supplier_id" class="form-select">
-                        <option value="">None</option>
-                        ${supplierOptions}
-                    </select>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Vehicle Type <span class="text-danger">*</span></label>
-                    <select name="vehicle_type" id="vehicle_type" class="form-select" onchange="handleVehicleTypeChange()" required>
-                        <option value="">Select Vehicle Type</option>
-                        ${vehicleTypeOptions}
-                    </select>
-                    <div class="field-error text-danger small mt-1" data-field="vehicle_type" style="display: none;"></div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Vehicle Number</label>
-                    <input type="text" name="vehicle_number" id="vehicle_number" class="form-control" value="${rent ? rent.vehicle_number || '' : ''}" placeholder="Registration number">
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Driver Name</label>
-                    <input type="text" name="driver_name" id="driver_name" class="form-control" value="${rent ? rent.driver_name || '' : ''}" placeholder="Driver name">
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Driver Contact</label>
-                    <input type="text" name="driver_contact" id="driver_contact" class="form-control" value="${rent ? rent.driver_contact || '' : ''}" placeholder="Phone number">
-                </div>
-                <div class="col-md-3 mb-3">
-                    <label class="form-label">Purpose</label>
-                    <input type="text" name="purpose" id="purpose" class="form-control" value="${rent ? rent.purpose || '' : ''}" placeholder="Purpose of trip">
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Start Location <span class="text-danger">*</span></label>
-                    <input type="text" name="start_location" id="start_location" class="form-control" value="${rent ? rent.start_location : ''}" placeholder="e.g., Kathmandu" required>
-                    <div class="field-error text-danger small mt-1" data-field="start_location" style="display: none;"></div>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <label class="form-label">Destination Location <span class="text-danger">*</span></label>
-                    <input type="text" name="destination_location" id="destination_location" class="form-control" value="${rent ? rent.destination_location : ''}" placeholder="e.g., Pokhara" required>
-                    <div class="field-error text-danger small mt-1" data-field="destination_location" style="display: none;"></div>
-                </div>
-            </div>
-            
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Rate & Payment Information</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">Rate Type <span class="text-danger">*</span></label>
-                            <select name="rate_type" id="rate_type" class="form-select" onchange="toggleRateFields()" required>
-                                <option value="fixed" ${rent && rent.rate_type === 'fixed' ? 'selected' : (!rent ? 'selected' : '')}>Fixed Rate</option>
-                                <option value="per_km" ${rent && rent.rate_type === 'per_km' ? 'selected' : ''}>Per Kilometer</option>
-                                <option value="per_hour" ${rent && rent.rate_type === 'per_hour' ? 'selected' : ''}>Per Hour</option>
-                                <option value="daywise" ${rent && rent.rate_type === 'daywise' ? 'selected' : ''}>Daywise</option>
-                                <option value="per_quintal" ${rent && rent.rate_type === 'per_quintal' ? 'selected' : ''}>Per Quintal</option>
-                                <option value="not_fixed" ${rent && rent.rate_type === 'not_fixed' ? 'selected' : ''}>Not Fixed</option>
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-3 mb-3" id="distance_field" style="display: none;">
-                            <label class="form-label">Distance (km)</label>
-                            <input type="number" name="distance_km" id="distance_km" step="0.01" min="0" class="form-control" value="${rent ? rent.distance_km || '' : ''}" placeholder="0.00" oninput="calculatePerKm()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="rate_per_km_field" style="display: none;">
-                            <label class="form-label">Rate per km</label>
-                            <input type="number" name="rate_per_km" id="rate_per_km" step="0.01" min="0" class="form-control" value="${rent ? rent.rate_per_km || '' : ''}" placeholder="0.00" oninput="calculatePerKm()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="hours_field" style="display: none;">
-                            <label class="form-label">Hours</label>
-                            <input type="number" name="hours" id="hours" min="0" max="23" class="form-control" value="${rent ? rent.hours || '' : ''}" placeholder="0" oninput="calculatePerHour()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="minutes_field" style="display: none;">
-                            <label class="form-label">Minutes</label>
-                            <input type="number" name="minutes" id="minutes" min="0" max="59" class="form-control" value="${rent ? rent.minutes || '' : ''}" placeholder="0" oninput="calculatePerHour()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="rate_per_hour_field" style="display: none;">
-                            <label class="form-label">Rate per hour</label>
-                            <input type="number" name="rate_per_hour" id="rate_per_hour" step="0.01" min="0" class="form-control" value="${rent ? rent.rate_per_hour || '' : ''}" placeholder="0.00" oninput="calculatePerHour()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="rent_start_date_field" style="display: none;">
-                            <label class="form-label">Rent Start Date <span class="text-danger">*</span></label>
-                            <input type="date" name="rent_start_date" id="rent_start_date" class="form-control" value="${rent ? rent.rent_start_date || '' : ''}" onchange="calculateDaywise()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="rent_end_date_field" style="display: none;">
-                            <label class="form-label">Rent End Date <small class="text-muted">(Leave empty if ongoing)</small></label>
-                            <input type="date" name="rent_end_date" id="rent_end_date" class="form-control" value="${rent ? rent.rent_end_date || '' : ''}" onchange="calculateDaywise()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="number_of_days_field" style="display: none;">
-                            <label class="form-label">Number of Days <small class="text-muted">(Manual entry)</small></label>
-                            <input type="number" name="number_of_days" id="number_of_days" min="1" class="form-control" value="${rent ? rent.number_of_days || '' : ''}" placeholder="1" oninput="calculateDaywise()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="rate_per_day_field" style="display: none;">
-                            <label class="form-label">Rate per day</label>
-                            <input type="number" name="rate_per_day" id="rate_per_day" step="0.01" min="0" class="form-control" value="${rent ? rent.rate_per_day || '' : ''}" placeholder="0.00" oninput="calculateDaywise()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="quantity_quintal_field" style="display: none;">
-                            <label class="form-label">Quantity (Quintal)</label>
-                            <input type="number" name="quantity_quintal" id="quantity_quintal" step="0.01" min="0" class="form-control" value="${rent ? rent.quantity_quintal || '' : ''}" placeholder="0.00" oninput="calculatePerQuintal()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="rate_per_quintal_field" style="display: none;">
-                            <label class="form-label">Rate per quintal</label>
-                            <input type="number" name="rate_per_quintal" id="rate_per_quintal" step="0.01" min="0" class="form-control" value="${rent ? rent.rate_per_quintal || '' : ''}" placeholder="0.00" oninput="calculatePerQuintal()">
-                        </div>
-                        <div class="col-md-3 mb-3" id="fixed_rate_field" style="display: ${rent && rent.rate_type === 'fixed' ? 'block' : (!rent ? 'block' : 'none')};">
-                            <label class="form-label">Fixed Rate <span class="text-danger">*</span></label>
-                            <input type="number" name="fixed_rate" id="fixed_rate" step="0.01" min="0" class="form-control" value="${rent ? rent.fixed_rate || '' : ''}" placeholder="0.00" oninput="updateTotal()">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Total Amount <span class="text-danger" id="total_amount_required">*</span></label>
-                            <input type="number" name="total_amount" id="total_amount" step="0.01" min="0" class="form-control" value="${rent ? rent.total_amount || '' : ''}" oninput="updateBalance()">
-                            <div class="field-error text-danger small mt-1" data-field="total_amount" style="display: none;"></div>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Paid Amount</label>
-                            <input type="number" name="paid_amount" id="paid_amount" step="0.01" min="0" class="form-control" value="${rent ? rent.paid_amount || 0 : 0}" placeholder="0.00" oninput="updateBalance()">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Balance Amount</label>
-                            <input type="text" id="balance_amount" class="form-control" readonly value="${rent ? (rent.total_amount - rent.paid_amount).toFixed(2) : '0.00'}">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Bank Account</label>
-                            <select name="bank_account_id" id="bank_account_id" class="form-select">
-                                <option value="">None</option>
-                                ${bankAccountOptions}
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Payment Date</label>
-                            <input type="date" name="payment_date" id="payment_date" class="form-control" value="${rent ? rent.payment_date || '' : ''}">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Notes</label>
-                <textarea name="notes" id="notes" rows="3" class="form-control" placeholder="Additional notes">${rent ? rent.notes || '' : ''}</textarea>
-            </div>
-            <div class="d-flex justify-content-end">
-                <button type="button" onclick="closeVehicleRentModal()" class="btn btn-secondary me-2">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="submitVehicleRentBtn">${isEdit ? 'Update' : 'Create'} Vehicle Rent</button>
-            </div>
-        </form>
-    `;
-    
-    // Initialize calculations after form is built
-    setTimeout(() => {
-        if (rent) {
-            toggleRateFields();
-            updateTotal();
-        } else {
-            toggleRateFields();
-            updateTotalAmountField();
-            updateBalance();
-        }
-    }, 100);
-}
-
-// Include all calculation functions from create.blade.php
-function handleVehicleTypeChange() {
-    const vehicleType = document.getElementById('vehicle_type').value;
-    const rateTypeSelect = document.getElementById('rate_type');
-    const currentRateType = rateTypeSelect.value;
-    
-    if (vehicleType === 'excavator' || vehicleType === 'jcv') {
-        if (currentRateType === 'fixed' || currentRateType === '' || !currentRentId) {
-            rateTypeSelect.value = 'per_hour';
-        }
-    }
-    toggleRateFields();
-}
-
-function toggleRateFields() {
-    const rateType = document.getElementById('rate_type')?.value;
-    if (!rateType) return;
-    
-    const fields = ['distance_field', 'rate_per_km_field', 'hours_field', 'minutes_field', 'rate_per_hour_field', 
-                    'rent_start_date_field', 'rent_end_date_field', 'number_of_days_field', 'rate_per_day_field',
-                    'quantity_quintal_field', 'rate_per_quintal_field', 'fixed_rate_field'];
-    
-    fields.forEach(field => {
-        const el = document.getElementById(field);
-        if (el) el.style.display = 'none';
-    });
-    
-    if (rateType === 'per_km') {
-        document.getElementById('distance_field').style.display = 'block';
-        document.getElementById('rate_per_km_field').style.display = 'block';
-    } else if (rateType === 'per_hour') {
-        document.getElementById('hours_field').style.display = 'block';
-        document.getElementById('minutes_field').style.display = 'block';
-        document.getElementById('rate_per_hour_field').style.display = 'block';
-    } else if (rateType === 'daywise') {
-        document.getElementById('rent_start_date_field').style.display = 'block';
-        document.getElementById('rent_end_date_field').style.display = 'block';
-        document.getElementById('number_of_days_field').style.display = 'block';
-        document.getElementById('rate_per_day_field').style.display = 'block';
-    } else if (rateType === 'per_quintal') {
-        document.getElementById('quantity_quintal_field').style.display = 'block';
-        document.getElementById('rate_per_quintal_field').style.display = 'block';
-    } else if (rateType === 'fixed') {
-        document.getElementById('fixed_rate_field').style.display = 'block';
-    }
-    
-    updateTotalAmountField();
-    updateTotal();
-}
-
-function updateTotalAmountField() {
-    const rateType = document.getElementById('rate_type')?.value;
-    const totalAmountField = document.getElementById('total_amount');
-    const requiredIndicator = document.getElementById('total_amount_required');
-    
-    if (!rateType || !totalAmountField) return;
-    
-    if (rateType === 'not_fixed') {
-        totalAmountField.removeAttribute('readonly');
-        totalAmountField.removeAttribute('required');
-        totalAmountField.placeholder = 'Enter total amount (optional)';
-        if (requiredIndicator) requiredIndicator.style.display = 'none';
-    } else {
-        totalAmountField.setAttribute('readonly', 'readonly');
-        totalAmountField.setAttribute('required', 'required');
-        totalAmountField.placeholder = '0.00';
-        if (requiredIndicator) requiredIndicator.style.display = 'inline';
-    }
-}
-
-function calculatePerKm() {
-    const rateType = document.getElementById('rate_type')?.value;
-    if (rateType === 'per_km') {
-        const distance = parseFloat(document.getElementById('distance_km')?.value || 0);
-        const ratePerKm = parseFloat(document.getElementById('rate_per_km')?.value || 0);
-        const total = distance * ratePerKm;
-        const totalField = document.getElementById('total_amount');
-        if (totalField) totalField.value = total.toFixed(2);
-        updateBalance();
-    }
-}
-
-function calculatePerHour() {
-    const rateType = document.getElementById('rate_type')?.value;
-    if (rateType === 'per_hour') {
-        const hours = parseInt(document.getElementById('hours')?.value || 0);
-        const minutes = parseInt(document.getElementById('minutes')?.value || 0);
-        const ratePerHour = parseFloat(document.getElementById('rate_per_hour')?.value || 0);
-        const totalHours = hours + (minutes / 60);
-        const total = totalHours * ratePerHour;
-        const totalField = document.getElementById('total_amount');
-        if (totalField) totalField.value = total.toFixed(2);
-        updateBalance();
-    }
-}
-
-function calculateDaywise() {
-    const rateType = document.getElementById('rate_type')?.value;
-    if (rateType === 'daywise') {
-        let numberOfDays = 0;
-        const ratePerDay = parseFloat(document.getElementById('rate_per_day')?.value || 0);
-        const startDate = document.getElementById('rent_start_date')?.value;
-        const endDate = document.getElementById('rent_end_date')?.value;
-        
-        if (startDate) {
-            const start = new Date(startDate);
-            const end = endDate ? new Date(endDate) : new Date();
-            const diffTime = Math.abs(end - start);
-            numberOfDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-        } else {
-            numberOfDays = parseInt(document.getElementById('number_of_days')?.value || 0);
-        }
-        
-        const total = numberOfDays * ratePerDay;
-        const totalField = document.getElementById('total_amount');
-        if (totalField) totalField.value = total.toFixed(2);
-        if (startDate && document.getElementById('number_of_days')) {
-            document.getElementById('number_of_days').value = numberOfDays;
-        }
-        updateBalance();
-    }
-}
-
-function calculatePerQuintal() {
-    const rateType = document.getElementById('rate_type')?.value;
-    if (rateType === 'per_quintal') {
-        const quantityQuintal = parseFloat(document.getElementById('quantity_quintal')?.value || 0);
-        const ratePerQuintal = parseFloat(document.getElementById('rate_per_quintal')?.value || 0);
-        const total = quantityQuintal * ratePerQuintal;
-        const totalField = document.getElementById('total_amount');
-        if (totalField) totalField.value = total.toFixed(2);
-        updateBalance();
-    }
-}
-
-function updateTotal() {
-    const rateType = document.getElementById('rate_type')?.value;
-    if (!rateType) return;
-    
-    let total = 0;
-    
-    if (rateType === 'per_km') {
-        const distance = parseFloat(document.getElementById('distance_km')?.value || 0);
-        const ratePerKm = parseFloat(document.getElementById('rate_per_km')?.value || 0);
-        total = distance * ratePerKm;
-    } else if (rateType === 'per_hour') {
-        const hours = parseInt(document.getElementById('hours')?.value || 0);
-        const minutes = parseInt(document.getElementById('minutes')?.value || 0);
-        const ratePerHour = parseFloat(document.getElementById('rate_per_hour')?.value || 0);
-        const totalHours = hours + (minutes / 60);
-        total = totalHours * ratePerHour;
-    } else if (rateType === 'daywise') {
-        let numberOfDays = 0;
-        const ratePerDay = parseFloat(document.getElementById('rate_per_day')?.value || 0);
-        const startDate = document.getElementById('rent_start_date')?.value;
-        const endDate = document.getElementById('rent_end_date')?.value;
-        
-        if (startDate) {
-            const start = new Date(startDate);
-            const end = endDate ? new Date(endDate) : new Date();
-            const diffTime = Math.abs(end - start);
-            numberOfDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-        } else {
-            numberOfDays = parseInt(document.getElementById('number_of_days')?.value || 0);
-        }
-        total = numberOfDays * ratePerDay;
-    } else if (rateType === 'per_quintal') {
-        const quantityQuintal = parseFloat(document.getElementById('quantity_quintal')?.value || 0);
-        const ratePerQuintal = parseFloat(document.getElementById('rate_per_quintal')?.value || 0);
-        total = quantityQuintal * ratePerQuintal;
-    } else if (rateType === 'not_fixed') {
-        total = parseFloat(document.getElementById('total_amount')?.value || 0);
-    } else if (rateType === 'fixed') {
-        total = parseFloat(document.getElementById('fixed_rate')?.value || 0);
-    }
-    
-    const totalField = document.getElementById('total_amount');
-    if (rateType !== 'not_fixed' && totalField) {
-        totalField.value = total.toFixed(2);
-    }
-    updateBalance();
-}
-
-function updateBalance() {
-    const total = parseFloat(document.getElementById('total_amount')?.value || 0);
-    const paid = parseFloat(document.getElementById('paid_amount')?.value || 0);
-    const balance = total - paid;
-    const balanceField = document.getElementById('balance_amount');
-    if (balanceField) balanceField.value = balance.toFixed(2);
-}
-
-function submitVehicleRentForm(e) {
-    e.preventDefault();
-    
-    const form = document.getElementById('vehicleRentForm');
-    const formData = new FormData(form);
-    const submitBtn = document.getElementById('submitVehicleRentBtn');
-    const originalText = submitBtn.textContent;
-    
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Processing...';
-    
-    const url = currentRentId 
-        ? `/admin/vehicle-rents/${currentRentId}`
-        : '/admin/vehicle-rents';
-    
-    if (currentRentId) {
-        formData.append('_method', 'PUT');
-    }
-    
-    fetch(url, {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': csrfToken,
-            'Accept': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification(data.message, 'success');
-            closeVehicleRentModal();
-            
-            if (currentRentId) {
-                updateRentRow(data.rent);
-            } else {
-                addRentRow(data.rent);
-            }
-        } else {
-            if (data.errors) {
-                Object.keys(data.errors).forEach(field => {
-                    const errorEl = document.querySelector(`.field-error[data-field="${field}"]`);
-                    if (errorEl) {
-                        errorEl.textContent = data.errors[field][0];
-                        errorEl.style.display = 'block';
-                    }
-                });
-            }
-            showNotification(data.message || 'Validation failed', 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showNotification('An error occurred', 'error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
-    });
-}
-
+</script>
+@php
+$vehicleRentFormJsPath = public_path('js/vehicle-rent-form.js');
+$vehicleRentFormJs = file_exists($vehicleRentFormJsPath) ? file_get_contents($vehicleRentFormJsPath) : '';
+$vehicleRentFormJs = str_replace('</script>', '<\/script>', $vehicleRentFormJs);
+@endphp
+<script>{!! $vehicleRentFormJs !!}</script>
+<script>
 function buildVehicleRentView(rent) {
     const container = document.getElementById('viewVehicleRentContent');
     const rateTypeLabels = {
@@ -1084,8 +661,11 @@ function addRentRow(rent) {
     };
     
     const statusClass = rent.payment_status === 'paid' ? 'success' : (rent.payment_status === 'partial' ? 'warning' : 'danger');
+    const currentPage = typeof currentVehicleRentPage !== 'undefined' ? currentVehicleRentPage : 1;
+    const sn = (currentPage - 1) * 10 + 1;
     
     row.innerHTML = `
+        <td>${sn}</td>
         <td>${rent.rent_date}</td>
         <td><span class="badge bg-info">${rent.vehicle_type}</span></td>
         <td>${rent.vehicle_number}</td>
@@ -1106,27 +686,28 @@ function addRentRow(rent) {
         <td>
             <span class="badge bg-${statusClass}">${rent.payment_status.charAt(0).toUpperCase() + rent.payment_status.slice(1)}</span>
         </td>
-        <td>
-            <div class="d-flex gap-1 text-nowrap">
-                <button onclick="openViewVehicleRentModal(${rent.id})" class="btn btn-outline-primary btn-sm" title="View">
-                    <i class="bi bi-eye"></i>
-                </button>
-                <button onclick="openEditVehicleRentModal(${rent.id})" class="btn btn-outline-warning btn-sm" title="Edit">
-                    <i class="bi bi-pencil"></i>
-                </button>
-                <button onclick="showDeleteVehicleRentConfirmation(${rent.id}, '${rent.vehicle_number}', '${rent.rent_date}')" class="btn btn-outline-danger btn-sm" title="Delete">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>
-        </td>
+            <td>
+                <div class="d-flex gap-1 text-nowrap vehicle-rent-actions">
+                    <button type="button" data-view-rent-id="${rent.id}" class="btn btn-outline-primary btn-sm" title="View">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button type="button" data-edit-rent-id="${rent.id}" class="btn btn-outline-warning btn-sm" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" data-delete-rent-id="${rent.id}" data-vehicle-number="${(rent.vehicle_number || '—').replace(/'/g, '&#39;')}" data-rent-date="${rent.rent_date}" class="btn btn-outline-danger btn-sm" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
     `;
     
     tbody.insertBefore(row, tbody.firstChild);
 }
 
 function updateRentRow(rent) {
-    const row = document.querySelector(`tr[data-rent-id="${rent.id}"]`);
-    if (!row) return;
+    const tbody = document.querySelector('table tbody');
+    const row = tbody ? tbody.querySelector(`tr[data-rent-id="${rent.id}"]`) : null;
+    if (!row || !tbody) return;
     
     const rateTypeLabels = {
         'fixed': 'Fixed Rate',
@@ -1138,8 +719,12 @@ function updateRentRow(rent) {
     };
     
     const statusClass = rent.payment_status === 'paid' ? 'success' : (rent.payment_status === 'partial' ? 'warning' : 'danger');
+    const currentPage = typeof currentVehicleRentPage !== 'undefined' ? currentVehicleRentPage : 1;
+    const rowIndex = Array.from(tbody.querySelectorAll('tr[data-rent-id]')).indexOf(row);
+    const sn = (currentPage - 1) * 10 + rowIndex + 1;
     
     row.innerHTML = `
+        <td>${sn}</td>
         <td>${rent.rent_date}</td>
         <td><span class="badge bg-info">${rent.vehicle_type}</span></td>
         <td>${rent.vehicle_number}</td>
@@ -1161,14 +746,14 @@ function updateRentRow(rent) {
             <span class="badge bg-${statusClass}">${rent.payment_status.charAt(0).toUpperCase() + rent.payment_status.slice(1)}</span>
         </td>
         <td>
-            <div class="d-flex gap-1 text-nowrap">
-                <button onclick="openViewVehicleRentModal(${rent.id})" class="btn btn-outline-primary btn-sm" title="View">
+            <div class="d-flex gap-1 text-nowrap vehicle-rent-actions">
+                <button type="button" data-view-rent-id="${rent.id}" class="btn btn-outline-primary btn-sm" title="View">
                     <i class="bi bi-eye"></i>
                 </button>
-                <button onclick="openEditVehicleRentModal(${rent.id})" class="btn btn-outline-warning btn-sm" title="Edit">
+                <button type="button" data-edit-rent-id="${rent.id}" class="btn btn-outline-warning btn-sm" title="Edit">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button onclick="showDeleteVehicleRentConfirmation(${rent.id}, '${rent.vehicle_number}', '${rent.rent_date}')" class="btn btn-outline-danger btn-sm" title="Delete">
+                <button type="button" data-delete-rent-id="${rent.id}" data-vehicle-number="${(rent.vehicle_number || '—').replace(/'/g, '&#39;')}" data-rent-date="${rent.rent_date}" class="btn btn-outline-danger btn-sm" title="Delete">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -1239,7 +824,7 @@ function applyFilters(page = 1) {
     document.getElementById('vehicleRentsSummary').style.opacity = '0.5';
     
     // Fetch filtered vehicle rents via AJAX
-    fetch(`{{ route('admin.vehicle-rents.index') }}?${params.toString()}`, {
+    fetch(vehicleRentsIndexUrl + '?' + params.toString(), {
         method: 'GET',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
@@ -1280,9 +865,9 @@ function updateVehicleRentsTable(vehicleRents) {
     if (!vehicleRents || vehicleRents.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="12" class="text-center py-4">
+                <td colspan="13" class="text-center py-4">
                     <p class="text-muted mb-0">No vehicle rent records found.</p>
-                    <button onclick="openCreateVehicleRentModal()" class="btn btn-primary btn-sm mt-2">Add First Record</button>
+                    <button type="button" onclick="openCreateVehicleRentModal()" class="btn btn-primary btn-sm mt-2">Add First Record</button>
                 </td>
             </tr>
         `;
@@ -1292,14 +877,17 @@ function updateVehicleRentsTable(vehicleRents) {
     // Clear and rebuild table rows
     tbody.innerHTML = '';
     
-    vehicleRents.forEach(rent => {
+    const perPage = 10;
+    vehicleRents.forEach((rent, index) => {
         const vehicleNumber = rent.vehicle_number || '—';
         const escapedVehicleNumber = vehicleNumber.replace(/'/g, "\\'");
         const isOngoing = rent.is_ongoing ? `<br><small class="text-warning"><i class="bi bi-clock"></i> Ongoing</small>` : '';
+        const sn = (currentVehicleRentPage - 1) * perPage + index + 1;
         
         const row = document.createElement('tr');
         row.setAttribute('data-rent-id', rent.id);
         row.innerHTML = `
+            <td>${sn}</td>
             <td>${rent.rent_date}</td>
             <td><span class="badge bg-info">${rent.vehicle_type}</span></td>
             <td>${vehicleNumber}</td>
@@ -1321,14 +909,14 @@ function updateVehicleRentsTable(vehicleRents) {
                 </span>
             </td>
             <td>
-                <div class="d-flex gap-1 text-nowrap">
-                    <button onclick="openViewVehicleRentModal(${rent.id})" class="btn btn-outline-primary btn-sm" title="View">
+                <div class="d-flex gap-1 text-nowrap vehicle-rent-actions">
+                    <button type="button" data-view-rent-id="${rent.id}" class="btn btn-outline-primary btn-sm" title="View">
                         <i class="bi bi-eye"></i>
                     </button>
-                    <button onclick="openEditVehicleRentModal(${rent.id})" class="btn btn-outline-warning btn-sm" title="Edit">
+                    <button type="button" data-edit-rent-id="${rent.id}" class="btn btn-outline-warning btn-sm" title="Edit">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button onclick="showDeleteVehicleRentConfirmation(${rent.id}, '${escapedVehicleNumber}', '${rent.rent_date}')" class="btn btn-outline-danger btn-sm" title="Delete">
+                    <button type="button" data-delete-rent-id="${rent.id}" data-vehicle-number="${vehicleNumber.replace(/'/g, '&#39;').replace(/"/g, '&quot;')}" data-rent-date="${rent.rent_date}" class="btn btn-outline-danger btn-sm" title="Delete">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
@@ -1529,7 +1117,7 @@ function handlePaginationClick(e) {
         const pagination = document.getElementById('vehicleRentsPagination');
         const summary = document.getElementById('vehicleRentsSummary');
         
-        if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4 text-muted">Loading...</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="13" class="text-center py-4 text-muted">Loading...</td></tr>';
         
         fetch(`${url.pathname}?${params.toString()}`, {
             headers: {
@@ -1554,7 +1142,7 @@ function handlePaginationClick(e) {
         })
         .catch(error => {
             console.error('Error:', error);
-            if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center py-4 text-danger">Error loading data.</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="13" class="text-center py-4 text-danger">Error loading data.</td></tr>';
         });
     }
 }

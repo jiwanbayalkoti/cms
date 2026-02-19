@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\HasProjectAccess;
+use App\Models\BoqItem;
 use App\Models\BoqWork;
 use App\Models\CompletedWorkMaterialUsage;
 use App\Models\CompletedWorkRecord;
