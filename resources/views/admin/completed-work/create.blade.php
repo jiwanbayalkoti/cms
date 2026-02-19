@@ -129,7 +129,10 @@
                                             @if($isFullyDone)
                                                 <span class="text-muted small">–</span>
                                             @else
-                                                <button type="button" class="btn btn-sm btn-success" onclick="addSubWorkRow(this)" title="Add Sub Work"><i class="bi bi-plus-circle"></i> Sub</button>
+                                                <div class="d-flex gap-1 flex-wrap">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary cw-btn-all" onclick="cwMarkAllQty(this)" title="Fill remaining qty (all) – then no further add" data-max="{{ $remaining }}"><i class="bi bi-check-all"></i> All</button>
+                                                    <button type="button" class="btn btn-sm btn-success" onclick="addSubWorkRow(this)" title="Add Sub Work"><i class="bi bi-plus-circle"></i> Sub</button>
+                                                </div>
                                             @endif
                                         </td>
                                     </tr>
@@ -316,6 +319,23 @@
             });
             cwRowIndex = allRows.length;
         }
+
+        window.cwMarkAllQty = function(btn) {
+            var row = btn.closest('tr.cw-main-row');
+            if (!row) return;
+            var qtyInp = row.querySelector('input.completed-qty-input[name*="[completed_qty]"]');
+            var max = parseFloat(btn.getAttribute('data-max') || row.getAttribute('data-max') || '0');
+            if (!qtyInp || qtyInp.type === 'hidden') return;
+            if (isNaN(max) || max < 0) max = 0;
+            qtyInp.value = max.toFixed(4);
+            qtyInp.readOnly = true;
+            qtyInp.classList.add('bg-light');
+            var allBtn = row.querySelector('.cw-btn-all');
+            if (allBtn) {
+                allBtn.disabled = true;
+                allBtn.classList.add('d-none');
+            }
+        };
 
         function capToMax(input) {
             var max = parseFloat(input.getAttribute('data-max'));

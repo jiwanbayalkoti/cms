@@ -151,7 +151,7 @@
                         <input type="number" step="0.01" min="0.01" class="form-control form-control-sm" id="materialQty" value="1" placeholder="Qty">
                     </div>
                     <div class="col-md-3">
-                        <button type="button" class="btn btn-primary btn-sm w-100" id="materialAddBtn">Add</button>
+                        <button type="button" class="btn btn-primary btn-sm w-100 d-inline-flex align-items-center justify-content-center gap-1" id="materialAddBtn"><i class="bi bi-plus-lg"></i> Add</button>
                     </div>
                 </div>
                 <p class="small text-muted mt-2 mb-0"><span id="materialRemainingHint"></span></p>
