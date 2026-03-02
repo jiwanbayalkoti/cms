@@ -9,6 +9,7 @@ use App\Models\MeasurementBook;
 use App\Models\MeasurementBookItem;
 use App\Models\Project;
 use App\Support\CompanyContext;
+use App\Support\ProjectContext;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -29,11 +30,11 @@ class MeasurementBookController extends Controller
 
         $this->filterByAccessibleProjects($query, 'project_id');
 
-        if ($request->filled('project_id')) {
-            $projectId = (int) $request->project_id;
-            if (!$this->canAccessProject($projectId)) {
-                abort(403, 'You do not have access to this project.');
-            }
+        // Filter by project: query param (if any) else top header active project
+        $projectId = $request->filled('project_id')
+            ? (int) $request->project_id
+            : ProjectContext::getActiveProjectId();
+        if ($projectId && $this->canAccessProject($projectId)) {
             $query->where('project_id', $projectId);
         }
 

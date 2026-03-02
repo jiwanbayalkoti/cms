@@ -2,7 +2,6 @@
 <tr>
     <td>{{ ($books->currentPage() - 1) * $books->perPage() + $loop->iteration }}</td>
     <td>{{ $b->measurement_date->format('Y-m-d') }}</td>
-    <td>{{ $b->project->name ?? '—' }}</td>
     <td>{{ $b->contract_no ?? '—' }}</td>
     <td>{{ Str::limit($b->title, 40) ?: '—' }}</td>
     <td class="text-end">
@@ -16,5 +15,5 @@
     </td>
 </tr>
 @empty
-<tr><td colspan="6" class="text-center text-muted py-4">No records. <a href="{{ route('admin.measurement-books.create') }}">Create one</a></td></tr>
+<tr><td colspan="5" class="text-center text-muted py-4">No records. <a href="{{ route('admin.measurement-books.create') }}">Create one</a></td></tr>
 @endforelse

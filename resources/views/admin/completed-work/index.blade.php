@@ -5,19 +5,19 @@
 @section('content')
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
     <h1 class="h3 mb-0">Completed Work</h1>
-    <div class="d-flex align-items-center gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
         @if(isset($projects) && $projects->isNotEmpty())
-        <form method="get" action="{{ route('admin.completed-work.index') }}" class="d-inline-flex align-items-center gap-1">
-            <label for="project_filter" class="form-label mb-0 small text-muted">Project</label>
-            <select name="project_id" id="project_filter" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-                <option value="">All Projects</option>
+        <form method="GET" action="{{ route('admin.completed-work.index') }}" class="d-inline-flex align-items-center gap-2">
+            <label class="form-label mb-0 small text-muted">Project:</label>
+            <select name="project_id" class="form-select form-select-sm" style="width: auto; min-width: 160px;" onchange="this.form.submit()">
+                <option value="" {{ $projectId === null ? 'selected' : '' }}>All Projects</option>
                 @foreach($projects as $p)
-                    <option value="{{ $p->id }}" {{ (isset($projectId) ? $projectId : request('project_id')) == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
+                    <option value="{{ $p->id }}" {{ (int)$projectId === (int)$p->id ? 'selected' : '' }}>{{ $p->name }}</option>
                 @endforeach
             </select>
         </form>
         @endif
-        <a href="{{ route('admin.completed-work.create') }}" class="btn btn-primary btn-sm btn-keep-text d-inline-flex align-items-center gap-1">
+        <a href="{{ route('admin.completed-work.create', $projectId !== null ? ['project_id' => $projectId] : []) }}" class="btn btn-primary btn-sm btn-keep-text d-inline-flex align-items-center gap-1">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
             Add Completed Work
         </a>
@@ -38,10 +38,10 @@
                 <thead class="table-light">
                     <tr>
                         <th style="width: 50px;">SN</th>
-                        <th>Work</th>
                         @if(isset($projects) && $projects->isNotEmpty())
-                        <th style="width: 120px;">Project</th>
+                        <th>Project</th>
                         @endif
+                        <th>Work</th>
                         <th style="width: 120px;">Date</th>
                         <th style="width: 200px;">Progress</th>
                         <th style="width: 120px;">Used Materials</th>
@@ -52,10 +52,10 @@
                     @forelse($records as $record)
                         <tr>
                             <td>{{ $records->firstItem() + $loop->index }}</td>
-                            <td>{{ $record->work->name ?? '–' }}</td>
                             @if(isset($projects) && $projects->isNotEmpty())
-                            <td>{{ $record->project?->name ?? '–' }}</td>
+                            <td>{{ $record->project->name ?? '–' }}</td>
                             @endif
+                            <td>{{ $record->work->name ?? '–' }}</td>
                             <td>{{ $record->record_date->format('Y-m-d') }}</td>
                             <td>
                                 @php

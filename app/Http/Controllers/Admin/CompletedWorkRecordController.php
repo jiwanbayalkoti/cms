@@ -30,21 +30,27 @@ class CompletedWorkRecordController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
         $projects = $this->getAccessibleProjects();
 
-        // Project-wise: use request project_id or default to active project
-        $projectId = $request->filled('project_id')
-            ? (int) $request->project_id
-            : ProjectContext::getActiveProjectId();
+        // Project filter: from query string (dropdown). Empty = All Projects; missing = use active project.
+        if ($request->has('project_id')) {
+            $raw = $request->input('project_id');
+            $projectId = ($raw === '' || $raw === null) ? null : (int) $raw;
+        } else {
+            $projectId = ProjectContext::getActiveProjectId();
+        }
 
         if ($projectId && !$this->canAccessProject($projectId)) {
             $projectId = null;
         }
+
+        // Keep session in sync with selected project so create/store use the same project
+        ProjectContext::setActiveProjectId($projectId);
 
         $query = CompletedWorkRecord::where('company_id', $companyId)
             ->with(['work', 'project', 'recordItems.boqItem', 'materialUsages'])
             ->orderBy('record_date', 'desc')
             ->orderBy('id', 'desc');
 
-        if ($projectId) {
+        if ($projectId !== null) {
             $query->where('project_id', $projectId);
         }
 
@@ -115,6 +121,13 @@ class CompletedWorkRecordController extends Controller
     public function create(Request $request)
     {
         $companyId = CompanyContext::getActiveCompanyId();
+        // When opened with ?project_id=X (e.g. from filtered index), set active project so store() uses it
+        if ($request->filled('project_id')) {
+            $pid = (int) $request->project_id;
+            if ($this->canAccessProject($pid)) {
+                ProjectContext::setActiveProjectId($pid);
+            }
+        }
         $works = BoqWork::where('company_id', $companyId)->with(['items', 'parent'])->orderByRaw('COALESCE(parent_id, id)')->orderBy('name')->get();
         $selectedWork = null;
         $completedQtyByItem = [];

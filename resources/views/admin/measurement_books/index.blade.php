@@ -11,19 +11,6 @@
     </a>
 </div>
 
-<form id="measurementBooksFilterForm" method="GET" class="mb-3 row g-2 align-items-end">
-    <div class="col-auto">
-        <label class="form-label small mb-0">Project</label>
-        <select name="project_id" class="form-select form-select-sm" style="width:220px">
-            <option value="">All</option>
-            @foreach($projects as $p)
-                <option value="{{ $p->id }}" {{ request('project_id') == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
-            @endforeach
-        </select>
-    </div>
-    <div class="col-auto"><button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-funnel me-1"></i>Filter</button></div>
-</form>
-
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -31,7 +18,6 @@
                 <tr>
                     <th>SN</th>
                     <th>Measurement Date</th>
-                    <th>Project</th>
                     <th>Contract No</th>
                     <th>Title</th>
                     <th class="text-end">Actions</th>
@@ -42,7 +28,6 @@
                 <tr>
                     <td>{{ ($books->currentPage() - 1) * $books->perPage() + $loop->iteration }}</td>
                     <td>{{ $b->measurement_date->format('Y-m-d') }}</td>
-                    <td>{{ $b->project->name ?? '—' }}</td>
                     <td>{{ $b->contract_no ?? '—' }}</td>
                     <td>{{ Str::limit($b->title, 40) ?: '—' }}</td>
                     <td class="text-end">
@@ -56,7 +41,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6" class="text-center text-muted py-4">No records. <a href="{{ route('admin.measurement-books.create') }}">Create one</a></td></tr>
+                <tr><td colspan="5" class="text-center text-muted py-4">No records. <a href="{{ route('admin.measurement-books.create') }}">Create one</a></td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -68,29 +53,4 @@
     </div>
 </div>
 
-@push('scripts')
-<script>
-document.getElementById('measurementBooksFilterForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    var form = this;
-    var params = new URLSearchParams(new FormData(form));
-    var url = '{{ route("admin.measurement-books.index") }}?' + params.toString();
-    var tbody = document.getElementById('measurementBooksTbody');
-    var pagination = document.getElementById('measurementBooksPagination');
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Loading...</td></tr>';
-    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            tbody.innerHTML = data.tbody || '';
-            pagination.innerHTML = data.pagination || '';
-        })
-        .catch(function() {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-4">Error loading data.</td></tr>';
-        });
-});
-document.querySelector('#measurementBooksFilterForm select[name="project_id"]').addEventListener('change', function() {
-    document.getElementById('measurementBooksFilterForm').dispatchEvent(new Event('submit'));
-});
-</script>
-@endpush
 @endsection

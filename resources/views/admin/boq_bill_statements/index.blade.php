@@ -7,19 +7,8 @@
         <p class="text-muted mb-0">Completed work by project</p>
     </div>
     <div class="d-flex align-items-center gap-2">
-        @if(isset($projects) && $projects->isNotEmpty())
-        <form method="get" action="{{ route('admin.boq-bill-statements.index') }}" class="d-inline-flex align-items-center gap-1">
-            <label for="project_filter" class="form-label mb-0 small text-muted">Project</label>
-            <select name="project_id" id="project_filter" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-                <option value="">All Projects</option>
-                @foreach($projects as $p)
-                    <option value="{{ $p->id }}" {{ (isset($projectId) ? $projectId : request('project_id')) == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
-                @endforeach
-            </select>
-        </form>
-        @endif
         @if(!empty($rows))
-            <a href="{{ route('admin.boq-bill-statements.export.excel', isset($projectId) && $projectId ? ['project_id' => $projectId] : []) }}" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Export Excel</a>
+            <a href="{{ route('admin.boq-bill-statements.export.excel') }}" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Export Excel</a>
         @endif
     </div>
 </div>
