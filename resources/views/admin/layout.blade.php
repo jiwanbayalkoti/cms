@@ -94,11 +94,11 @@
         }
         
         .sidebar.collapsed {
-            width: 80px;
+            width: 72px;
         }
         
         .sidebar.expanded {
-            width: 256px;
+            width: 220px;
         }
         
         .sidebar-content {
@@ -131,6 +131,19 @@
         .nav-item {
             position: relative;
             overflow: hidden;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+        }
+        
+        .sidebar .submenu {
+            padding-left: 0.75rem;
+            margin-left: 0.75rem;
+            margin-top: 0.25rem;
+        }
+        
+        .sidebar .submenu a {
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.8125rem !important;
         }
         
         .nav-item::before {
@@ -161,12 +174,12 @@
             left: 100%;
             top: 50%;
             transform: translateY(-50%);
-            margin-left: 12px;
-            padding: 8px 12px;
+            margin-left: 10px;
+            padding: 6px 10px;
             background: rgba(0, 0, 0, 0.9);
             color: white;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
             white-space: nowrap;
             opacity: 0;
             pointer-events: none;
@@ -208,7 +221,7 @@
         
         .menu-badge {
             position: absolute;
-            right: 12px;
+            right: 8px;
             top: 50%;
             transform: translateY(-50%);
         }
@@ -323,7 +336,7 @@
                 left: -100% !important;
                 height: 100vh;
                 z-index: 50;
-                width: 260px !important;
+                width: 220px !important;
                 max-width: 85vw;
                 transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 box-shadow: 2px 0 20px rgba(0, 0, 0, 0.3);
@@ -341,11 +354,11 @@
             .sidebar.mobile-open {
                 left: 0 !important;
                 visibility: visible !important;
-                width: 260px !important;
+                width: 220px !important;
                 max-width: 85vw !important;
                 /* Override flex width when open */
-                flex: 0 0 260px !important;
-                min-width: 260px !important;
+                flex: 0 0 220px !important;
+                min-width: 220px !important;
             }
             
             .sidebar.collapsed,
@@ -861,20 +874,20 @@
         
         <!-- Sidebar -->
         <aside class="sidebar expanded bg-gradient-to-b from-gray-800 via-gray-800 to-gray-900 relative" id="sidebar">
-            <div class="p-4 h-full flex flex-col">
+            <div class="p-3 h-full flex flex-col">
                 @php
                     $activeCompanyId = session('active_company_id') ?: Auth::user()->company_id;
                     $activeCompany = \App\Models\Company::find($activeCompanyId);
                 @endphp
 
                 <!-- Sidebar Header with Toggle -->
-<div class="flex flex-col items-center justify-center mb-6 gap-1">
+<div class="flex flex-col items-center justify-center mb-3 gap-0.5">
   <!-- Top row: logo and toggle button -->
-  <div class="flex flex-row items-center justify-center gap-2 w-full">
+  <div class="flex flex-row items-center justify-center gap-1.5 w-full">
     <!-- <a href="{{ route('admin.dashboard') }}" class="block">
       <img src="{{ asset('logo.svg') }}" alt="Company Logo" class="w-full max-w-[120px] h-auto rounded-lg shadow-lg bg-white p-1 object-contain" style="object-fit:contain;">
                     </a> -->
-                    <svg width="150" height="50" viewBox="0 0 340 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg class="flex-shrink-0" width="110" height="36" viewBox="0 0 340 100" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="cmsBlue" x1="0" y1="0" x2="340" y2="0" gradientUnits="userSpaceOnUse">
       <stop stop-color="#1176d7"/>
@@ -919,8 +932,8 @@
   <text x="230" y="71" font-size="17" font-family="Arial, sans-serif" fill="#ffffff">system</text>
 </svg>
 
-    <button id="sidebarToggle" class="sidebar-toggle-btn h-[44px] px-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-all duration-200 flex items-center justify-center flex-shrink-0" aria-label="Toggle Sidebar">
-      <svg id="sidebarToggleIcon" class="w-6 h-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+    <button id="sidebarToggle" class="sidebar-toggle-btn h-8 w-8 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-all duration-200 flex items-center justify-center flex-shrink-0" aria-label="Toggle Sidebar">
+      <svg id="sidebarToggleIcon" class="w-5 h-5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
         <rect y="4" width="24" height="2" rx="1" fill="currentColor"/>
         <rect y="10" width="24" height="2" rx="1" fill="currentColor"/>
         <rect y="16" width="24" height="2" rx="1" fill="currentColor"/>
@@ -928,10 +941,10 @@
                     </button>
   </div>
   <!-- Second row: company name -->
-  <span class="block text-base sm:text-xl font-bold text-white text-center truncate w-full mt-1">{{ $activeCompany?->name ?? 'Admin Panel' }}</span>
+  <span class="block text-xs sm:text-sm font-semibold text-white text-center truncate w-full mt-0.5">{{ $activeCompany?->name ?? 'Admin Panel' }}</span>
                 </div>
 
-                <nav class="space-y-1 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800" id="sidebar-nav" style="scrollbar-width: thin; scrollbar-color: #4b5563 #1f2937;">
+                <nav class="space-y-0.5 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800" id="sidebar-nav" style="scrollbar-width: thin; scrollbar-color: #4b5563 #1f2937;">
                     @php
                         $projectsOpen = $projectsOpen ?? request()->routeIs('admin.projects.*');
                         $materialsOpen = $materialsOpen ?? (request()->routeIs('admin.construction-materials.*') || request()->routeIs('admin.materials-report.*') || request()->routeIs('admin.material-*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.payment-modes.*') || request()->routeIs('admin.purchased-bies.*'));
@@ -942,32 +955,32 @@
                         $vehicleRentOpen = $vehicleRentOpen ?? request()->routeIs('admin.vehicle-rents.*');
                     @endphp
                     @if(Auth::user()->isAdmin())
-                    <a href="{{ route('admin.dashboard') }}" data-tooltip="Dashboard" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
-                        <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="{{ route('admin.dashboard') }}" data-tooltip="Dashboard" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                         </svg>
                         <span class="nav-item-text">Admin Dashboard</span>
                     </a>
                     @endif
                     @if(Auth::user()->isAdmin())
-                    <a href="{{ route('admin.companies.profile') }}" data-tooltip="Company Profile" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.profile*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
-                        <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="{{ route('admin.companies.profile') }}" data-tooltip="Company Profile" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.profile*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                         </svg>
                         <span class="nav-item-text">Company Profile</span>
                     </a>
                     @endif
                     @if(Auth::user()->role === 'super_admin')
-                    <a href="{{ route('admin.companies.index') }}" data-tooltip="Companies" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.index') || request()->routeIs('admin.companies.create') || request()->routeIs('admin.companies.edit') || request()->routeIs('admin.companies.show') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
-                        <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="{{ route('admin.companies.index') }}" data-tooltip="Companies" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.index') || request()->routeIs('admin.companies.create') || request()->routeIs('admin.companies.edit') || request()->routeIs('admin.companies.show') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"></path>
                         </svg>
                         <span class="nav-item-text">Companies</span>
                     </a>
                     @endif
-                    <button type="button" data-tooltip="Projects" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle" data-target="projects-menu" aria-expanded="{{ $projectsOpen ? 'true' : 'false' }}">
+                    <button type="button" data-tooltip="Projects" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle" data-target="projects-menu" aria-expanded="{{ $projectsOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
-                            <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"></path>
                             </svg>
                             <span class="nav-item-text">Projects</span>
@@ -976,15 +989,15 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="projects-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $projectsOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="projects-menu" class="submenu space-y-0.5 pl-3 ml-3 border-l-2 border-gray-600 {{ $projectsOpen ? 'mt-1' : 'mt-1 hidden' }}">
                         <a href="{{ route('admin.projects.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.projects.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">All Projects</span>
                         </a>
                     </div>
                     @if(Auth::user()->role !== 'site_engineer')
-                    <button type="button" data-tooltip="Materials & Procurement" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle" data-target="materials-menu" aria-expanded="{{ $materialsOpen ? 'true' : 'false' }}">
+                    <button type="button" data-tooltip="Materials & Procurement" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle" data-target="materials-menu" aria-expanded="{{ $materialsOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
-                            <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                             </svg>
                             <span class="nav-item-text">Materials & Procurement</span>
@@ -993,7 +1006,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="materials-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $materialsOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="materials-menu" class="submenu space-y-0.5 pl-3 ml-3 border-l-2 border-gray-600 {{ $materialsOpen ? 'mt-1' : 'mt-1 hidden' }}">
                     <a href="{{ route('admin.material-calculator.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.material-calculator.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Material Calculator</span>
                         </a>   
@@ -1025,9 +1038,9 @@
                     </div>
                     @endif
                     @if(Auth::user()->isAdmin())
-                    <button type="button" data-tooltip="Billing & Estimates" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="billing-menu" aria-expanded="{{ $billingOpen ? 'true' : 'false' }}">
+                    <button type="button" data-tooltip="Billing & Estimates" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-1" data-target="billing-menu" aria-expanded="{{ $billingOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
-                            <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
                             <span class="nav-item-text">Billing & Estimates</span>
@@ -1036,7 +1049,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="billing-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $billingOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="billing-menu" class="submenu space-y-0.5 pl-3 ml-3 border-l-2 border-gray-600 {{ $billingOpen ? 'mt-1' : 'mt-1 hidden' }}">
                         <a href="{{ route('admin.boq.work-index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.boq.work-index') || request()->routeIs('admin.boq.works.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Work & BoQ</span>
                         </a>
@@ -1059,9 +1072,9 @@
                     </div>
                     @endif
                     @if(Auth::user()->isAdmin())
-                    <button type="button" data-tooltip="Staff & Users" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="staff-menu" aria-expanded="{{ $staffOpen ? 'true' : 'false' }}">
+                    <button type="button" data-tooltip="Staff & Users" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-1" data-target="staff-menu" aria-expanded="{{ $staffOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
-                            <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                             </svg>
                             <span class="nav-item-text">Staff & Users</span>
@@ -1070,7 +1083,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="staff-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $staffOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="staff-menu" class="submenu space-y-0.5 pl-3 ml-3 border-l-2 border-gray-600 {{ $staffOpen ? 'mt-1' : 'mt-1 hidden' }}">
                         <a href="{{ route('admin.staff.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.staff.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Staff</span>
                         </a>
@@ -1083,9 +1096,9 @@
                     </div>
                     @endif
                     @if(Auth::user()->role !== 'site_engineer')
-                    <button type="button" data-tooltip="Finance & Reports" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="finance-menu" aria-expanded="{{ $financeOpen ? 'true' : 'false' }}">
+                    <button type="button" data-tooltip="Finance & Reports" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-1" data-target="finance-menu" aria-expanded="{{ $financeOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
-                            <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                             <span class="nav-item-text">Finance & Reports</span>
@@ -1094,7 +1107,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="finance-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $financeOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="finance-menu" class="submenu space-y-0.5 pl-3 ml-3 border-l-2 border-gray-600 {{ $financeOpen ? 'mt-1' : 'mt-1 hidden' }}">
                         @if(Auth::user()->isAdmin())
                         <a href="{{ route('admin.incomes.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.incomes.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Income</span>
@@ -1127,9 +1140,9 @@
                         @endif
                     </div>
                     @endif
-                    <!-- <button type="button" data-tooltip="Accounting System" class="nav-item w-full flex items-center justify-between px-4 py-3 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="accounting-menu" aria-expanded="{{ $accountingOpen ? 'true' : 'false' }}">
+                    <!-- <button type="button" data-tooltip="Accounting System" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-2" data-target="accounting-menu" aria-expanded="{{ $accountingOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
-                            <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
                             <span class="nav-item-text">Accounting System</span>
@@ -1138,7 +1151,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
                     </button>
-                    <div id="accounting-menu" class="submenu space-y-1 pl-4 ml-4 border-l-2 border-gray-600 {{ $accountingOpen ? 'mt-2' : 'mt-2 hidden' }}">
+                    <div id="accounting-menu" class="submenu space-y-0.5 pl-3 ml-3 border-l-2 border-gray-600 {{ $accountingOpen ? 'mt-1' : 'mt-1 hidden' }}">
                         <a href="{{ route('admin.chart-of-accounts.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.chart-of-accounts.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Chart of Accounts</span>
                         </a>
@@ -1159,16 +1172,16 @@
                         </a>
                     </div> -->
                     @if(Auth::user()->role !== 'site_engineer')
-                    <a href="{{ route('admin.vehicle-rents.index') }}" data-tooltip="Vehicle Rent" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.vehicle-rents.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
-                        <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="{{ route('admin.vehicle-rents.index') }}" data-tooltip="Vehicle Rent" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.vehicle-rents.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
                         </svg>
                         <span class="nav-item-text">Vehicle Rent</span>
                     </a>
                     @endif
                     @if(Auth::user()->isAdmin())
-                    <a href="{{ route('admin.advance-payments.index') }}" data-tooltip="Advance Payments" class="nav-item flex items-center px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.advance-payments.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
-                        <svg class="w-5 h-5 mr-3 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="{{ route('admin.advance-payments.index') }}" data-tooltip="Advance Payments" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.advance-payments.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         <span class="nav-item-text">Advance Payments</span>
