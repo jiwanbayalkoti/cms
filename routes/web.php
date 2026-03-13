@@ -169,6 +169,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('construction-materials', [ConstructionMaterialController::class, 'store'])->name('construction-materials.store');
             Route::put('construction-materials/{construction_material}', [ConstructionMaterialController::class, 'update'])->name('construction-materials.update');
             Route::patch('construction-materials/{construction_material}', [ConstructionMaterialController::class, 'update']);
+            Route::patch('construction-materials/{construction_material}/quantity-used', [ConstructionMaterialController::class, 'updateQuantityUsed'])->name('construction-materials.update-quantity-used');
             Route::delete('construction-materials/{construction_material}', [ConstructionMaterialController::class, 'destroy'])->name('construction-materials.destroy');
             Route::get('construction-materials/{construction_material}/clone', [ConstructionMaterialController::class, 'clone'])->name('construction-materials.clone');
         });

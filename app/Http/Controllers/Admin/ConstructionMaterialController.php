@@ -470,6 +470,62 @@ class ConstructionMaterialController extends Controller
             ->with('success', 'Construction material record updated successfully.');
     }
 
+    /**
+     * Add to quantity_used (from list action). Does not replace – adds to previous value.
+     * add_quantity must be <= current quantity_remaining.
+     */
+    public function updateQuantityUsed(Request $request, ConstructionMaterial $construction_material)
+    {
+        $currentRemaining = (float) $construction_material->quantity_remaining;
+        $currentUsed = (float) $construction_material->quantity_used;
+
+        $request->validate([
+            'add_quantity' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:' . $currentRemaining,
+            ],
+        ], [
+            'add_quantity.max' => 'Add quantity cannot exceed remaining quantity (' . number_format($currentRemaining, 2) . ').',
+        ]);
+
+        $addQuantity = (float) $request->input('add_quantity');
+        $newUsed = $currentUsed + $addQuantity;
+        $newRemaining = $currentRemaining - $addQuantity;
+
+        $construction_material->update([
+            'quantity_used' => $newUsed,
+            'quantity_remaining' => $newRemaining,
+        ]);
+
+        $construction_material->refresh();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            $construction_material->load('project');
+            return response()->json([
+                'success' => true,
+                'message' => 'Used quantity updated successfully.',
+                'material' => [
+                    'id' => $construction_material->id,
+                    'material_name' => $construction_material->material_name,
+                    'material_category' => $construction_material->material_category,
+                    'project_name' => $construction_material->project ? $construction_material->project->name : ($construction_material->project_name ?? ''),
+                    'supplier_name' => $construction_material->supplier_name,
+                    'quantity_received' => $construction_material->quantity_received,
+                    'quantity_used' => $construction_material->quantity_used,
+                    'quantity_remaining' => $construction_material->quantity_remaining,
+                    'unit' => $construction_material->unit,
+                    'total_cost' => $construction_material->total_cost,
+                    'status' => $construction_material->status,
+                ],
+            ]);
+        }
+
+        return redirect()->route('admin.construction-materials.index')
+            ->with('success', 'Used quantity updated successfully.');
+    }
+
     public function destroy(Request $request, ConstructionMaterial $construction_material)
     {
         if ($construction_material->bill_attachment) {

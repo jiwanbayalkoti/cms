@@ -53,7 +53,7 @@ class ProjectController extends Controller
         return $this->validateForm($request, $rules);
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
         $companyId = CompanyContext::getActiveCompanyId();
@@ -79,6 +79,8 @@ class ProjectController extends Controller
                 // User has no company, return empty
                 return view('admin.projects.index', [
                     'companiesWithProjects' => collect(),
+                    'averageProgress' => 0,
+                    'statusFilter' => $request->get('status', 'all'),
                 ]);
             }
         } else {
@@ -88,6 +90,15 @@ class ProjectController extends Controller
             }
             // If companyId is 1 or null, show all companies
         }
+        
+        // Filter by status (for completed project management)
+        $statusFilter = $request->get('status', 'all');
+        if ($statusFilter === 'completed') {
+            $query->where('status', Project::STATUS_COMPLETED);
+        } elseif ($statusFilter === 'active') {
+            $query->whereIn('status', [Project::STATUS_ACTIVE, Project::STATUS_ON_HOLD]);
+        }
+        // 'all' or any other value: no status filter
         
         // Get all projects and group by company
         $allProjects = $query->latest('updated_at')->get();
@@ -137,6 +148,11 @@ class ProjectController extends Controller
             
             // Calculate progress percentage
             $progress = $totalBoqAmount > 0 ? min(100, round(($totalCompletedAmount / $totalBoqAmount) * 100, 1)) : 0;
+            
+            // When project status is completed, show work progress as 100%
+            if ($project->status === Project::STATUS_COMPLETED && $progress < 100) {
+                $progress = 100;
+            }
             
             // Also calculate quantities for display (backward compatibility)
             $totalBoqQty = (float) BoqItem::whereHas('work', function ($q) use ($compId) {
@@ -216,9 +232,31 @@ class ProjectController extends Controller
             ]);
         }
 
+        // AJAX filter: return only the list HTML (no full page reload)
+        // Use header or query param so we always get JSON (some setups strip X-Requested-With)
+        $wantsJson = $request->ajax() || $request->wantsJson() || $request->get('filter_ajax') === '1';
+        if ($wantsJson) {
+            $listHtml = view('admin.projects.partials._list', [
+                'companiesWithProjects' => $companiesWithProjects,
+                'averageProgress' => $averageProgress,
+                'statusColors' => [
+                    'planned' => 'bg-gray-100 text-gray-800',
+                    'active' => 'bg-green-100 text-green-800',
+                    'on_hold' => 'bg-yellow-100 text-yellow-800',
+                    'completed' => 'bg-blue-100 text-blue-800',
+                    'cancelled' => 'bg-red-100 text-red-800',
+                ],
+            ])->render();
+            return response()->json([
+                'html' => $listHtml,
+                'statusFilter' => $statusFilter,
+            ]);
+        }
+
         return view('admin.projects.index', [
             'companiesWithProjects' => $companiesWithProjects,
             'averageProgress' => $averageProgress,
+            'statusFilter' => $statusFilter,
         ]);
     }
 

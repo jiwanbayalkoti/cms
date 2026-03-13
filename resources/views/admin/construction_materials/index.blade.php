@@ -153,6 +153,31 @@
     </div>
 </div>
 
+<!-- Add to Used Quantity Modal (adds to previous used; max = remaining) -->
+<div id="updateUsedModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full" onclick="event.stopPropagation()">
+        <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Add to Used Quantity</h3>
+            <p class="text-sm text-gray-600 mb-3" id="updateUsed-material-name"></p>
+            <input type="hidden" id="updateUsed-material-id" value="">
+            <input type="hidden" id="updateUsed-remaining" value="">
+            <div class="mb-3 p-3 bg-gray-50 rounded">
+                <div class="text-sm text-gray-600 mb-1">Current Used <span id="updateUsed-unit1" class="text-muted"></span>: <strong id="updateUsed-current-used"></strong></div>
+                <div class="text-sm text-gray-600">Remaining (max you can add) <span id="updateUsed-unit2" class="text-muted"></span>: <strong id="updateUsed-current-remaining"></strong></div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Add to used <span id="updateUsed-unit" class="text-muted"></span></label>
+                <input type="number" step="0.0001" min="0" id="updateUsed-quantity" class="form-control" placeholder="0">
+                <p class="text-xs text-muted mt-1">Max add: <span id="updateUsed-max-label"></span> (remaining).</p>
+            </div>
+            <div class="flex gap-2 justify-content-end">
+                <button type="button" onclick="closeUpdateUsedModal()" class="btn btn-secondary">Cancel</button>
+                <button type="button" id="updateUsedSubmitBtn" onclick="submitUpdateUsedQuantity()" class="btn btn-primary">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Delete Material Confirmation Modal -->
 <div id="deleteMaterialConfirmationModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-lg shadow-2xl max-w-md w-full" onclick="event.stopPropagation()">
@@ -654,6 +679,11 @@ function addMaterialRow(material) {
     if (emptyRow) {
         emptyRow.closest('tr').remove();
     }
+
+    const usedQty = parseFloat(material.quantity_used || 0).toFixed(2);
+    const remainingQty = parseFloat(material.quantity_remaining || 0).toFixed(2);
+    const unitEsc = (material.unit || '').replace(/'/g, "\\'");
+    const nameEsc = (material.material_name || '').replace(/'/g, "\\'");
     
     const row = document.createElement('tr');
     row.setAttribute('data-material-id', material.id);
@@ -666,23 +696,26 @@ function addMaterialRow(material) {
         <td>${material.project_name}</td>
         <td>${material.supplier_name || ''}</td>
         <td>${parseFloat(material.quantity_received).toFixed(2)} ${material.unit}</td>
-        <td>${parseFloat(material.quantity_used || 0).toFixed(2)} ${material.unit}</td>
+        <td>${usedQty} ${material.unit}</td>
         <td>${parseFloat(material.quantity_remaining || 0).toFixed(2)} ${material.unit}</td>
         <td>${parseFloat(material.total_cost).toFixed(2)}</td>
         <td><span class="badge bg-secondary">${material.status}</span></td>
         <td class="text-end">
-            <div class="d-flex gap-1 justify-content-end">
-                <button onclick="openViewMaterialModal(${material.id})" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-eye me-1"></i> View
+            <div class="d-flex gap-1 justify-content-end text-nowrap">
+                ${parseFloat(remainingQty) > 0 ? `<button onclick="openUpdateUsedModal(${material.id}, ${usedQty}, '${unitEsc}', '${nameEsc}', ${remainingQty})" class="btn btn-sm btn-outline-secondary material-action-btn" title="Add Used Qty">
+                    <i class="bi bi-box-arrow-in-down"></i> <span class="btn-text">Used</span>
+                </button>` : ''}
+                <button onclick="openViewMaterialModal(${material.id})" class="btn btn-sm btn-outline-primary" title="View">
+                    <i class="bi bi-eye"></i>
                 </button>
-                <button onclick="openEditMaterialModal(${material.id})" class="btn btn-sm btn-outline-warning">
-                    <i class="bi bi-pencil me-1"></i> Edit
+                <button onclick="openEditMaterialModal(${material.id})" class="btn btn-sm btn-outline-warning" title="Edit">
+                    <i class="bi bi-pencil"></i>
                 </button>
-                <a href="/admin/construction-materials/${material.id}/clone" class="btn btn-sm btn-outline-info" onclick="return confirm('Are you sure you want to duplicate this material record?');">
-                    <i class="bi bi-files me-1"></i> Duplicate
+                <a href="/admin/construction-materials/${material.id}/clone" class="btn btn-sm btn-outline-info" onclick="return confirm('Are you sure you want to duplicate this material record?');" title="Duplicate">
+                    <i class="bi bi-files"></i>
                 </a>
-                <button onclick="showDeleteMaterialConfirmation(${material.id}, '${material.material_name.replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-danger">
-                    <i class="bi bi-trash me-1"></i> Delete
+                <button onclick="showDeleteMaterialConfirmation(${material.id}, '${nameEsc}')" class="btn btn-sm btn-outline-danger" title="Delete">
+                    <i class="bi bi-trash"></i>
                 </button>
             </div>
         </td>
@@ -691,10 +724,28 @@ function addMaterialRow(material) {
     tbody.insertBefore(row, tbody.firstChild);
 }
 
-// Update Material Row
+// Update only Qty Used and Qty Remaining cells (after Add Used modal); hide Used button if remaining is 0
+function updateMaterialRowUsedOnly(material) {
+    const row = document.querySelector(`tr[data-material-id="${material.id}"]`);
+    if (!row) return;
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 7) {
+        cells[5].textContent = parseFloat(material.quantity_used || 0).toFixed(2) + ' ' + (material.unit || '');
+        cells[6].textContent = parseFloat(material.quantity_remaining || 0).toFixed(2) + ' ' + (material.unit || '');
+    }
+    var remaining = parseFloat(material.quantity_remaining || 0);
+    var usedBtn = row.querySelector('button[title="Add Used Qty"]');
+    if (remaining <= 0 && usedBtn) usedBtn.remove();
+}
+
+// Update Material Row (full row replace after Edit)
 function updateMaterialRow(material) {
     const row = document.querySelector(`tr[data-material-id="${material.id}"]`);
     if (row) {
+        const usedQty = parseFloat(material.quantity_used || 0).toFixed(2);
+        const remainingQty = parseFloat(material.quantity_remaining || 0).toFixed(2);
+        const unitEsc = (material.unit || '').replace(/'/g, "\\'");
+        const nameEsc = (material.material_name || '').replace(/'/g, "\\'");
         row.innerHTML = `
             <td>${material.id}</td>
             <td>
@@ -704,23 +755,26 @@ function updateMaterialRow(material) {
             <td>${material.project_name}</td>
             <td>${material.supplier_name || ''}</td>
             <td>${parseFloat(material.quantity_received).toFixed(2)} ${material.unit}</td>
-            <td>${parseFloat(material.quantity_used || 0).toFixed(2)} ${material.unit}</td>
+            <td>${usedQty} ${material.unit}</td>
             <td>${parseFloat(material.quantity_remaining || 0).toFixed(2)} ${material.unit}</td>
             <td>${parseFloat(material.total_cost).toFixed(2)}</td>
             <td><span class="badge bg-secondary">${material.status}</span></td>
             <td class="text-end">
-                <div class="d-flex gap-1 justify-content-end">
-                    <button onclick="openViewMaterialModal(${material.id})" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-eye me-1"></i> View
+                <div class="d-flex gap-1 justify-content-end text-nowrap">
+                    ${parseFloat(remainingQty) > 0 ? `<button onclick="openUpdateUsedModal(${material.id}, ${usedQty}, '${unitEsc}', '${nameEsc}', ${remainingQty})" class="btn btn-sm btn-outline-secondary material-action-btn" title="Add Used Qty">
+                        <i class="bi bi-box-arrow-in-down"></i> <span class="btn-text">Used</span>
+                    </button>` : ''}
+                    <button onclick="openViewMaterialModal(${material.id})" class="btn btn-sm btn-outline-primary" title="View">
+                        <i class="bi bi-eye"></i>
                     </button>
-                    <button onclick="openEditMaterialModal(${material.id})" class="btn btn-sm btn-outline-warning">
-                        <i class="bi bi-pencil me-1"></i> Edit
+                    <button onclick="openEditMaterialModal(${material.id})" class="btn btn-sm btn-outline-warning" title="Edit">
+                        <i class="bi bi-pencil"></i>
                     </button>
-                    <a href="/admin/construction-materials/${material.id}/clone" class="btn btn-sm btn-outline-info" onclick="return confirm('Are you sure you want to duplicate this material record?');">
-                        <i class="bi bi-files me-1"></i> Duplicate
+                    <a href="/admin/construction-materials/${material.id}/clone" class="btn btn-sm btn-outline-info" onclick="return confirm('Are you sure you want to duplicate this material record?');" title="Duplicate">
+                        <i class="bi bi-files"></i>
                     </a>
-                    <button onclick="showDeleteMaterialConfirmation(${material.id}, '${(material.material_name || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-danger">
-                        <i class="bi bi-trash me-1"></i> Delete
+                    <button onclick="showDeleteMaterialConfirmation(${material.id}, '${nameEsc}')" class="btn btn-sm btn-outline-danger" title="Delete">
+                        <i class="bi bi-trash"></i>
                     </button>
                 </div>
             </td>
@@ -886,6 +940,90 @@ function closeViewMaterialModal() {
     }, 300);
 }
 
+// Add to Used Quantity Modal (addAmount max = remaining)
+function openUpdateUsedModal(materialId, currentUsed, unit, materialName, remaining) {
+    document.getElementById('updateUsed-material-id').value = materialId;
+    document.getElementById('updateUsed-quantity').value = '';
+    document.getElementById('updateUsed-quantity').setAttribute('max', remaining != null ? remaining : '');
+    document.getElementById('updateUsed-remaining').value = remaining != null ? remaining : '';
+    var u = (unit || '');
+    document.getElementById('updateUsed-unit').textContent = '(' + u + ')';
+    document.getElementById('updateUsed-unit1').textContent = '(' + u + ')';
+    document.getElementById('updateUsed-unit2').textContent = '(' + u + ')';
+    document.getElementById('updateUsed-material-name').textContent = materialName ? 'Material: ' + materialName : '';
+    document.getElementById('updateUsed-current-used').textContent = parseFloat(currentUsed).toFixed(2) + ' ' + u;
+    document.getElementById('updateUsed-current-remaining').textContent = (remaining != null ? parseFloat(remaining).toFixed(2) : '0') + ' ' + u;
+    document.getElementById('updateUsed-max-label').textContent = (remaining != null ? parseFloat(remaining).toFixed(2) : '0') + ' ' + u;
+    document.getElementById('updateUsedModal').classList.remove('hidden');
+}
+
+function closeUpdateUsedModal() {
+    document.getElementById('updateUsedModal').classList.add('hidden');
+}
+
+function submitUpdateUsedQuantity() {
+    const materialId = document.getElementById('updateUsed-material-id').value;
+    const quantityInput = document.getElementById('updateUsed-quantity');
+    const addQuantity = parseFloat(quantityInput.value);
+    const remaining = parseFloat(document.getElementById('updateUsed-remaining').value) || 0;
+    const btn = document.getElementById('updateUsedSubmitBtn');
+
+    if (isNaN(addQuantity) || addQuantity < 0) {
+        showNotification('Please enter a valid quantity (0 or more) to add.', 'error');
+        return;
+    }
+    if (addQuantity > remaining) {
+        showNotification('Add quantity cannot exceed remaining (' + parseFloat(remaining).toFixed(2) + ').', 'error');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+
+    var formData = new URLSearchParams();
+    formData.append('_token', csrfToken);
+    formData.append('_method', 'PATCH');
+    formData.append('add_quantity', addQuantity);
+
+    fetch('/admin/construction-materials/' + materialId + '/quantity-used', {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString()
+    })
+    .then(function(r) {
+        return r.json().then(function(data) {
+            if (!r.ok) {
+                var msg = data.message || 'Update failed';
+                if (data.errors && data.errors.add_quantity && data.errors.add_quantity[0])
+                    msg = data.errors.add_quantity[0];
+                throw new Error(msg);
+            }
+            return data;
+        });
+    })
+    .then(function(data) {
+        if (data.success && data.material) {
+            showNotification(data.message || 'Added to used quantity.', 'success');
+            closeUpdateUsedModal();
+            updateMaterialRowUsedOnly(data.material);
+        } else {
+            throw new Error(data.message || 'Update failed');
+        }
+    })
+    .catch(function(err) {
+        showNotification(err.message || 'Failed to update used quantity.', 'error');
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Add';
+    });
+}
+
 // Close modal on Escape key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
@@ -894,6 +1032,9 @@ document.addEventListener('keydown', function(e) {
         }
         if (!document.getElementById('viewMaterialModal').classList.contains('hidden')) {
             closeViewMaterialModal();
+        }
+        if (!document.getElementById('updateUsedModal').classList.contains('hidden')) {
+            closeUpdateUsedModal();
         }
         if (!document.getElementById('vehicleRentConfirmModal').classList.contains('hidden')) {
             closeVehicleRentConfirmModal();
@@ -914,6 +1055,11 @@ document.getElementById('materialModal').addEventListener('click', function(e) {
 document.getElementById('viewMaterialModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeViewMaterialModal();
+    }
+});
+document.getElementById('updateUsedModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeUpdateUsedModal();
     }
 });
 document.getElementById('vehicleRentConfirmModal').addEventListener('click', function(e) {
