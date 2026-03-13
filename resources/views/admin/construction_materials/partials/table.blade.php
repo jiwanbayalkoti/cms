@@ -18,7 +18,7 @@
             <td class="text-end">
                 <div class="d-flex gap-1 justify-content-end text-nowrap">
                     @if((float) $material->quantity_remaining > 0)
-                    <button onclick="openUpdateUsedModal({{ $material->id }}, {{ number_format($material->quantity_used, 2, '.', '') }}, '{{ addslashes($material->unit) }}', '{{ addslashes($material->material_name) }}', {{ number_format($material->quantity_remaining, 2, '.', '') }})" class="btn btn-sm btn-outline-secondary material-action-btn" title="Add Used Qty">
+                    <button onclick="openUpdateUsedModal({{ $material->id }}, {{ number_format($material->quantity_used, 2, '.', '') }}, '{{ addslashes($material->unit) }}', '{{ addslashes($material->material_name) }}', {{ number_format($material->quantity_remaining, 2, '.', '') }})" class="btn btn-sm btn-outline-secondary material-action-btn btn-show-text" title="Add Used Qty">
                         <i class="bi bi-box-arrow-in-down"></i> <span class="btn-text">Used</span>
                     </button>
                     @endif

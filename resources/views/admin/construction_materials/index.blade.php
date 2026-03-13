@@ -9,6 +9,9 @@
         .material-action-btn .btn-text {
             display: none;
         }
+        .material-action-btn.btn-show-text .btn-text {
+            display: inline !important;
+        }
         .material-action-btn i {
             margin-right: 0 !important;
         }
@@ -17,6 +20,23 @@
             min-width: 40px;
             justify-content: center;
         }
+    }
+    /* Popup "All" button: ensure text and icon always visible */
+    #updateUsed-all-btn {
+        min-width: 4rem;
+        font-size: 0.875rem;
+        color: #6c757d !important;
+        border-color: #6c757d !important;
+    }
+    #updateUsed-all-btn:hover {
+        color: #5a6268 !important;
+        background-color: #e2e6ea !important;
+    }
+    #updateUsed-all-btn span,
+    #updateUsed-all-btn i {
+        display: inline !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
 </style>
 
@@ -167,8 +187,11 @@
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Add to used <span id="updateUsed-unit" class="text-muted"></span></label>
-                <input type="number" step="0.0001" min="0" id="updateUsed-quantity" class="form-control" placeholder="0">
-                <p class="text-xs text-muted mt-1">Max add: <span id="updateUsed-max-label"></span> (remaining).</p>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <input type="number" step="0.0001" min="0" id="updateUsed-quantity" class="form-control flex-grow-1" placeholder="0" style="max-width: 180px;">
+                    <button type="button" onclick="setUpdateUsedToAll()" class="btn btn-outline-secondary btn-sm px-3" id="updateUsed-all-btn" title="Fill with full remaining quantity" style="color: #6c757d; border-color: #6c757d;"><i class="bi bi-arrow-down-circle me-1"></i><span>All</span></button>
+                </div>
+                <p class="text-xs text-muted mt-1">Max add: <span id="updateUsed-max-label"></span> (remaining). Click <strong>All</strong> to add full remaining.</p>
             </div>
             <div class="flex gap-2 justify-content-end">
                 <button type="button" onclick="closeUpdateUsedModal()" class="btn btn-secondary">Cancel</button>
@@ -702,7 +725,7 @@ function addMaterialRow(material) {
         <td><span class="badge bg-secondary">${material.status}</span></td>
         <td class="text-end">
             <div class="d-flex gap-1 justify-content-end text-nowrap">
-                ${parseFloat(remainingQty) > 0 ? `<button onclick="openUpdateUsedModal(${material.id}, ${usedQty}, '${unitEsc}', '${nameEsc}', ${remainingQty})" class="btn btn-sm btn-outline-secondary material-action-btn" title="Add Used Qty">
+                ${parseFloat(remainingQty) > 0 ? `<button onclick="openUpdateUsedModal(${material.id}, ${usedQty}, '${unitEsc}', '${nameEsc}', ${remainingQty})" class="btn btn-sm btn-outline-secondary material-action-btn btn-show-text" title="Add Used Qty">
                     <i class="bi bi-box-arrow-in-down"></i> <span class="btn-text">Used</span>
                 </button>` : ''}
                 <button onclick="openViewMaterialModal(${material.id})" class="btn btn-sm btn-outline-primary" title="View">
@@ -761,7 +784,7 @@ function updateMaterialRow(material) {
             <td><span class="badge bg-secondary">${material.status}</span></td>
             <td class="text-end">
                 <div class="d-flex gap-1 justify-content-end text-nowrap">
-                    ${parseFloat(remainingQty) > 0 ? `<button onclick="openUpdateUsedModal(${material.id}, ${usedQty}, '${unitEsc}', '${nameEsc}', ${remainingQty})" class="btn btn-sm btn-outline-secondary material-action-btn" title="Add Used Qty">
+                    ${parseFloat(remainingQty) > 0 ? `<button onclick="openUpdateUsedModal(${material.id}, ${usedQty}, '${unitEsc}', '${nameEsc}', ${remainingQty})" class="btn btn-sm btn-outline-secondary material-action-btn btn-show-text" title="Add Used Qty">
                         <i class="bi bi-box-arrow-in-down"></i> <span class="btn-text">Used</span>
                     </button>` : ''}
                     <button onclick="openViewMaterialModal(${material.id})" class="btn btn-sm btn-outline-primary" title="View">
@@ -938,6 +961,12 @@ function closeViewMaterialModal() {
             </div>
         `;
     }, 300);
+}
+
+// Set "Add to used" input to full remaining (All button)
+function setUpdateUsedToAll() {
+    var remaining = document.getElementById('updateUsed-remaining').value;
+    document.getElementById('updateUsed-quantity').value = remaining || '0';
 }
 
 // Add to Used Quantity Modal (addAmount max = remaining)
