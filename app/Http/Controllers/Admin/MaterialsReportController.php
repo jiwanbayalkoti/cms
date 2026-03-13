@@ -41,8 +41,8 @@ class MaterialsReportController extends Controller
         $search = $request->get('search');
         $lowStockOnly = $request->boolean('low_stock_only');
         
-        // Base query
-        $query = ConstructionMaterial::where('company_id', $companyId);
+        // Base query: only Received materials count in report (exclude Pending, etc.)
+        $query = ConstructionMaterial::where('company_id', $companyId)->where('status', 'Received');
         $this->filterByAccessibleProjects($query, 'project_id');
         
         if ($projectId) {
@@ -173,7 +173,7 @@ class MaterialsReportController extends Controller
         $supplierId = $request->get('supplier_id');
         $search = $request->get('search');
         
-        $query = ConstructionMaterial::where('company_id', $companyId);
+        $query = ConstructionMaterial::where('company_id', $companyId)->where('status', 'Received');
         $this->filterByAccessibleProjects($query, 'project_id');
         
         if ($projectId) {
