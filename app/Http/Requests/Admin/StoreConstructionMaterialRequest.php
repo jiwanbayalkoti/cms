@@ -16,10 +16,13 @@ class StoreConstructionMaterialRequest extends FormRequest
         return [
             'material_name' => 'required|string|max:255',
             'material_category' => 'nullable|string|max:255',
+            'size' => 'nullable|string|max:50',
             'unit' => 'required|string|max:50',
             'quantity_received' => 'required|numeric|min:0',
             'rate_per_unit' => 'required|numeric|min:0',
             'quantity_used' => 'nullable|numeric|min:0',
+            'quantity_secondary' => 'nullable|numeric|min:0',
+            'unit_secondary' => 'nullable|string|max:50',
             'wastage_quantity' => 'nullable|numeric|min:0',
             'supplier_name' => 'nullable|string|max:255',
             'supplier_contact' => 'nullable|string|max:255',

@@ -468,6 +468,10 @@ function openViewSupplierModal(supplierId) {
     .then(response => response.json())
     .then(data => {
         const sup = data.supplier;
+        const fin = data.financial || null;
+        const money = (v) => Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const paidWithAdvance = fin ? (Number(fin.gross_paid || 0) + Number(fin.advance_payments_total || 0)) : 0;
+        const isClear = fin ? (Number(fin.net_balance || 0) <= 0) : false;
         content.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-4">
@@ -498,6 +502,30 @@ function openViewSupplierModal(supplierId) {
                     </div>
                 </div>
                 <div class="space-y-4">
+                    ${fin ? `
+                        <div class="mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Financial Summary</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="p-3 rounded-lg border bg-blue-50">
+                                    <div class="text-xs text-blue-700">Total</div>
+                                    <div class="text-base font-semibold text-blue-900">${money(fin.gross_total)}</div>
+                                </div>
+                                <div class="p-3 rounded-lg border bg-green-50">
+                                    <div class="text-xs text-green-700">Paid (Direct + Advance)</div>
+                                    <div class="text-base font-semibold text-green-900">${money(paidWithAdvance)}</div>
+                                </div>
+                                <div class="p-3 rounded-lg border ${isClear ? 'bg-green-50' : 'bg-red-50'}">
+                                    <div class="text-xs ${isClear ? 'text-green-700' : 'text-red-700'}">Due (Net)</div>
+                                    <div class="text-base font-semibold ${isClear ? 'text-green-900' : 'text-red-900'}">${money(fin.net_balance)}</div>
+                                </div>
+                            </div>
+                            <div class="mt-3 text-sm text-gray-600">
+                                <div class="flex justify-between"><span>Purchase Invoices</span><span>${money(fin.purchase_balance)} due</span></div>
+                                <div class="flex justify-between"><span>Vehicle Rent</span><span>${money(fin.vehicle_balance)} due</span></div>
+                                <div class="flex justify-between"><span>Advance Payments</span><span>${money(fin.advance_payments_total)}</span></div>
+                            </div>
+                        </div>
+                    ` : ''}
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">Bank Details</h3>
                     <div>
                         <dt class="text-sm font-medium text-gray-500">Bank Name</dt>

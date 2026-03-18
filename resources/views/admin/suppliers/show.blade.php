@@ -15,6 +15,11 @@
 
 <div class="row">
     <div class="col-md-8">
+        @php
+            $f = $financial ?? null;
+            $fmt = fn ($v) => number_format((float) ($v ?? 0), 2);
+        @endphp
+
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0">Supplier Information</h5>
@@ -54,6 +59,86 @@
                 </table>
             </div>
         </div>
+
+        @if($f)
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Financial Details</h5>
+                    <span class="badge {{ ($f['net_balance'] ?? 0) <= 0 ? 'bg-success' : 'bg-danger' }}">
+                        {{ ($f['net_balance'] ?? 0) <= 0 ? 'Clear' : 'Due' }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded bg-primary bg-opacity-10">
+                                <div class="text-muted small">Total (Invoices + Vehicle Rent)</div>
+                                <div class="h5 mb-0">{{ $fmt($f['gross_total'] ?? 0) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded bg-success bg-opacity-10">
+                                <div class="text-muted small">Paid (Direct + Advance)</div>
+                                <div class="h5 mb-0">{{ $fmt(($f['gross_paid'] ?? 0) + ($f['advance_payments_total'] ?? 0)) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 border rounded {{ ($f['net_balance'] ?? 0) <= 0 ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10' }}">
+                                <div class="text-muted small">Balance (Net Due)</div>
+                                <div class="h5 mb-0">{{ $fmt($f['net_balance'] ?? 0) }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Type</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-end">Paid</th>
+                                    <th class="text-end">Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Purchase Invoices</td>
+                                    <td class="text-end">{{ $fmt($f['purchase_total'] ?? 0) }}</td>
+                                    <td class="text-end">{{ $fmt($f['purchase_paid'] ?? 0) }}</td>
+                                    <td class="text-end">{{ $fmt($f['purchase_balance'] ?? 0) }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Vehicle Rent</td>
+                                    <td class="text-end">{{ $fmt($f['vehicle_total'] ?? 0) }}</td>
+                                    <td class="text-end">{{ $fmt($f['vehicle_paid'] ?? 0) }}</td>
+                                    <td class="text-end">{{ $fmt($f['vehicle_balance'] ?? 0) }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Advance Payments</td>
+                                    <td class="text-end">{{ $fmt($f['advance_payments_total'] ?? 0) }}</td>
+                                    <td class="text-end">—</td>
+                                    <td class="text-end">—</td>
+                                </tr>
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th>Gross</th>
+                                    <th class="text-end">{{ $fmt($f['gross_total'] ?? 0) }}</th>
+                                    <th class="text-end">{{ $fmt($f['gross_paid'] ?? 0) }}</th>
+                                    <th class="text-end">{{ $fmt($f['gross_balance'] ?? 0) }}</th>
+                                </tr>
+                                <tr>
+                                    <th>Net Due (Gross Balance - Advance)</th>
+                                    <th class="text-end">—</th>
+                                    <th class="text-end">—</th>
+                                    <th class="text-end">{{ $fmt($f['net_balance'] ?? 0) }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        @endif
 
         @if($supplier->bank_name || $supplier->account_number || $supplier->account_holder_name)
             <div class="card mb-4">

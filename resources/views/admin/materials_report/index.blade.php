@@ -343,6 +343,46 @@
         </div>
     </div>
 </div>
+
+{{-- Rod Size-wise Report --}}
+@if(isset($rodSizeSummary) && $rodSizeSummary->isNotEmpty())
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <strong>Rod Size-wise Report</strong>
+            <div class="text-muted small">Rod materials grouped by size (e.g. 8mm, 10mm)</div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Size</th>
+                        <th>Unit</th>
+                        <th class="text-end">Total Received</th>
+                        <th class="text-end">Total Used</th>
+                        <th class="text-end">Total Remaining</th>
+                        <th class="text-end">Total Cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($rodSizeSummary as $rod)
+                        <tr>
+                            <td><strong>{{ $rod->size }}</strong></td>
+                            <td>{{ $rod->unit ?? '-' }}</td>
+                            <td class="text-end">{{ number_format((float) $rod->total_received, 2) }}</td>
+                            <td class="text-end">{{ number_format((float) $rod->total_used, 2) }}</td>
+                            <td class="text-end">{{ number_format((float) $rod->total_remaining, 2) }}</td>
+                            <td class="text-end">{{ number_format((float) $rod->total_cost, 2) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+@endif
 @endif
 
 @else

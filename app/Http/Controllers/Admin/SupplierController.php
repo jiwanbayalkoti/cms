@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\ValidatesForms;
+use App\Models\AdvancePayment;
+use App\Models\PurchaseInvoice;
 use App\Models\Supplier;
+use App\Models\VehicleRent;
 use App\Support\CompanyContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -117,6 +120,48 @@ class SupplierController extends Controller
 
     public function show(Supplier $supplier)
     {
+        $companyId = CompanyContext::getActiveCompanyId();
+        if ((int) $supplier->company_id !== (int) $companyId) {
+            abort(404);
+        }
+
+        // Purchase invoices (materials / purchases)
+        $purchaseInvoices = PurchaseInvoice::where('company_id', $companyId)
+            ->where('vendor_id', $supplier->id)
+            ->get(['id', 'total_amount', 'paid_amount', 'balance_amount']);
+
+        $purchaseTotal = (float) $purchaseInvoices->sum('total_amount');
+        $purchasePaid = (float) $purchaseInvoices->sum('paid_amount');
+        $purchaseBalance = (float) $purchaseInvoices->sum('balance_amount');
+
+        // Vehicle rents (handle ongoing daywise rents using calculated accessors)
+        $vehicleRents = VehicleRent::where('company_id', $companyId)
+            ->where('supplier_id', $supplier->id)
+            ->get();
+
+        $vehicleTotal = 0.0;
+        $vehiclePaid = 0.0;
+        $vehicleBalance = 0.0;
+
+        foreach ($vehicleRents as $rent) {
+            $rentTotal = $rent->is_ongoing ? (float) ($rent->calculated_total_amount ?? 0) : (float) ($rent->total_amount ?? 0);
+            $rentBalance = $rent->is_ongoing ? (float) ($rent->calculated_balance_amount ?? 0) : (float) ($rent->balance_amount ?? 0);
+
+            $vehicleTotal += $rentTotal;
+            $vehiclePaid += (float) ($rent->paid_amount ?? 0);
+            $vehicleBalance += $rentBalance;
+        }
+
+        // Advance payments to supplier (net off against balances)
+        $advancePaymentsTotal = (float) AdvancePayment::where('company_id', $companyId)
+            ->where('supplier_id', $supplier->id)
+            ->sum('amount');
+
+        $grossTotal = $purchaseTotal + $vehicleTotal;
+        $grossPaid = $purchasePaid + $vehiclePaid;
+        $grossBalance = $purchaseBalance + $vehicleBalance;
+        $netBalance = $grossBalance - $advancePaymentsTotal;
+
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
             return response()->json([
@@ -136,11 +181,37 @@ class SupplierController extends Controller
                     'created_at' => $supplier->created_at->format('M d, Y H:i'),
                     'updated_at' => $supplier->updated_at->format('M d, Y H:i'),
                 ],
+                'financial' => [
+                    'purchase_total' => $purchaseTotal,
+                    'purchase_paid' => $purchasePaid,
+                    'purchase_balance' => $purchaseBalance,
+                    'vehicle_total' => $vehicleTotal,
+                    'vehicle_paid' => $vehiclePaid,
+                    'vehicle_balance' => $vehicleBalance,
+                    'advance_payments_total' => $advancePaymentsTotal,
+                    'gross_total' => $grossTotal,
+                    'gross_paid' => $grossPaid,
+                    'gross_balance' => $grossBalance,
+                    'net_balance' => $netBalance,
+                ],
             ]);
         }
-        
-        // Redirect to index page since popup handles everything
-        return redirect()->route('admin.suppliers.index');
+
+        $financial = [
+            'purchase_total' => $purchaseTotal,
+            'purchase_paid' => $purchasePaid,
+            'purchase_balance' => $purchaseBalance,
+            'vehicle_total' => $vehicleTotal,
+            'vehicle_paid' => $vehiclePaid,
+            'vehicle_balance' => $vehicleBalance,
+            'advance_payments_total' => $advancePaymentsTotal,
+            'gross_total' => $grossTotal,
+            'gross_paid' => $grossPaid,
+            'gross_balance' => $grossBalance,
+            'net_balance' => $netBalance,
+        ];
+
+        return view('admin.suppliers.show', compact('supplier', 'financial'));
     }
 
     public function edit(Supplier $supplier)

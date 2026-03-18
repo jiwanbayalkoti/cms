@@ -78,6 +78,19 @@ class MaterialsReportController extends Controller
             ->groupBy('material_name')
             ->orderBy('material_name')
             ->get();
+
+        // Rod size-wise summary (for rod materials only)
+        $rodSizeQuery = clone $query;
+        $rodSizeQuery->where(function ($q) {
+            $q->whereRaw('LOWER(material_name) LIKE ?', ['%rod%'])
+              ->orWhereRaw('LOWER(material_category) = ?', ['rod']);
+        });
+
+        $rodSizeSummary = $rodSizeQuery
+            ->selectRaw('COALESCE(size, "N/A") as size, MAX(unit) as unit, SUM(quantity_received) as total_received, SUM(quantity_used) as total_used, SUM(quantity_remaining) as total_remaining, SUM(total_cost) as total_cost')
+            ->groupBy('size')
+            ->orderBy('size')
+            ->get();
         
         // Apply low stock filter
         if ($lowStockOnly) {
@@ -146,7 +159,8 @@ class MaterialsReportController extends Controller
             'totalCost',
             'lowStockCount',
             'outOfStockCount',
-            'inStockCount'
+            'inStockCount',
+            'rodSizeSummary'
         );
         
         // For AJAX requests, return only the content area

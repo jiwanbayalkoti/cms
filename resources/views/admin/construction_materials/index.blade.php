@@ -432,6 +432,10 @@ function buildMaterialForm(data, material) {
                         ${data.units.map(u => `<option value="${u.name}" ${materialData.unit === u.name ? 'selected' : ''}>${u.name}</option>`).join('')}
                     </select>
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label">Size (e.g. 8mm, 10mm for Rod)</label>
+                    <input type="text" name="size" class="form-control" value="${materialData.size || ''}" placeholder="Optional">
+                </div>
                 
                 <div class="col-md-3">
                     <label class="form-label">Quantity Received *</label>
@@ -448,6 +452,14 @@ function buildMaterialForm(data, material) {
                 <div class="col-md-3">
                     <label class="form-label">Wastage Quantity</label>
                     <input type="number" step="0.01" name="wastage_quantity" class="form-control" value="${materialData.wastage_quantity || 0}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Qty (secondary, e.g. Kg)</label>
+                    <input type="number" step="0.0001" name="quantity_secondary" class="form-control" value="${materialData.quantity_secondary ?? ''}" placeholder="Optional">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Unit (secondary)</label>
+                    <input type="text" name="unit_secondary" class="form-control" value="${materialData.unit_secondary || ''}" placeholder="e.g. Kg">
                 </div>
                 
                 <div class="col-md-4">
@@ -713,8 +725,9 @@ function addMaterialRow(material) {
     row.innerHTML = `
         <td>${material.id}</td>
         <td>
-            <div class="fw-semibold">${material.material_name}</div>
+            <div class="fw-semibold">${material.material_name}${material.size ? ' <span class="text-muted">(' + material.size + ')</span>' : ''}</div>
             <small class="text-muted">${material.material_category || ''}</small>
+            ${(material.quantity_secondary != null && material.quantity_secondary !== '') ? '<div class="small text-info">' + parseFloat(material.quantity_secondary).toFixed(2) + ' ' + (material.unit_secondary || '') + '</div>' : ''}
         </td>
         <td>${material.project_name}</td>
         <td>${material.supplier_name || ''}</td>
@@ -772,8 +785,9 @@ function updateMaterialRow(material) {
         row.innerHTML = `
             <td>${material.id}</td>
             <td>
-                <div class="fw-semibold">${material.material_name}</div>
+                <div class="fw-semibold">${material.material_name}${material.size ? ' <span class="text-muted">(' + material.size + ')</span>' : ''}</div>
                 <small class="text-muted">${material.material_category || ''}</small>
+                ${(material.quantity_secondary != null && material.quantity_secondary !== '') ? '<div class="small text-info">' + parseFloat(material.quantity_secondary).toFixed(2) + ' ' + (material.unit_secondary || '') + '</div>' : ''}
             </td>
             <td>${material.project_name}</td>
             <td>${material.supplier_name || ''}</td>
@@ -871,7 +885,7 @@ function openViewMaterialModal(materialId) {
                         <div class="card-header"><strong>Material &amp; Project</strong></div>
                         <div class="card-body">
                             <div class="row mb-2">
-                                <div class="col-md-6"><strong>Material Name:</strong><div>${material.material_name || ''}</div></div>
+                                <div class="col-md-6"><strong>Material Name:</strong><div>${material.material_name || ''}${material.size ? ' (' + material.size + ')' : ''}</div></div>
                                 <div class="col-md-3"><strong>Category:</strong><div>${material.material_category || ''}</div></div>
                                 <div class="col-md-3"><strong>Unit:</strong><div>${material.unit || ''}</div></div>
                             </div>
@@ -899,6 +913,7 @@ function openViewMaterialModal(materialId) {
                                 <div class="col-md-4"><strong>Status:</strong><div><span class="badge bg-secondary">${material.status || ''}</span></div></div>
                                 <div class="col-md-4"><strong>Delivery Date:</strong><div>${material.delivery_date || ''}</div></div>
                             </div>
+                            ${(material.quantity_secondary != null && material.quantity_secondary !== '') ? `<div class="row mb-2"><div class="col-md-6"><strong>Qty (secondary):</strong><div>${parseFloat(material.quantity_secondary).toFixed(2)} ${material.unit_secondary || ''}</div></div></div>` : ''}
                             <div class="row mb-2">
                                 <div class="col-md-6"><strong>Approved By:</strong><div>${material.approved_by || ''}</div></div>
                                 <div class="col-md-6"><strong>Approval Date:</strong><div>${material.approval_date || ''}</div></div>

@@ -3,8 +3,11 @@
         <tr data-material-id="{{ $material->id }}">
             <td>{{ ($materials->currentPage() - 1) * $materials->perPage() + $loop->iteration }}</td>
             <td>
-                <div class="fw-semibold">{{ $material->material_name }}</div>
+                <div class="fw-semibold">{{ $material->material_name }}@if($material->size)<span class="text-muted"> ({{ $material->size }})</span>@endif</div>
                 <small class="text-muted">{{ $material->material_category }}</small>
+                @if($material->quantity_secondary !== null && $material->quantity_secondary != '')
+                <div class="small text-info">{{ number_format((float)$material->quantity_secondary, 2) }} {{ $material->unit_secondary ?? '' }}</div>
+                @endif
             </td>
             <td>{{ $material->project_name }}</td>
             <td>{{ $material->supplier_name }}</td>
