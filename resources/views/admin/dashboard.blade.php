@@ -100,7 +100,7 @@
         </div>
     </div>
 
-    <!-- Stats Card - Total Suppliers (company + accessible projects) -->
+    <!-- Stats Card - Total Suppliers (active, this company) -->
     <a href="{{ route('admin.suppliers.index') }}" class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-200 cursor-pointer group border-2 border-transparent hover:border-amber-500">
         <div class="p-5">
             <div class="flex items-center">
@@ -113,7 +113,7 @@
                     <dl>
                         <dt class="text-sm font-medium text-gray-500 truncate">Total Suppliers</dt>
                         <dd class="text-lg font-semibold text-gray-900 group-hover:text-amber-700 transition-colors">{{ $totalSuppliers ?? 0 }}</dd>
-                        <dd class="text-xs text-gray-500 mt-1">Active · this company &amp; your projects</dd>
+                        <dd class="text-xs text-gray-500 mt-1">Active suppliers in this company</dd>
                     </dl>
                 </div>
                 <div class="flex-shrink-0">

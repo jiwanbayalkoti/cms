@@ -86,7 +86,10 @@ class DashboardController extends Controller
         $totalStaff = Staff::where('company_id', $companyId)
             ->where('is_active', true)->count();
 
-        $totalSuppliers = $this->getTotalSuppliersForCompanyProjects($companyId);
+        // All active suppliers for this company (not filtered by project)
+        $totalSuppliers = Supplier::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->count();
         
         // Count only accessible projects
         $projectsQuery = Project::where('company_id', $companyId);
@@ -160,61 +163,6 @@ class DashboardController extends Controller
             'startDateFormatted',
             'endDateFormatted'
         ));
-    }
-    
-    /**
-     * Count active suppliers for the active company.
-     * When the user has restricted project access, only suppliers referenced on
-     * loans, advance payments, vehicle rents, or purchase invoices in those projects count.
-     */
-    private function getTotalSuppliersForCompanyProjects(int $companyId): int
-    {
-        $query = Supplier::query()
-            ->where('company_id', $companyId)
-            ->where('is_active', true);
-
-        $accessibleProjectIds = auth()->user()->getAccessibleProjectIds();
-
-        if ($accessibleProjectIds === null) {
-            return (int) $query->count();
-        }
-
-        if ($accessibleProjectIds === []) {
-            return 0;
-        }
-
-        $projectIds = $accessibleProjectIds;
-
-        return (int) $query->where(function ($q) use ($companyId, $projectIds) {
-            $q->whereIn('id', function ($sub) use ($companyId, $projectIds) {
-                $sub->from('loans')
-                    ->select('supplier_id')
-                    ->where('company_id', $companyId)
-                    ->whereNotNull('supplier_id')
-                    ->whereIn('project_id', $projectIds);
-            })
-                ->orWhereIn('id', function ($sub) use ($companyId, $projectIds) {
-                    $sub->from('advance_payments')
-                        ->select('supplier_id')
-                        ->where('company_id', $companyId)
-                        ->whereNotNull('supplier_id')
-                        ->whereIn('project_id', $projectIds);
-                })
-                ->orWhereIn('id', function ($sub) use ($companyId, $projectIds) {
-                    $sub->from('vehicle_rents')
-                        ->select('supplier_id')
-                        ->where('company_id', $companyId)
-                        ->whereNotNull('supplier_id')
-                        ->whereIn('project_id', $projectIds);
-                })
-                ->orWhereIn('id', function ($sub) use ($companyId, $projectIds) {
-                    $sub->from('purchase_invoices')
-                        ->select('vendor_id')
-                        ->where('company_id', $companyId)
-                        ->whereNotNull('vendor_id')
-                        ->whereIn('project_id', $projectIds);
-                });
-        })->count();
     }
 
     /**
