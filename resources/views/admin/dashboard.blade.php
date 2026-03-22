@@ -100,6 +100,31 @@
         </div>
     </div>
 
+    <!-- Stats Card - Total Suppliers (company + accessible projects) -->
+    <a href="{{ route('admin.suppliers.index') }}" class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-200 cursor-pointer group border-2 border-transparent hover:border-amber-500">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-amber-500 group-hover:text-amber-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">Total Suppliers</dt>
+                        <dd class="text-lg font-semibold text-gray-900 group-hover:text-amber-700 transition-colors">{{ $totalSuppliers ?? 0 }}</dd>
+                        <dd class="text-xs text-gray-500 mt-1">Active · this company &amp; your projects</dd>
+                    </dl>
+                </div>
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-gray-400 group-hover:text-amber-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </a>
+
     @if(Auth::user()->isSuperAdmin())
     <!-- Stats Card - Total Companies (Super Admin Only) -->
     <a href="{{ route('admin.companies.index') }}" class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-200 cursor-pointer group border-2 border-transparent hover:border-purple-500">
