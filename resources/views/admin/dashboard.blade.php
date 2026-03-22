@@ -263,6 +263,32 @@
         </div>
     </div>
 
+    <!-- Stats Card - Total Loan (Net) -->
+    <div class="bg-white overflow-hidden shadow-lg rounded-lg">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-8 w-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                    <dl>
+                        <dt class="text-sm font-medium text-gray-500 truncate">
+                            Total Loan (Net)
+                            @if($period === '1_month')
+                                (This Month)
+                            @else
+                                ({{ $startDateFormatted }} - {{ $endDateFormatted }})
+                            @endif
+                        </dt>
+                        <dd class="text-lg font-semibold {{ $loanNetBalance >= 0 ? 'text-green-600' : 'text-red-600' }}">${{ number_format($loanNetBalance, 2) }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Stats Card - Net Balance -->
     <div class="bg-white overflow-hidden shadow-lg rounded-lg">
         <div class="p-5">
@@ -483,6 +509,14 @@ window.initDashboardCharts = function() {
                         data: @json($monthlyData['expenses']),
                         borderColor: 'rgb(239, 68, 68)',
                         backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Loans (Net)',
+                        data: @json($monthlyData['loans'] ?? []),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         tension: 0.4,
                         fill: true
                     }

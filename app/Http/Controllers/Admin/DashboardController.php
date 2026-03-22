@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Staff;
 use App\Models\Company;
 use App\Models\Project;
+use App\Models\Loan;
 use Illuminate\Http\Request;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
@@ -48,7 +49,37 @@ class DashboardController extends Controller
             ->whereBetween('date', [$startDate, $endDate]);
         $this->filterByAccessibleProjects($expenseQuery, 'project_id');
         $totalExpenses = $expenseQuery->sum('amount');
-        $balance = $totalIncome - $totalExpenses;
+
+        // Loans totals for selected period
+        // - Received: payable = principal + accrued interest till endDate
+        // - Repaid: treated as principal only (no extra interest accrual)
+        $loanQuery = Loan::where('company_id', $companyId)
+            ->whereBetween('loan_date', [$startDate, $endDate]);
+        $this->filterByAccessibleProjects($loanQuery, 'project_id');
+        $loansForTotals = (clone $loanQuery)->get(['direction', 'amount', 'interest_rate', 'loan_date']);
+
+        $endCarbon = Carbon::parse($endDate)->endOfDay();
+        $totalLoanReceived = 0.0;
+        $totalLoanRepaid = 0.0;
+
+        foreach ($loansForTotals as $l) {
+            $principal = (float) ($l->amount ?? 0);
+            $rate = (float) ($l->interest_rate ?? 0);
+            $loanDate = $l->loan_date ? Carbon::parse($l->loan_date)->startOfDay() : null;
+            $days = $loanDate ? max(0, $loanDate->diffInDays($endCarbon)) : 0;
+
+            $accruedInterest = $principal * $rate / 100 * ($days / 365);
+            $payable = $principal + $accruedInterest;
+
+            if ($l->direction === 'repaid') {
+                $totalLoanRepaid += $principal;
+            } else {
+                $totalLoanReceived += $payable;
+            }
+        }
+
+        $loanNetBalance = $totalLoanReceived - $totalLoanRepaid;
+        $balance = ($totalIncome + $loanNetBalance) - $totalExpenses;
         
         // Total counts (not affected by period)
         $totalStaff = Staff::where('company_id', $companyId)
@@ -106,6 +137,7 @@ class DashboardController extends Controller
             'totalIncome',
             'totalExpenses',
             'balance',
+            'loanNetBalance',
             'totalStaff',
             'totalProjects',
             'totalAllProjects',
@@ -212,6 +244,7 @@ class DashboardController extends Controller
         $labels = [];
         $incomeData = [];
         $expenseData = [];
+        $loanData = [];
         
         for ($i = $months - 1; $i >= 0; $i--) {
             $date = now()->subMonths($i);
@@ -231,12 +264,41 @@ class DashboardController extends Controller
             $this->filterByAccessibleProjects($expenseQuery, 'project_id');
             $expense = $expenseQuery->sum('amount');
             $expenseData[] = (float) $expense;
+
+            // Monthly loan net (received payable - repaid principal)
+            $loanQuery = Loan::where('company_id', $companyId)
+                ->whereBetween('loan_date', [$monthStart, $monthEnd]);
+            $this->filterByAccessibleProjects($loanQuery, 'project_id');
+            $monthlyLoans = $loanQuery->get(['direction', 'amount', 'interest_rate', 'loan_date']);
+
+            $monthEndCarbon = Carbon::parse($monthEnd)->endOfDay();
+            $monthlyLoanReceived = 0.0;
+            $monthlyLoanRepaid = 0.0;
+
+            foreach ($monthlyLoans as $l) {
+                $principal = (float) ($l->amount ?? 0);
+                $rate = (float) ($l->interest_rate ?? 0);
+                $loanDate = $l->loan_date ? Carbon::parse($l->loan_date)->startOfDay() : null;
+                $days = $loanDate ? max(0, $loanDate->diffInDays($monthEndCarbon)) : 0;
+
+                $accruedInterest = $principal * $rate / 100 * ($days / 365);
+                $payable = $principal + $accruedInterest;
+
+                if ($l->direction === 'repaid') {
+                    $monthlyLoanRepaid += $principal;
+                } else {
+                    $monthlyLoanReceived += $payable;
+                }
+            }
+
+            $loanData[] = (float) ($monthlyLoanReceived - $monthlyLoanRepaid);
         }
         
         return [
             'labels' => $labels,
             'income' => $incomeData,
             'expenses' => $expenseData,
+            'loans' => $loanData,
         ];
     }
     

@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\MaterialCalculatorController;
+use App\Http\Controllers\Admin\LoanController;
 
 /*
 |--------------------------------------------------------------------------
@@ -195,6 +196,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('material-names', \App\Http\Controllers\Admin\MaterialNameController::class);
         Route::resource('payment-modes', \App\Http\Controllers\Admin\PaymentModeController::class)->except(['show']);
         Route::resource('purchased-bies', \App\Http\Controllers\Admin\PurchasedByController::class)->except(['show']);
+
+        // Loans (separate from Income)
+        Route::resource('loans', LoanController::class)->except(['show']);
+        Route::get('loans/{loan}/outstanding', [LoanController::class, 'outstanding'])->name('loans.outstanding');
+        Route::post('loans/{loan}/payments', [LoanController::class, 'recordPayment'])->name('loans.payments.store');
         
         // Income CRUD (Admin only - not accessible to regular users)
         Route::middleware(['admin_only'])->group(function () {
@@ -353,6 +359,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/financial-summary', [ReportController::class, 'financialSummary'])->name('reports.financial-summary');
         Route::get('/reports/income', [ReportController::class, 'incomeReport'])->name('reports.income');
+        Route::get('/reports/loans', [ReportController::class, 'loansReport'])->name('reports.loans');
         Route::get('/reports/expense', [ReportController::class, 'expenseReport'])->name('reports.expense');
         Route::get('/reports/project-materials', [ReportController::class, 'projectMaterialsReport'])->name('reports.project-materials');
         Route::get('/reports/project-materials/export', [ReportController::class, 'projectMaterialsExport'])->name('reports.project-materials.export');

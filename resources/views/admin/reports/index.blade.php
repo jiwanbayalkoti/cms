@@ -39,6 +39,21 @@
         </div>
     </a>
 
+    <!-- Loans Report -->
+    <a href="{{ route('admin.reports.loans') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200 w-full max-w-full overflow-hidden break-words text-left">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <svg class="h-12 w-12 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 0V6m0 8v2m-6-4h2m10 0h2M6 12h2"></path>
+                </svg>
+            </div>
+            <div class="ml-4">
+                <h3 class="text-lg font-semibold text-gray-900">Loans Report</h3>
+                <p class="text-sm text-gray-500 mt-1">Loan received vs repaid</p>
+            </div>
+        </div>
+    </a>
+
     <!-- Expense Report -->
     <a href="{{ route('admin.reports.expense') }}" class="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition duration-200 w-full max-w-full overflow-hidden break-words text-left">
         <div class="flex items-center">

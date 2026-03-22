@@ -10,6 +10,7 @@ use App\Models\Income;
 use App\Models\Expense;
 use App\Models\Category;
 use App\Models\Staff;
+use App\Models\Loan;
 use App\Models\MaterialName;
 use App\Models\Project;
 use App\Models\Supplier;
@@ -51,7 +52,10 @@ class ReportController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
 
         $incomeQuery = Income::where('incomes.company_id', $companyId)
-            ->whereBetween('incomes.date', [$startDate, $endDate]);
+            ->whereBetween('incomes.date', [$startDate, $endDate])
+            ->whereHas('category', function ($q) {
+                $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+            });
         $this->filterByAccessibleProjects($incomeQuery, 'incomes.project_id');
         
         $expenseQuery = Expense::where('expenses.company_id', $companyId)
@@ -70,10 +74,35 @@ class ReportController extends Controller
         
         $totalIncome = $incomeQuery->sum('amount');
         $totalExpenses = $expenseQuery->sum('amount');
-        $netBalance = $totalIncome - $totalExpenses;
+
+        // Loan totals for formula:
+        // Net = Income - Expense + Loan Taken(received) - Loan Given(repaid)
+        $loanTakenQuery = Loan::where('company_id', $companyId)
+            ->whereBetween('loan_date', [$startDate, $endDate])
+            ->where('direction', 'received');
+        $this->filterByAccessibleProjects($loanTakenQuery, 'project_id');
+
+        $loanGivenQuery = Loan::where('company_id', $companyId)
+            ->whereBetween('loan_date', [$startDate, $endDate])
+            ->where('direction', 'repaid');
+        $this->filterByAccessibleProjects($loanGivenQuery, 'project_id');
+
+        if ($projectId) {
+            $loanTakenQuery->where('project_id', $projectId);
+            $loanGivenQuery->where('project_id', $projectId);
+        }
+
+        $totalLoanTaken = (float) $loanTakenQuery->sum('amount');
+        $totalLoanGiven = (float) $loanGivenQuery->sum('amount');
+
+        $netBalance = $totalIncome - $totalExpenses + $totalLoanTaken - $totalLoanGiven;
 
         // Income by category
-        $incomeByCategoryQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $incomeByCategoryQuery = Income::where('incomes.company_id', $companyId)
+            ->whereBetween('incomes.date', [$startDate, $endDate])
+            ->whereHas('category', function ($q) {
+                $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+            });
         $this->filterByAccessibleProjects($incomeByCategoryQuery, 'incomes.project_id');
         if ($projectId) {
             $incomeByCategoryQuery->where('incomes.project_id', $projectId);
@@ -112,7 +141,11 @@ class ReportController extends Controller
             $monthStart = $month . '-01';
             $monthEnd = date('Y-m-t', strtotime($monthStart));
             
-            $monthIncomeQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$monthStart, $monthEnd]);
+            $monthIncomeQuery = Income::where('incomes.company_id', $companyId)
+                ->whereBetween('incomes.date', [$monthStart, $monthEnd])
+                ->whereHas('category', function ($q) {
+                    $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+                });
             $this->filterByAccessibleProjects($monthIncomeQuery, 'incomes.project_id');
             
             $monthExpenseQuery = Expense::where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$monthStart, $monthEnd]);
@@ -138,6 +171,8 @@ class ReportController extends Controller
             return response()->json([
                 'totalIncome' => $totalIncome,
                 'totalExpenses' => $totalExpenses,
+                'totalLoanTaken' => $totalLoanTaken,
+                'totalLoanGiven' => $totalLoanGiven,
                 'netBalance' => $netBalance,
                 'incomeByCategory' => $incomeByCategory,
                 'expensesByCategory' => $expensesByCategory,
@@ -153,6 +188,8 @@ class ReportController extends Controller
             'projects',
             'totalIncome',
             'totalExpenses',
+            'totalLoanTaken',
+            'totalLoanGiven',
             'netBalance',
             'incomeByCategory',
             'expensesByCategory',
@@ -176,7 +213,10 @@ class ReportController extends Controller
 
         $query = Income::with(['category', 'subcategory', 'project'])
             ->where('incomes.company_id', $companyId)
-            ->whereBetween('incomes.date', [$startDate, $endDate]);
+            ->whereBetween('incomes.date', [$startDate, $endDate])
+            ->whereHas('category', function ($q) {
+                $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+            });
         
         // Filter by accessible projects
         $this->filterByAccessibleProjects($query, 'incomes.project_id');
@@ -198,7 +238,11 @@ class ReportController extends Controller
         $totalIncome = $incomes->sum('amount');
 
         // Income by category
-        $incomeByCategoryQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $incomeByCategoryQuery = Income::where('incomes.company_id', $companyId)
+            ->whereBetween('incomes.date', [$startDate, $endDate])
+            ->whereHas('category', function ($q) {
+                $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+            });
         $this->filterByAccessibleProjects($incomeByCategoryQuery, 'incomes.project_id');
         if ($projectId) {
             $incomeByCategoryQuery->where('incomes.project_id', $projectId);
@@ -209,7 +253,11 @@ class ReportController extends Controller
             ->get();
 
         // Income by source
-        $incomeBySourceQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $incomeBySourceQuery = Income::where('incomes.company_id', $companyId)
+            ->whereBetween('incomes.date', [$startDate, $endDate])
+            ->whereHas('category', function ($q) {
+                $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+            });
         $this->filterByAccessibleProjects($incomeBySourceQuery, 'incomes.project_id');
         if ($projectId) {
             $incomeBySourceQuery->where('incomes.project_id', $projectId);
@@ -220,7 +268,11 @@ class ReportController extends Controller
             ->limit(10)
             ->get();
 
-        $categories = Category::where('type', 'income')->where('is_active', true)->orderBy('name')->get();
+        $categories = Category::where('type', 'income')
+            ->where('is_active', true)
+            ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%'])
+            ->orderBy('name')
+            ->get();
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
 
@@ -622,7 +674,11 @@ class ReportController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
 
         // Total Income (Credit)
-        $incomeQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $incomeQuery = Income::where('incomes.company_id', $companyId)
+            ->whereBetween('incomes.date', [$startDate, $endDate])
+            ->whereHas('category', function ($q) {
+                $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+            });
         $this->filterByAccessibleProjects($incomeQuery, 'incomes.project_id');
         if ($projectId) {
             $projectId = (int) $projectId;
@@ -663,7 +719,11 @@ class ReportController extends Controller
             ->get();
 
         // Credit Details by Category
-        $creditByCategoryQuery = Income::where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+        $creditByCategoryQuery = Income::where('incomes.company_id', $companyId)
+            ->whereBetween('incomes.date', [$startDate, $endDate])
+            ->whereHas('category', function ($q) {
+                $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+            });
         $this->filterByAccessibleProjects($creditByCategoryQuery, 'incomes.project_id');
         if ($projectId) {
             $creditByCategoryQuery->where('incomes.project_id', $projectId);
@@ -685,7 +745,11 @@ class ReportController extends Controller
 
         // Detailed Credit Records
         $creditRecordsQuery = Income::with(['category', 'subcategory', 'project'])
-            ->where('incomes.company_id', $companyId)->whereBetween('incomes.date', [$startDate, $endDate]);
+            ->where('incomes.company_id', $companyId)
+            ->whereBetween('incomes.date', [$startDate, $endDate])
+            ->whereHas('category', function ($q) {
+                $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+            });
         $this->filterByAccessibleProjects($creditRecordsQuery, 'incomes.project_id');
         if ($projectId) {
             $creditRecordsQuery->where('incomes.project_id', $projectId);
@@ -740,6 +804,138 @@ class ReportController extends Controller
             'creditByCategory',
             'debitRecords',
             'creditRecords'
+        ));
+    }
+
+    /**
+     * Loans Report (received vs repaid) - separate from Income.
+     */
+    public function loansReport(Request $request)
+    {
+        $currentYear = date('Y');
+        // Calculate from selected `start_date` to *today*.
+        // If `start_date` is not provided, auto-pick the earliest loan date (so it doesn't default to whole year).
+        $endDate = date('Y-m-d');
+        $projectId = $request->get('project_id');
+        $companyId = CompanyContext::getActiveCompanyId();
+
+        $requestedStart = $request->get('start_date');
+
+        $query = Loan::with(['project', 'supplier', 'staff', 'bankAccount'])
+            ->where('loans.company_id', $companyId)
+            ->whereDate('loans.loan_date', '<=', $endDate);
+
+        $this->filterByAccessibleProjects($query, 'loans.project_id');
+
+        if ($projectId) {
+            $projectId = (int) $projectId;
+            if (!$this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $query->where('loans.project_id', $projectId);
+        }
+
+        if ($requestedStart) {
+            $startDate = $requestedStart;
+            $query->whereDate('loans.loan_date', '>=', $startDate);
+        } else {
+            $startDate = (string) ((clone $query)->min('loan_date') ?? $endDate);
+            $query->whereDate('loans.loan_date', '>=', $startDate);
+        }
+
+        $loans = $query->orderBy('loan_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Legacy: loans were previously saved as Income records with categories.name containing "loan".
+        $legacyIncomeQuery = Income::with(['project', 'category'])
+            ->where('incomes.company_id', $companyId)
+            ->whereDate('incomes.date', '<=', $endDate)
+            ->whereHas('category', function ($q) {
+                $q->whereRaw('LOWER(name) LIKE ?', ['%loan%']);
+            });
+
+        $this->filterByAccessibleProjects($legacyIncomeQuery, 'incomes.project_id');
+
+        if ($projectId) {
+            $legacyIncomeQuery->where('incomes.project_id', $projectId);
+        }
+
+        $legacyIncomeQuery->whereDate('incomes.date', '>=', $startDate);
+
+        $legacyIncomes = $legacyIncomeQuery->orderBy('date', 'desc')->get();
+        $legacyRows = $legacyIncomes->map(function ($i) {
+            // Best-effort: infer direction from legacy category name / text.
+            $catNameLower = strtolower($i->category->name ?? '');
+            $textLower = strtolower(($i->source ?? '') . ' ' . ($i->description ?? '') . ' ' . ($i->notes ?? ''));
+
+            $isRepaid = str_contains($catNameLower, 'repaid')
+                || str_contains($catNameLower, 'repayment')
+                || str_contains($textLower, 'repaid')
+                || str_contains($textLower, 'repay');
+
+            return (object) [
+                'loan_date' => $i->date,
+                'direction' => $isRepaid ? 'repaid' : 'received',
+                'amount' => $i->amount,
+                'interest_rate' => 0,
+                'party_source' => $i->source ?? ($i->description ?? null),
+                'party_name' => null,
+                'source' => null,
+                'payment_method' => $i->payment_method ?? null,
+                'bankAccount' => null,
+                'project' => $i->project,
+                'supplier' => null,
+                'staff' => null,
+            ];
+        });
+
+        $receivedPayableLoans = $loans->where('direction', 'received')->sum(function ($l) {
+            $principal = (float) ($l->amount ?? 0);
+            $rate = (float) ($l->interest_rate ?? 0);
+            return $principal + ($principal * $rate / 100);
+        });
+        $repaidPayableLoans = $loans->where('direction', 'repaid')->sum(function ($l) {
+            $principal = (float) ($l->amount ?? 0);
+            $rate = (float) ($l->interest_rate ?? 0);
+            return $principal + ($principal * $rate / 100);
+        });
+
+        $receivedPayableLegacy = $legacyRows->where('direction', 'received')->sum(function ($l) {
+            $principal = (float) ($l->amount ?? 0);
+            $rate = (float) ($l->interest_rate ?? 0);
+            return $principal + ($principal * $rate / 100);
+        });
+        $repaidPayableLegacy = $legacyRows->where('direction', 'repaid')->sum(function ($l) {
+            $principal = (float) ($l->amount ?? 0);
+            $rate = (float) ($l->interest_rate ?? 0);
+            return $principal + ($principal * $rate / 100);
+        });
+
+        $totalReceived = $receivedPayableLoans + $receivedPayableLegacy;
+        $totalRepaid = $repaidPayableLoans + $repaidPayableLegacy;
+        $netBalance = $totalReceived - $totalRepaid;
+
+        $mergedRows = collect($loans)->concat($legacyRows)
+            ->sortByDesc(function ($r) {
+                return $r->loan_date ? $r->loan_date->getTimestamp() : 0;
+            })
+            ->values();
+
+        // Reuse `$loans` variable name in view.
+        $loans = $mergedRows;
+
+        $projects = $this->getAccessibleProjects();
+
+        return view('admin.reports.loans', compact(
+            'startDate',
+            'endDate',
+            'projectId',
+            'projects',
+            'loans',
+            'totalReceived',
+            'totalRepaid',
+            'netBalance'
         ));
     }
 }

@@ -53,7 +53,7 @@
 </div>
 
 <!-- Summary Cards -->
-<div id="summary-cards" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+<div id="summary-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
     <div class="bg-white shadow-lg rounded-lg p-6">
         <h3 class="text-sm font-medium text-gray-500 mb-2">Total Income</h3>
         <p class="text-3xl font-bold text-green-600" id="total-income">${{ number_format($totalIncome, 2) }}</p>
@@ -63,7 +63,15 @@
         <p class="text-3xl font-bold text-red-600" id="total-expenses">${{ number_format($totalExpenses, 2) }}</p>
     </div>
     <div class="bg-white shadow-lg rounded-lg p-6">
-        <h3 class="text-sm font-medium text-gray-500 mb-2">Net Balance</h3>
+        <h3 class="text-sm font-medium text-gray-500 mb-2">Loan Taken</h3>
+        <p class="text-3xl font-bold text-blue-600" id="total-loan-taken">${{ number_format($totalLoanTaken ?? 0, 2) }}</p>
+    </div>
+    <div class="bg-white shadow-lg rounded-lg p-6">
+        <h3 class="text-sm font-medium text-gray-500 mb-2">Loan Given</h3>
+        <p class="text-3xl font-bold text-orange-600" id="total-loan-given">${{ number_format($totalLoanGiven ?? 0, 2) }}</p>
+    </div>
+    <div class="bg-white shadow-lg rounded-lg p-6">
+        <h3 class="text-sm font-medium text-gray-500 mb-2">Net Balance (Income - Expense + Taken - Given)</h3>
         <p class="text-3xl font-bold {{ $netBalance >= 0 ? 'text-green-600' : 'text-red-600' }}" id="net-balance">${{ number_format($netBalance, 2) }}</p>
     </div>
 </div>
@@ -342,6 +350,8 @@
             // Update summary cards
             document.getElementById('total-income').textContent = '$' + parseFloat(data.totalIncome).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('total-expenses').textContent = '$' + parseFloat(data.totalExpenses).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('total-loan-taken').textContent = '$' + parseFloat(data.totalLoanTaken || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('total-loan-given').textContent = '$' + parseFloat(data.totalLoanGiven || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             
             const netBalance = parseFloat(data.netBalance);
             const netBalanceEl = document.getElementById('net-balance');

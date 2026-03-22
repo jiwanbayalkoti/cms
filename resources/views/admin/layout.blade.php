@@ -1113,6 +1113,13 @@
                             <span class="text-sm">Income</span>
                         </a>
                         @endif
+
+                    @if(Auth::user()->isAdmin())
+                    <a href="{{ route('admin.loans.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.loans.*') ? 'bg-gray-700 text-white' : '' }}">
+                        <span class="text-sm">Loans</span>
+                    </a>
+                    @endif
+
                         <a href="{{ route('admin.expenses.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.expenses.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Expenses</span>
                         </a>
