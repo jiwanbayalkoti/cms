@@ -19,6 +19,10 @@
 
 <div class="mb-4 bg-white shadow-lg rounded-lg p-4">
     <form method="GET" action="{{ route('admin.expenses.index') }}" id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div class="hidden">
+            <input type="hidden" name="sort" id="expense_filter_sort" value="{{ $sortColumn ?? request('sort', 'date') }}">
+            <input type="hidden" name="direction" id="expense_filter_direction" value="{{ $sortDir ?? request('direction', 'desc') }}">
+        </div>
         @if($projects->count() > 0)
         <div>
             <label for="project_id" class="block text-sm font-medium text-gray-700 mb-2">Project</label>
@@ -90,6 +94,34 @@
 <script>
     let currentPage = 1;
     let isLoading = false;
+    let expenseSortColumn = @json($sortColumn ?? request('sort', 'date'));
+    let expenseSortDirection = @json($sortDir ?? request('direction', 'desc'));
+
+    function sortExpenses(column) {
+        if (expenseSortColumn === column) {
+            expenseSortDirection = expenseSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            expenseSortColumn = column;
+            expenseSortDirection = (column === 'date' || column === 'amount') ? 'desc' : 'asc';
+        }
+        const sortEl = document.getElementById('expense_filter_sort');
+        const dirEl = document.getElementById('expense_filter_direction');
+        if (sortEl) sortEl.value = expenseSortColumn;
+        if (dirEl) dirEl.value = expenseSortDirection;
+        applyFilters(1);
+    }
+
+    function updateExpenseSortHeaders(sort, dir) {
+        if (!sort || !dir) return;
+        document.querySelectorAll('#expenses-thead [data-sort-col]').forEach(function(btn) {
+            const col = btn.getAttribute('data-sort-col');
+            const icon = btn.querySelector('i.bi');
+            if (!icon) return;
+            icon.className = 'bi ml-1 ' + (col === sort
+                ? (dir === 'asc' ? 'bi-sort-up text-indigo-600' : 'bi-sort-down text-indigo-600')
+                : 'bi-arrow-down-up text-gray-300 group-hover:text-gray-500');
+        });
+    }
     
     function applyFilters(page = 1) {
         if (isLoading) return;
@@ -132,8 +164,15 @@
             return response.json();
         })
         .then(data => {
+            if (data.sort !== undefined) expenseSortColumn = data.sort;
+            if (data.direction !== undefined) expenseSortDirection = data.direction;
+            const sortEl = document.getElementById('expense_filter_sort');
+            const dirEl = document.getElementById('expense_filter_direction');
+            if (sortEl && data.sort) sortEl.value = data.sort;
+            if (dirEl && data.direction) dirEl.value = data.direction;
             updateExpensesTable(data.expenses, data.current_page, data.per_page, data.total_amount);
             updatePagination(data.pagination);
+            updateExpenseSortHeaders(data.sort || expenseSortColumn, data.direction || expenseSortDirection);
             updateURL(params.toString());
             updateExpensesExportLink();
             
@@ -271,7 +310,7 @@
         if (!form) return;
         const formData = new FormData(form);
         const params = new URLSearchParams();
-        const exportParams = ['project_id', 'expense_type_id', 'category_id', 'subcategory_id', 'keyword'];
+        const exportParams = ['project_id', 'expense_type_id', 'category_id', 'subcategory_id', 'keyword', 'sort', 'direction', 'start_date', 'end_date'];
         for (const key of exportParams) {
             const val = formData.get(key);
             if (val) params.append(key, val);
@@ -393,12 +432,20 @@
     
     function clearFilters() {
         // Reset all filter selects and keyword
-        document.getElementById('project_id').value = '';
+        const proj = document.getElementById('project_id');
+        if (proj) proj.value = '';
         document.getElementById('expense_type_id').value = '';
         document.getElementById('category_id').value = '';
         document.getElementById('subcategory_id').innerHTML = '<option value="">All Subcategories</option>';
         document.getElementById('subcategory_id').value = '';
         document.getElementById('keyword').value = '';
+        expenseSortColumn = 'date';
+        expenseSortDirection = 'desc';
+        const sortEl = document.getElementById('expense_filter_sort');
+        const dirEl = document.getElementById('expense_filter_direction');
+        if (sortEl) sortEl.value = 'date';
+        if (dirEl) dirEl.value = 'desc';
+        updateExpenseSortHeaders('date', 'desc');
         
         // Apply filters (which will load all expenses)
         applyFilters();
@@ -406,6 +453,7 @@
     
     // Load subcategories on page load if category is pre-selected
     document.addEventListener('DOMContentLoaded', function() {
+        updateExpenseSortHeaders(expenseSortColumn, expenseSortDirection);
         updateExpensesExportLink();
         const categoryId = document.getElementById('category_id').value;
         if (categoryId) {
@@ -450,16 +498,56 @@
         <div class="overflow-x-auto -mx-4 sm:mx-0">
             <div class="inline-block min-w-full align-middle">
                 <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
+            <thead class="bg-gray-50" id="expenses-thead">
+                @php
+                    $esc = $sortColumn ?? request('sort', 'date');
+                    $esd = $sortDir ?? request('direction', 'desc');
+                    $expThSort = function (string $col) use ($esc, $esd) {
+                        $active = $esc === $col;
+                        $icon = $active
+                            ? ($esd === 'asc' ? 'bi-sort-up' : 'bi-sort-down')
+                            : 'bi-arrow-down-up';
+                        $cls = $active ? 'text-indigo-600' : 'text-gray-300 group-hover:text-gray-500';
+                        return '<i class="bi '.$icon.' ml-1 '.$cls.'" aria-hidden="true"></i>';
+                    };
+                @endphp
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SN</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item/Description</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="date" onclick="sortExpenses('date')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Date {!! $expThSort('date') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="type" onclick="sortExpenses('type')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none" title="By expense type name">
+                            Type {!! $expThSort('type') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="item" onclick="sortExpenses('item')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Item/Description {!! $expThSort('item') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="project" onclick="sortExpenses('project')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Project {!! $expThSort('project') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="category" onclick="sortExpenses('category')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Category {!! $expThSort('category') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="staff" onclick="sortExpenses('staff')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Staff {!! $expThSort('staff') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="amount" onclick="sortExpenses('amount')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Amount {!! $expThSort('amount') !!}
+                        </button>
+                    </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>

@@ -12,6 +12,7 @@ use App\Models\BankAccount;
 use App\Models\AdvancePayment;
 use App\Support\CompanyContext;
 use App\Exports\VehicleRentExport;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -75,9 +76,7 @@ class VehicleRentController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
         
         $query = VehicleRent::where('company_id', $companyId)
-            ->with(['project', 'supplier', 'bankAccount', 'creator'])
-            ->orderBy('rent_date', 'desc')
-            ->orderBy('created_at', 'desc');
+            ->with(['project', 'supplier', 'bankAccount', 'creator']);
         
         // Filter by accessible projects
         $this->filterByAccessibleProjects($query, 'project_id');
@@ -120,8 +119,8 @@ class VehicleRentController extends Controller
             $query->where('rent_date', '<=', $request->end_date);
         }
         
-        // Get all filtered results for summary calculations (before pagination)
-        $allRents = $query->get();
+        // Get all filtered results for summary calculations (before pagination; order independent)
+        $allRents = (clone $query)->get();
         
         // Calculate summary totals
         $totalAmount = 0;
@@ -152,8 +151,10 @@ class VehicleRentController extends Controller
             $netBalance = $totalBalance - $totalAdvancePayments;
         }
         
-        // Paginate results (calculations for ongoing rents will be done dynamically in views)
-        $vehicleRents = $query->paginate(10);
+        // Paginate with whitelist sorting (summary used unsorted clone above)
+        $listQuery = (clone $query);
+        [$sortColumn, $sortDir] = $this->applyVehicleRentListSorting($listQuery, $request);
+        $vehicleRents = $listQuery->paginate(10)->withQueryString();
         
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
@@ -228,10 +229,66 @@ class VehicleRentController extends Controller
                 'vehicleRents' => $vehicleRentsData,
                 'pagination' => $vehicleRents->links()->render(),
                 'summary' => $summaryData,
+                'sort' => $sortColumn,
+                'sort_dir' => $sortDir,
             ]);
         }
         
-        return view('admin.vehicle_rents.index', compact('vehicleRents', 'projects', 'suppliers', 'vehicleTypes', 'totalAmount', 'totalPaid', 'totalBalance', 'totalAdvancePayments', 'netBalance'));
+        return view('admin.vehicle_rents.index', compact(
+            'vehicleRents',
+            'projects',
+            'suppliers',
+            'vehicleTypes',
+            'totalAmount',
+            'totalPaid',
+            'totalBalance',
+            'totalAdvancePayments',
+            'netBalance',
+            'sortColumn',
+            'sortDir'
+        ));
+    }
+
+    /**
+     * @return array{0: string, 1: string} [sortColumn, sortDir]
+     */
+    private function applyVehicleRentListSorting(Builder $query, Request $request): array
+    {
+        $sortColumn = $request->get('sort', 'rent_date');
+        $sortDir = strtolower((string) $request->get('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowed = [
+            'rent_date', 'vehicle_type', 'vehicle_number', 'route', 'rate_type',
+            'project', 'supplier', 'total_amount', 'paid_amount', 'balance_amount', 'payment_status',
+        ];
+        if (! in_array($sortColumn, $allowed, true)) {
+            $sortColumn = 'rent_date';
+        }
+        $dirSql = $sortDir === 'asc' ? 'ASC' : 'DESC';
+
+        switch ($sortColumn) {
+            case 'project':
+                $query->orderByRaw(
+                    '(SELECT p.name FROM projects AS p WHERE p.id = vehicle_rents.project_id LIMIT 1) '.$dirSql
+                );
+                break;
+            case 'supplier':
+                $query->orderByRaw(
+                    '(SELECT s.name FROM suppliers AS s WHERE s.id = vehicle_rents.supplier_id LIMIT 1) '.$dirSql
+                );
+                break;
+            case 'route':
+                $query->orderByRaw(
+                    'CONCAT(COALESCE(vehicle_rents.start_location, ""), "|", COALESCE(vehicle_rents.destination_location, "")) '.$dirSql
+                );
+                break;
+            default:
+                $query->orderBy('vehicle_rents.'.$sortColumn, $sortDir);
+                break;
+        }
+
+        $query->orderBy('vehicle_rents.id', $sortDir === 'asc' ? 'asc' : 'desc');
+
+        return [$sortColumn, $sortDir];
     }
 
     /**

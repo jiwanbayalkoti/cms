@@ -12,6 +12,7 @@ class PaymentTypeSeeder extends Seeder
         $types = [
             ['name' => 'Vehicle Rent', 'code' => 'vehicle_rent'],
             ['name' => 'Material Payment', 'code' => 'material_payment'],
+            ['name' => 'Supplier Payment', 'code' => 'supplier'],
         ];
 
         foreach ($types as $type) {

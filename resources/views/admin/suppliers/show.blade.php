@@ -6,6 +6,9 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3 mb-0">Supplier Details</h1>
     <div>
+        <a href="{{ route('admin.advance-payments.index', ['supplier_id' => $supplier->id]) }}" class="btn btn-success me-2" title="View advance payments for this supplier">
+            <i class="bi bi-cash-coin me-1"></i> Payments (Advance)
+        </a>
         <a href="{{ route('admin.suppliers.edit', $supplier) }}" class="btn btn-warning me-2">
             <i class="bi bi-pencil me-1"></i> Edit
         </a>

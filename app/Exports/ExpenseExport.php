@@ -24,10 +24,8 @@ class ExpenseExport implements FromCollection, WithHeadings, WithMapping, Should
     public function collection()
     {
         if ($this->collection === null) {
-            $this->collection = $this->query->with(['category', 'subcategory', 'project', 'staff', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType'])
-                ->orderBy('date', 'desc')
-                ->orderBy('created_at', 'desc')
-                ->get();
+            // Ordering comes from ExpenseController (filters + sort).
+            $this->collection = $this->query->with(['category', 'subcategory', 'project', 'staff', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType'])->get();
         }
         return $this->collection;
     }

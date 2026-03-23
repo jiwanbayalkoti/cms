@@ -10,6 +10,14 @@ class Supplier extends Model
 {
     use HasFactory, CompanyScoped;
 
+    /**
+     * Advance payments recorded for this supplier (same flow as Advance Payments module).
+     */
+    public function advancePayments()
+    {
+        return $this->hasMany(AdvancePayment::class);
+    }
+
     protected $fillable = [
         'company_id',
         'name',

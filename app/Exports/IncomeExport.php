@@ -24,10 +24,8 @@ class IncomeExport implements FromCollection, WithHeadings, WithMapping, ShouldA
     public function collection()
     {
         if ($this->collection === null) {
-            $this->collection = $this->query->with(['category', 'subcategory', 'project'])
-                ->orderBy('date', 'desc')
-                ->orderBy('created_at', 'desc')
-                ->get();
+            // Ordering comes from IncomeController (filters + sort); do not override here.
+            $this->collection = $this->query->with(['category', 'subcategory', 'project'])->get();
         }
         return $this->collection;
     }

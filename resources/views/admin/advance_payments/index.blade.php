@@ -24,6 +24,8 @@
     </div>
     <div class="card-body">
         <form id="filterForm" class="row g-2 align-items-end">
+            <input type="hidden" name="sort" id="advance_filter_sort" value="{{ $sortColumn ?? request('sort', 'payment_date') }}">
+            <input type="hidden" name="sort_dir" id="advance_filter_sort_dir" value="{{ $sortDir ?? request('sort_dir', 'desc') }}">
             <div class="col-md-3">
                 <label class="form-label small mb-1">Project</label>
                 <select name="project_id" id="filter_project_id" class="form-select form-select-sm" onchange="applyFiltersDebounced()">
@@ -41,6 +43,7 @@
                     <option value="" {{ !request('payment_type') ? 'selected' : '' }}>All Types</option>
                     <option value="vehicle_rent" {{ request('payment_type') == 'vehicle_rent' ? 'selected' : '' }}>Vehicle Rent</option>
                     <option value="material_payment" {{ request('payment_type') == 'material_payment' ? 'selected' : '' }}>Material Payment</option>
+                    <option value="supplier" {{ request('payment_type') == 'supplier' ? 'selected' : '' }}>Supplier Payment</option>
                 </select>
             </div>
             <div class="col-md-3">
@@ -96,16 +99,52 @@
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover">
-                <thead>
+                <thead id="advance-payments-thead">
+                    @php
+                        $asc = $sortColumn ?? request('sort', 'payment_date');
+                        $asd = $sortDir ?? request('sort_dir', 'desc');
+                        $advanceThSort = function (string $col) use ($asc, $asd) {
+                            $active = $asc === $col;
+                            $icon = $active
+                                ? ($asd === 'asc' ? 'bi-sort-up' : 'bi-sort-down')
+                                : 'bi-arrow-down-up';
+                            $cls = $active ? 'text-primary' : 'text-secondary';
+                            return '<i class="bi '.$icon.' ms-1 '.$cls.'" aria-hidden="true"></i>';
+                        };
+                    @endphp
                     <tr>
                         <th>SN</th>
-                        <th>Date</th>
-                        <th>Type</th>
+                        <th>
+                            <button type="button" data-sort-col="payment_date" onclick="sortAdvancePayments('payment_date')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Date {!! $advanceThSort('payment_date') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="payment_type" onclick="sortAdvancePayments('payment_type')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Type {!! $advanceThSort('payment_type') !!}
+                            </button>
+                        </th>
                         <th>Reference</th>
-                        <th>Project</th>
-                        <th>Supplier</th>
-                        <th>Amount</th>
-                        <th>Payment Method</th>
+                        <th>
+                            <button type="button" data-sort-col="project" onclick="sortAdvancePayments('project')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Project {!! $advanceThSort('project') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="supplier" onclick="sortAdvancePayments('supplier')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Supplier {!! $advanceThSort('supplier') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="amount" onclick="sortAdvancePayments('amount')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Amount {!! $advanceThSort('amount') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="payment_method" onclick="sortAdvancePayments('payment_method')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Payment Method {!! $advanceThSort('payment_method') !!}
+                            </button>
+                        </th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -795,6 +834,35 @@ const applyFiltersDebounced = window.debounce ? window.debounce(applyFilters, 30
 let currentAdvancePaymentPage = 1;
 let isLoadingAdvancePayments = false;
 
+let advanceSortColumn = @json($sortColumn ?? request('sort', 'payment_date'));
+let advanceSortDir = @json($sortDir ?? request('sort_dir', 'desc'));
+
+function sortAdvancePayments(column) {
+    if (advanceSortColumn === column) {
+        advanceSortDir = advanceSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        advanceSortColumn = column;
+        advanceSortDir = (column === 'payment_date' || column === 'amount') ? 'desc' : 'asc';
+    }
+    const sEl = document.getElementById('advance_filter_sort');
+    const dEl = document.getElementById('advance_filter_sort_dir');
+    if (sEl) sEl.value = advanceSortColumn;
+    if (dEl) dEl.value = advanceSortDir;
+    applyFilters(1);
+}
+
+function updateAdvancePaymentsSortHeaders(sort, dir) {
+    if (!sort || !dir) return;
+    document.querySelectorAll('#advance-payments-thead [data-sort-col]').forEach(function(btn) {
+        const col = btn.getAttribute('data-sort-col');
+        const icon = btn.querySelector('i.bi');
+        if (!icon) return;
+        icon.className = 'bi ms-1 ' + (col === sort
+            ? (dir === 'asc' ? 'bi-sort-up text-primary' : 'bi-sort-down text-primary')
+            : 'bi-arrow-down-up text-secondary');
+    });
+}
+
 function applyFilters(page = 1) {
     if (isLoadingAdvancePayments) return;
     
@@ -841,6 +909,15 @@ function applyFilters(page = 1) {
         updateAdvancePaymentsPagination(data.pagination);
         updateAdvancePaymentsSummary(data.summary);
         updateAdvancePaymentsURL(params.toString());
+        if (data.sort !== undefined && data.sort_dir !== undefined) {
+            advanceSortColumn = data.sort;
+            advanceSortDir = data.sort_dir;
+            const sEl = document.getElementById('advance_filter_sort');
+            const dEl = document.getElementById('advance_filter_sort_dir');
+            if (sEl) sEl.value = data.sort;
+            if (dEl) dEl.value = data.sort_dir;
+            updateAdvancePaymentsSortHeaders(data.sort, data.sort_dir);
+        }
         
         // Hide loading state
         document.getElementById('advance-payments-loading').classList.add('hidden');
@@ -992,6 +1069,12 @@ function resetFilters() {
     document.getElementById('filter_supplier_id').value = '';
     document.getElementById('filter_start_date').value = '';
     document.getElementById('filter_end_date').value = '';
+    const sEl = document.getElementById('advance_filter_sort');
+    const dEl = document.getElementById('advance_filter_sort_dir');
+    if (sEl) sEl.value = 'payment_date';
+    if (dEl) dEl.value = 'desc';
+    advanceSortColumn = 'payment_date';
+    advanceSortDir = 'desc';
     applyFilters();
 }
 

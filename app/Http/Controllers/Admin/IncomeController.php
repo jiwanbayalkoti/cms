@@ -12,6 +12,7 @@ use App\Models\Project;
 use App\Exports\IncomeExport;
 use Illuminate\Http\Request;
 use App\Support\CompanyContext;
+use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Facades\Excel;
 
 class IncomeController extends Controller
@@ -100,8 +101,10 @@ class IncomeController extends Controller
                     ->orWhere('notes', 'like', '%' . $keyword . '%');
             });
         }
-        
-        $incomes = $query->latest('date')->paginate(15)->withQueryString();
+
+        [$sortColumn, $sortDir] = $this->applyIncomeListSorting($query, $request);
+
+        $incomes = $query->paginate(15)->withQueryString();
         
         // Get only accessible projects for dropdown
         $projects = $this->getAccessibleProjects();
@@ -143,10 +146,12 @@ class IncomeController extends Controller
                 'current_page' => $incomes->currentPage(),
                 'per_page' => $incomes->perPage(),
                 'total_amount' => $incomes->sum('amount'),
+                'sort' => $sortColumn,
+                'direction' => $sortDir,
             ]);
         }
         
-        return view('admin.incomes.index', compact('incomes', 'projects', 'categories', 'subcategories'));
+        return view('admin.incomes.index', compact('incomes', 'projects', 'categories', 'subcategories', 'sortColumn', 'sortDir'));
     }
 
     /**
@@ -192,9 +197,50 @@ class IncomeController extends Controller
             });
         }
 
+        $this->applyIncomeListSorting($query, $request);
+
         $filename = 'incomes_' . now()->format('Ymd_His') . '.xlsx';
 
         return Excel::download(new IncomeExport($query), $filename);
+    }
+
+    /**
+     * Apply whitelist sorting for income list / export (table: incomes).
+     *
+     * @return array{0: string, 1: string} [sortColumn, sortDir]
+     */
+    private function applyIncomeListSorting(Builder $query, Request $request): array
+    {
+        $sortColumn = $request->get('sort', 'date');
+        $sortDir = strtolower((string) $request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowedSorts = ['date', 'source', 'project', 'category', 'amount', 'payment_method'];
+        if (! in_array($sortColumn, $allowedSorts, true)) {
+            $sortColumn = 'date';
+        }
+
+        // Use correlated subqueries for project/category so ORDER BY works reliably with
+        // pagination/count queries (JOIN + select(incomes.*) can break ordering in some DB setups).
+        $dirSql = $sortDir === 'asc' ? 'ASC' : 'DESC';
+
+        switch ($sortColumn) {
+            case 'project':
+                $query->orderByRaw(
+                    '(SELECT p.name FROM projects AS p WHERE p.id = incomes.project_id LIMIT 1) '.$dirSql
+                );
+                break;
+            case 'category':
+                $query->orderByRaw(
+                    '(SELECT c.name FROM categories AS c WHERE c.id = incomes.category_id LIMIT 1) '.$dirSql
+                );
+                break;
+            default:
+                $query->orderBy('incomes.'.$sortColumn, $sortDir);
+                break;
+        }
+
+        $query->orderBy('incomes.id', $sortDir === 'asc' ? 'asc' : 'desc');
+
+        return [$sortColumn, $sortDir];
     }
 
     /**

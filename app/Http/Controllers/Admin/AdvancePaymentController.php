@@ -14,6 +14,7 @@ use App\Models\BankAccount;
 use App\Models\Expense;
 use App\Models\Category;
 use App\Support\CompanyContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class AdvancePaymentController extends Controller
@@ -69,6 +70,19 @@ class AdvancePaymentController extends Controller
     }
 
     /**
+     * Human-readable label for advance payment type (expense line items).
+     */
+    private function advancePaymentTypeLabel(AdvancePayment $advancePayment): string
+    {
+        return match ($advancePayment->payment_type) {
+            'vehicle_rent' => 'Vehicle Rent',
+            'material_payment' => 'Material Payment',
+            'supplier' => 'Supplier Payment',
+            default => 'Advance Payment',
+        };
+    }
+
+    /**
      * Create expense entry for advance payment.
      */
     private function createExpenseFromAdvancePayment(AdvancePayment $advancePayment)
@@ -78,9 +92,7 @@ class AdvancePaymentController extends Controller
             $companyId = $advancePayment->company_id;
             $category = $this->getOrCreateAdvancePaymentCategory($companyId);
 
-            $paymentTypeLabel = $advancePayment->payment_type === 'vehicle_rent' 
-                ? 'Vehicle Rent' 
-                : ($advancePayment->payment_type === 'material_payment' ? 'Material Payment' : 'Advance Payment');
+            $paymentTypeLabel = $this->advancePaymentTypeLabel($advancePayment);
 
             $supplierName = $advancePayment->supplier ? $advancePayment->supplier->name : 'N/A';
 
@@ -145,9 +157,9 @@ class AdvancePaymentController extends Controller
             $query->where('payment_date', '<=', $request->end_date);
         }
         
-        $advancePayments = $query->orderBy('payment_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
+        $listQuery = (clone $query);
+        [$sortColumn, $sortDir] = $this->applyAdvancePaymentListSorting($listQuery, $request);
+        $advancePayments = $listQuery->paginate(15)->withQueryString();
         
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
@@ -210,10 +222,53 @@ class AdvancePaymentController extends Controller
                 'summary' => $summaryData,
                 'currentPage' => $advancePayments->currentPage(),
                 'perPage' => $advancePayments->perPage(),
+                'sort' => $sortColumn,
+                'sort_dir' => $sortDir,
             ]);
         }
         
-        return view('admin.advance_payments.index', compact('advancePayments', 'projects', 'suppliers', 'totalAmount'));
+        return view('admin.advance_payments.index', compact(
+            'advancePayments',
+            'projects',
+            'suppliers',
+            'totalAmount',
+            'sortColumn',
+            'sortDir'
+        ));
+    }
+
+    /**
+     * @return array{0: string, 1: string} [sortColumn, sortDir]
+     */
+    private function applyAdvancePaymentListSorting(Builder $query, Request $request): array
+    {
+        $sortColumn = $request->get('sort', 'payment_date');
+        $sortDir = strtolower((string) $request->get('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowed = ['payment_date', 'payment_type', 'project', 'supplier', 'amount', 'payment_method'];
+        if (! in_array($sortColumn, $allowed, true)) {
+            $sortColumn = 'payment_date';
+        }
+        $dirSql = $sortDir === 'asc' ? 'ASC' : 'DESC';
+
+        switch ($sortColumn) {
+            case 'project':
+                $query->orderByRaw(
+                    '(SELECT p.name FROM projects AS p WHERE p.id = advance_payments.project_id LIMIT 1) '.$dirSql
+                );
+                break;
+            case 'supplier':
+                $query->orderByRaw(
+                    '(SELECT s.name FROM suppliers AS s WHERE s.id = advance_payments.supplier_id LIMIT 1) '.$dirSql
+                );
+                break;
+            default:
+                $query->orderBy('advance_payments.'.$sortColumn, $sortDir);
+                break;
+        }
+
+        $query->orderBy('advance_payments.id', $sortDir === 'asc' ? 'asc' : 'desc');
+
+        return [$sortColumn, $sortDir];
     }
 
     /**
@@ -448,9 +503,7 @@ class AdvancePaymentController extends Controller
         // Update existing expense if it exists
         if ($advancePayment->expense) {
             $expense = $advancePayment->expense;
-            $paymentTypeLabel = $advancePayment->payment_type === 'vehicle_rent' 
-                ? 'Vehicle Rent' 
-                : ($advancePayment->payment_type === 'material_payment' ? 'Material Payment' : 'Advance Payment');
+            $paymentTypeLabel = $this->advancePaymentTypeLabel($advancePayment);
             $supplierName = $advancePayment->supplier ? $advancePayment->supplier->name : 'N/A';
 
             $expense->update([

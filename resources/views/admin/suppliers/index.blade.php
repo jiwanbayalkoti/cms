@@ -39,9 +39,12 @@
                             </span>
                         </td>
                         <td class="text-end">
-                            <div class="d-flex gap-1 justify-content-end text-nowrap">
+                            <div class="d-flex gap-1 justify-content-end text-nowrap flex-wrap">
                                 <button onclick="openViewSupplierModal({{ $supplier->id }})" class="btn btn-sm btn-outline-primary" title="View">
                                     <i class="bi bi-eye"></i>
+                                </button>
+                                <button type="button" onclick="openSupplierPaymentModal({{ $supplier->id }}, {{ json_encode($supplier->name) }})" class="btn btn-sm btn-outline-success" title="Add payment (Advance)">
+                                    <i class="bi bi-cash-coin"></i>
                                 </button>
                                 <button onclick="openEditSupplierModal({{ $supplier->id }})" class="btn btn-sm btn-outline-warning" title="Edit">
                                     <i class="bi bi-pencil"></i>
@@ -205,6 +208,93 @@
     </div>
 </div>
 
+<!-- Add payment (Advance Payment → Expense) -->
+<div id="supplierPaymentModal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="sticky top-0 bg-white z-10 border-b px-6 py-4 flex justify-between items-center">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-900">Supplier payment</h2>
+                <p class="text-sm text-gray-500 mb-0">Recorded as an advance payment and linked to <strong>Expenses</strong> (Advance Payments category).</p>
+            </div>
+            <button type="button" onclick="closeSupplierPaymentModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="bi bi-x-lg text-2xl"></i>
+            </button>
+        </div>
+        <div class="p-6">
+            <form id="supplierPaymentForm">
+                @csrf
+                <input type="hidden" name="supplier_id" id="sp_supplier_id" value="">
+                <div class="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg">
+                    <span class="text-sm text-gray-600">Supplier:</span>
+                    <span class="font-semibold text-gray-900" id="sp_supplier_label">—</span>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Payment type <span class="text-danger">*</span></label>
+                        <select name="payment_type" id="sp_payment_type" class="form-select" required>
+                            <option value="">Loading…</option>
+                        </select>
+                        <div class="field-error-sp text-danger small mt-1" data-field="payment_type" style="display: none;"></div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Project</label>
+                        <select name="project_id" id="sp_project_id" class="form-select">
+                            <option value="">None</option>
+                        </select>
+                        <div class="field-error-sp text-danger small mt-1" data-field="project_id" style="display: none;"></div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Amount <span class="text-danger">*</span></label>
+                        <input type="number" name="amount" id="sp_amount" step="0.01" min="0.01" class="form-control" placeholder="0.00" required>
+                        <div class="field-error-sp text-danger small mt-1" data-field="amount" style="display: none;"></div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Payment date <span class="text-danger">*</span></label>
+                        <input type="date" name="payment_date" id="sp_payment_date" class="form-control" required>
+                        <div class="field-error-sp text-danger small mt-1" data-field="payment_date" style="display: none;"></div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Bank account</label>
+                        <select name="bank_account_id" id="sp_bank_account_id" class="form-select">
+                            <option value="">None</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Payment method</label>
+                        <select name="payment_method" id="sp_payment_method" class="form-select">
+                            <option value="">Select method</option>
+                            <option value="cash">Cash</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="online_payment">Online Payment</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Transaction reference</label>
+                    <input type="text" name="transaction_reference" id="sp_transaction_reference" class="form-control" placeholder="Cheque no., transfer ref…">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" id="sp_notes" rows="2" class="form-control"></textarea>
+                </div>
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <a href="{{ route('admin.advance-payments.index') }}" target="_blank" class="text-sm text-indigo-600">Open advance payments list</a>
+                    <div>
+                        <button type="button" onclick="closeSupplierPaymentModal()" class="btn btn-secondary me-2">Cancel</button>
+                        <button type="submit" class="btn btn-success" id="supplierPaymentSubmitBtn">Save payment</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
     @media (max-width: 768px) {
         .supplier-btn-text {
@@ -216,8 +306,64 @@
 @push('scripts')
 <script>
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+const supplierPaymentStoreUrl = "{{ route('admin.advance-payments.store') }}";
+const supplierPaymentFormDataUrl = "{{ route('admin.advance-payments.create') }}";
 let currentSupplierId = null;
 let deleteSupplierId = null;
+
+function openSupplierPaymentModal(supplierId, supplierName) {
+    const modal = document.getElementById('supplierPaymentModal');
+    document.getElementById('sp_supplier_id').value = supplierId;
+    document.getElementById('sp_supplier_label').textContent = supplierName || '—';
+    document.querySelectorAll('#supplierPaymentForm .field-error-sp').forEach(el => {
+        el.style.display = 'none';
+        el.textContent = '';
+    });
+    document.getElementById('sp_payment_type').innerHTML = '<option value="">Loading…</option>';
+
+    fetch(supplierPaymentFormDataUrl, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        const pt = document.getElementById('sp_payment_type');
+        pt.innerHTML = '<option value="">Select payment type</option>';
+        (data.paymentTypes || []).forEach(type => {
+            const code = type.code || (type.name || '').toLowerCase().replace(/\s+/g, '_');
+            pt.innerHTML += `<option value="${code}">${type.name}</option>`;
+        });
+        const preferred = (data.paymentTypes || []).find(t => (t.code || '') === 'supplier')
+            || (data.paymentTypes || []).find(t => (t.code || '') === 'material_payment');
+        if (preferred) {
+            const c = preferred.code || (preferred.name || '').toLowerCase().replace(/\s+/g, '_');
+            pt.value = c;
+        }
+        const proj = document.getElementById('sp_project_id');
+        proj.innerHTML = '<option value="">None</option>';
+        (data.projects || []).forEach(p => {
+            proj.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+        });
+        const bank = document.getElementById('sp_bank_account_id');
+        bank.innerHTML = '<option value="">None</option>';
+        (data.bankAccounts || []).forEach(a => {
+            bank.innerHTML += `<option value="${a.id}">${a.account_name} (${a.account_type || '—'})</option>`;
+        });
+        document.getElementById('sp_payment_date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('sp_amount').value = '';
+        document.getElementById('sp_payment_method').value = '';
+        document.getElementById('sp_transaction_reference').value = '';
+        document.getElementById('sp_notes').value = '';
+        modal.classList.remove('hidden');
+    })
+    .catch(err => {
+        console.error(err);
+        showNotification('Could not load payment form. Try again.', 'error');
+    });
+}
+
+function closeSupplierPaymentModal() {
+    document.getElementById('supplierPaymentModal').classList.add('hidden');
+}
 
 function previewQRImage(input) {
     const previewDiv = document.getElementById('qr-preview');
@@ -398,9 +544,12 @@ function addSupplierRow(supplier) {
             </span>
         </td>
         <td class="text-end">
-            <div class="d-flex gap-1 justify-content-end text-nowrap">
+            <div class="d-flex gap-1 justify-content-end text-nowrap flex-wrap">
                 <button onclick="openViewSupplierModal(${supplier.id})" class="btn btn-sm btn-outline-primary" title="View">
                     <i class="bi bi-eye"></i>
+                </button>
+                <button type="button" onclick="openSupplierPaymentModal(${supplier.id}, ${JSON.stringify(supplier.name || '')})" class="btn btn-sm btn-outline-success" title="Add payment (Advance)">
+                    <i class="bi bi-cash-coin"></i>
                 </button>
                 <button onclick="openEditSupplierModal(${supplier.id})" class="btn btn-sm btn-outline-warning" title="Edit">
                     <i class="bi bi-pencil"></i>
@@ -429,9 +578,12 @@ function updateSupplierRow(supplier) {
                 </span>
             </td>
             <td class="text-end">
-                <div class="d-flex gap-1 justify-content-end text-nowrap">
+                <div class="d-flex gap-1 justify-content-end text-nowrap flex-wrap">
                     <button onclick="openViewSupplierModal(${supplier.id})" class="btn btn-sm btn-outline-primary" title="View">
                         <i class="bi bi-eye"></i>
+                    </button>
+                    <button type="button" onclick="openSupplierPaymentModal(${supplier.id}, ${JSON.stringify(supplier.name || '')})" class="btn btn-sm btn-outline-success" title="Add payment (Advance)">
+                        <i class="bi bi-cash-coin"></i>
                     </button>
                     <button onclick="openEditSupplierModal(${supplier.id})" class="btn btn-sm btn-outline-warning" title="Edit">
                         <i class="bi bi-pencil"></i>
@@ -557,7 +709,10 @@ function openViewSupplierModal(supplierId) {
                     ` : ''}
                 </div>
             </div>
-            <div class="mt-4 flex justify-end gap-2">
+            <div class="mt-4 flex justify-end gap-2 flex-wrap">
+                <button type="button" onclick="closeViewSupplierModal(); openSupplierPaymentModal(${sup.id}, ${JSON.stringify(sup.name || '')})" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
+                    Add payment
+                </button>
                 <button onclick="closeViewSupplierModal(); openEditSupplierModal(${sup.id})" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
                     Edit
                 </button>
@@ -680,6 +835,70 @@ function showNotification(message, type = 'success') {
     }, 3000);
 }
 
+document.getElementById('supplierPaymentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const submitBtn = document.getElementById('supplierPaymentSubmitBtn');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+    document.querySelectorAll('#supplierPaymentForm .field-error-sp').forEach(el => {
+        el.style.display = 'none';
+        el.textContent = '';
+    });
+
+    const formData = new FormData(this);
+    fetch(supplierPaymentStoreUrl, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+        }
+    })
+    .then(r => {
+        if (r.status === 422) return r.json().then(j => Promise.reject({ validation: true, body: j }));
+        return r.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message || 'Payment recorded. Expense entry created.', 'success');
+            closeSupplierPaymentModal();
+        } else if (data.errors) {
+            Object.keys(data.errors).forEach(field => {
+                const el = document.querySelector(`#supplierPaymentForm .field-error-sp[data-field="${field}"]`);
+                if (el) {
+                    el.textContent = data.errors[field][0];
+                    el.style.display = 'block';
+                }
+            });
+            showNotification('Please fix the highlighted fields.', 'error');
+        } else {
+            showNotification(data.message || 'Could not save payment', 'error');
+        }
+    })
+    .catch(err => {
+        if (err.validation && err.body && err.body.errors) {
+            const errors = err.body.errors;
+            Object.keys(errors).forEach(field => {
+                const el = document.querySelector(`#supplierPaymentForm .field-error-sp[data-field="${field}"]`);
+                if (el) {
+                    el.textContent = errors[field][0];
+                    el.style.display = 'block';
+                }
+            });
+            showNotification('Please fix the highlighted fields.', 'error');
+        } else {
+            console.error(err);
+            showNotification('Could not save payment.', 'error');
+        }
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    });
+});
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         if (!document.getElementById('supplierModal').classList.contains('hidden')) {
@@ -690,6 +909,9 @@ document.addEventListener('keydown', function(e) {
         }
         if (!document.getElementById('deleteSupplierConfirmationModal').classList.contains('hidden')) {
             closeDeleteSupplierConfirmation();
+        }
+        if (!document.getElementById('supplierPaymentModal').classList.contains('hidden')) {
+            closeSupplierPaymentModal();
         }
     }
 });
@@ -704,6 +926,10 @@ document.getElementById('viewSupplierModal').addEventListener('click', function(
 
 document.getElementById('deleteSupplierConfirmationModal').addEventListener('click', function(e) {
     if (e.target === this) closeDeleteSupplierConfirmation();
+});
+
+document.getElementById('supplierPaymentModal').addEventListener('click', function(e) {
+    if (e.target === this) closeSupplierPaymentModal();
 });
 </script>
 @endpush

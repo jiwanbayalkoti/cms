@@ -20,6 +20,8 @@
 
 <div class="bg-white shadow-lg rounded-lg p-4 mb-6">
     <form method="GET" action="{{ route('admin.loans.index') }}" class="row g-3" id="loanFilterForm" onsubmit="applyLoanFilters(event)">
+        <input type="hidden" name="sort" id="loan_filter_sort" value="{{ $sortColumn ?? request('sort', 'loan_date') }}">
+        <input type="hidden" name="sort_dir" id="loan_filter_sort_dir" value="{{ $sortDir ?? request('sort_dir', 'desc') }}">
         <div class="col-md-3">
             <label class="form-label small">Project</label>
             <select name="project_id" class="form-select form-select-sm" onchange="applyLoanFilters(null, true)">
@@ -74,18 +76,62 @@
     </div>
     <div class="table-responsive">
         <table class="table table-sm table-striped align-middle mb-0">
-            <thead class="table-light">
+            <thead class="table-light" id="loan-thead">
+                @php
+                    $sc = $sortColumn ?? request('sort', 'loan_date');
+                    $sd = $sortDir ?? request('sort_dir', 'desc');
+                    $loanThSort = function (string $col) use ($sc, $sd) {
+                        $active = $sc === $col;
+                        $icon = $active
+                            ? ($sd === 'asc' ? 'bi-sort-up' : 'bi-sort-down')
+                            : 'bi-arrow-down-up';
+                        $cls = $active ? 'text-primary' : 'text-secondary';
+                        return '<i class="bi '.$icon.' ms-1 '.$cls.'" aria-hidden="true"></i>';
+                    };
+                @endphp
                 <tr>
-                    <th>Date</th>
-                    <th>Direction</th>
-                    <th>Party / Source</th>
-                    <th>Project</th>
-                    <th class="text-end">Amount</th>
-                    <th class="text-end">Interest %</th>
-                    <th class="text-end">Interest</th>
-                    <th class="text-end">Payable</th>
-                    <th>Payment Method</th>
-                    <th>Bank</th>
+                    <th>
+                        <button type="button" data-sort-col="loan_date" onclick="sortLoans('loan_date')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Date {!! $loanThSort('loan_date') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="direction" onclick="sortLoans('direction')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Direction {!! $loanThSort('direction') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="party" onclick="sortLoans('party')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Party / Source {!! $loanThSort('party') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="project" onclick="sortLoans('project')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Project {!! $loanThSort('project') !!}
+                        </button>
+                    </th>
+                    <th class="text-end">
+                        <button type="button" data-sort-col="amount" onclick="sortLoans('amount')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Amount {!! $loanThSort('amount') !!}
+                        </button>
+                    </th>
+                    <th class="text-end">
+                        <button type="button" data-sort-col="interest_rate" onclick="sortLoans('interest_rate')" class="btn btn-link btn-sm p-0 text-decoration-none text-dark fw-semibold">
+                            Interest % {!! $loanThSort('interest_rate') !!}
+                        </button>
+                    </th>
+                    <th class="text-end text-muted small">Interest</th>
+                    <th class="text-end text-muted small">Payable</th>
+                    <th>
+                        <button type="button" data-sort-col="payment_method" onclick="sortLoans('payment_method')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Payment Method {!! $loanThSort('payment_method') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="bank" onclick="sortLoans('bank')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Bank {!! $loanThSort('bank') !!}
+                        </button>
+                    </th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -421,6 +467,23 @@
 
 @push('scripts')
 <script>
+    let loanSortColumn = @json($sortColumn ?? request('sort', 'loan_date'));
+    let loanSortDir = @json($sortDir ?? request('sort_dir', 'desc'));
+
+    function sortLoans(column) {
+        if (loanSortColumn === column) {
+            loanSortDir = loanSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            loanSortColumn = column;
+            loanSortDir = (column === 'loan_date' || column === 'amount' || column === 'interest_rate') ? 'desc' : 'asc';
+        }
+        const sortEl = document.getElementById('loan_filter_sort');
+        const dirEl = document.getElementById('loan_filter_sort_dir');
+        if (sortEl) sortEl.value = loanSortColumn;
+        if (dirEl) dirEl.value = loanSortDir;
+        applyLoanFilters(null, true);
+    }
+
     let loanCrudModalInstance = null;
     let loanPaymentModalInstance = null;
     let currentLoanId = null;
@@ -627,10 +690,16 @@
         const startDate = form.querySelector('[name="start_date"]');
         const endDate = form.querySelector('[name="end_date"]');
         const direction = form.querySelector('[name="direction"]');
+        const sortInp = document.getElementById('loan_filter_sort');
+        const sortDirInp = document.getElementById('loan_filter_sort_dir');
         if (project) project.value = '';
         if (startDate) startDate.value = '';
         if (endDate) endDate.value = '';
         if (direction) direction.value = '';
+        if (sortInp) sortInp.value = 'loan_date';
+        if (sortDirInp) sortDirInp.value = 'desc';
+        loanSortColumn = 'loan_date';
+        loanSortDir = 'desc';
         applyLoanFilters(null, true);
     }
 

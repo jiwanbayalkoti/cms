@@ -61,6 +61,8 @@
     </div>
     <div class="card-body">
         <form id="filterForm" class="row g-2 align-items-end">
+            <input type="hidden" name="sort" id="cm_filter_sort" value="{{ $sortColumn ?? request('sort', 'created_at') }}">
+            <input type="hidden" name="sort_dir" id="cm_filter_sort_dir" value="{{ $sortDir ?? request('sort_dir', 'desc') }}">
             <div class="col-md-3">
                 <label class="form-label small mb-1">Material Name</label>
                 <select name="material_name" id="filter_material_name" class="form-select form-select-sm" onchange="applyFiltersDebounced()">
@@ -146,17 +148,61 @@
     </div>
     <div class="table-responsive">
         <table class="table table-striped mb-0">
-            <thead>
+            <thead id="construction-materials-thead">
+                @php
+                    $msc = $sortColumn ?? request('sort', 'created_at');
+                    $msd = $sortDir ?? request('sort_dir', 'desc');
+                    $cmThSort = function (string $col) use ($msc, $msd) {
+                        $active = $msc === $col;
+                        $icon = $active
+                            ? ($msd === 'asc' ? 'bi-sort-up' : 'bi-sort-down')
+                            : 'bi-arrow-down-up';
+                        $cls = $active ? 'text-primary' : 'text-secondary';
+                        return '<i class="bi '.$icon.' ms-1 '.$cls.'" aria-hidden="true"></i>';
+                    };
+                @endphp
                 <tr>
                     <th>SN</th>
-                    <th>Material</th>
-                    <th>Project</th>
-                    <th>Supplier</th>
-                    <th>Qty Received</th>
-                    <th>Qty Used</th>
-                    <th>Qty Remaining</th>
-                    <th>Total Cost</th>
-                    <th>Status</th>
+                    <th>
+                        <button type="button" data-sort-col="material_name" onclick="sortConstructionMaterials('material_name')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Material {!! $cmThSort('material_name') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="project_name" onclick="sortConstructionMaterials('project_name')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Project {!! $cmThSort('project_name') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="supplier_name" onclick="sortConstructionMaterials('supplier_name')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Supplier {!! $cmThSort('supplier_name') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="quantity_received" onclick="sortConstructionMaterials('quantity_received')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Qty Received {!! $cmThSort('quantity_received') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="quantity_used" onclick="sortConstructionMaterials('quantity_used')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Qty Used {!! $cmThSort('quantity_used') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="quantity_remaining" onclick="sortConstructionMaterials('quantity_remaining')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Qty Remaining {!! $cmThSort('quantity_remaining') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="total_cost" onclick="sortConstructionMaterials('total_cost')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Total Cost {!! $cmThSort('total_cost') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" data-sort-col="status" onclick="sortConstructionMaterials('status')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Status {!! $cmThSort('status') !!}
+                        </button>
+                    </th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -1207,6 +1253,37 @@ document.getElementById('deleteMaterialConfirmationModal').addEventListener('cli
 // Debounced filter function for performance
 const applyFiltersDebounced = window.debounce ? window.debounce(applyFilters, 300) : applyFilters;
 
+let materialSortColumn = @json($sortColumn ?? request('sort', 'created_at'));
+let materialSortDir = @json($sortDir ?? request('sort_dir', 'desc'));
+
+function sortConstructionMaterials(column) {
+    if (materialSortColumn === column) {
+        materialSortDir = materialSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        materialSortColumn = column;
+        materialSortDir = ['created_at', 'delivery_date', 'total_cost', 'quantity_received', 'quantity_used', 'quantity_remaining'].includes(column) ? 'desc' : 'asc';
+    }
+    const sEl = document.getElementById('cm_filter_sort');
+    const dEl = document.getElementById('cm_filter_sort_dir');
+    if (sEl) sEl.value = materialSortColumn;
+    if (dEl) dEl.value = materialSortDir;
+    applyFilters();
+}
+
+function updateConstructionMaterialsSortHeaders(sort, dir) {
+    if (!sort || !dir) return;
+    document.querySelectorAll('#construction-materials-thead [data-sort-col]').forEach(function(btn) {
+        const col = btn.getAttribute('data-sort-col');
+        const icon = btn.querySelector('i.bi');
+        if (!icon) return;
+        icon.className = 'bi ms-1 ' + (col === sort
+            ? (dir === 'asc' ? 'bi-sort-up text-primary' : 'bi-sort-down text-primary')
+            : 'bi-arrow-down-up text-secondary');
+    });
+}
+
+window.sortConstructionMaterials = sortConstructionMaterials;
+
 function applyFilters() {
     const form = document.getElementById('filterForm');
     const formData = new FormData(form);
@@ -1329,6 +1406,15 @@ function applyFilters() {
                 summary.innerHTML = '';
             }
         }
+        if (data.sort !== undefined && data.sort_dir !== undefined) {
+            materialSortColumn = data.sort;
+            materialSortDir = data.sort_dir;
+            const sEl = document.getElementById('cm_filter_sort');
+            const dEl = document.getElementById('cm_filter_sort_dir');
+            if (sEl) sEl.value = data.sort;
+            if (dEl) dEl.value = data.sort_dir;
+            updateConstructionMaterialsSortHeaders(data.sort, data.sort_dir);
+        }
     })
     .catch(error => {
         console.error('Error:', error);
@@ -1341,8 +1427,15 @@ function resetFilters() {
     document.getElementById('filter_supplier_id').value = '';
     document.getElementById('filter_project_name').value = '';
     document.getElementById('filter_purchased_by_id').value = '';
+    document.getElementById('filter_payment_status').value = '';
     document.getElementById('filter_from_date').value = '';
     document.getElementById('filter_to_date').value = '';
+    const sEl = document.getElementById('cm_filter_sort');
+    const dEl = document.getElementById('cm_filter_sort_dir');
+    if (sEl) sEl.value = 'created_at';
+    if (dEl) dEl.value = 'desc';
+    materialSortColumn = 'created_at';
+    materialSortDir = 'desc';
     applyFilters();
 }
 
@@ -1377,15 +1470,21 @@ function handlePaginationClick(e) {
         const supplierId = document.getElementById('filter_supplier_id')?.value;
         const projectName = document.getElementById('filter_project_name')?.value;
         const purchasedById = document.getElementById('filter_purchased_by_id')?.value;
+        const paymentStatus = document.getElementById('filter_payment_status')?.value;
         const fromDate = document.getElementById('filter_from_date')?.value;
         const toDate = document.getElementById('filter_to_date')?.value;
+        const sortVal = document.getElementById('cm_filter_sort')?.value;
+        const sortDirVal = document.getElementById('cm_filter_sort_dir')?.value;
         
         if (materialName) params.set('material_name', materialName);
         if (supplierId) params.set('supplier_id', supplierId);
         if (projectName) params.set('project_name', projectName);
         if (purchasedById) params.set('purchased_by_id', purchasedById);
+        if (paymentStatus) params.set('payment_status', paymentStatus);
         if (fromDate) params.set('from_date', fromDate);
         if (toDate) params.set('to_date', toDate);
+        if (sortVal) params.set('sort', sortVal);
+        if (sortDirVal) params.set('sort_dir', sortDirVal);
         
         const tbody = document.getElementById('materialsTableBody');
         const tfoot = document.getElementById('materialsTableFooter');
@@ -1473,6 +1572,15 @@ function handlePaginationClick(e) {
                 } else {
                     summary.innerHTML = '';
                 }
+            }
+            if (data.sort !== undefined && data.sort_dir !== undefined) {
+                materialSortColumn = data.sort;
+                materialSortDir = data.sort_dir;
+                const sEl = document.getElementById('cm_filter_sort');
+                const dEl = document.getElementById('cm_filter_sort_dir');
+                if (sEl) sEl.value = data.sort;
+                if (dEl) dEl.value = data.sort_dir;
+                updateConstructionMaterialsSortHeaders(data.sort, data.sort_dir);
             }
             
             if (tbody) {

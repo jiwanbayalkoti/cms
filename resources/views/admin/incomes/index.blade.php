@@ -19,6 +19,8 @@
 
 <div class="mb-4 bg-white shadow-lg rounded-lg p-4">
     <form method="GET" action="{{ route('admin.incomes.index') }}" id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+        <input type="hidden" name="sort" id="income_filter_sort" value="{{ $sortColumn ?? request('sort', 'date') }}">
+        <input type="hidden" name="direction" id="income_filter_direction" value="{{ $sortDir ?? request('direction', 'desc') }}">
         @if($projects->count() > 0)
         <div>
             <label for="project_id" class="block text-sm font-medium text-gray-700 mb-2">Project</label>
@@ -98,15 +100,51 @@
         <div class="overflow-x-auto -mx-4 sm:mx-0">
             <div class="inline-block min-w-full align-middle">
                 <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
+            <thead class="bg-gray-50" id="incomes-thead">
+                @php
+                    $sc = $sortColumn ?? request('sort', 'date');
+                    $sd = $sortDir ?? request('direction', 'desc');
+                    $incomeThSort = function (string $col) use ($sc, $sd) {
+                        $active = $sc === $col;
+                        $icon = $active
+                            ? ($sd === 'asc' ? 'bi-sort-up' : 'bi-sort-down')
+                            : 'bi-arrow-down-up';
+                        $cls = $active ? 'text-indigo-600' : 'text-gray-300 group-hover:text-gray-500';
+                        return '<i class="bi '.$icon.' ml-1 '.$cls.'" aria-hidden="true"></i>';
+                    };
+                @endphp
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SN</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="date" onclick="sortIncomes('date')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Date {!! $incomeThSort('date') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="source" onclick="sortIncomes('source')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Source {!! $incomeThSort('source') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="project" onclick="sortIncomes('project')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Project {!! $incomeThSort('project') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="category" onclick="sortIncomes('category')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Category {!! $incomeThSort('category') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="amount" onclick="sortIncomes('amount')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Amount {!! $incomeThSort('amount') !!}
+                        </button>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <button type="button" data-sort-col="payment_method" onclick="sortIncomes('payment_method')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
+                            Payment Method {!! $incomeThSort('payment_method') !!}
+                        </button>
+                    </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-nowrap">Actions</th>
                 </tr>
             </thead>
@@ -919,6 +957,34 @@ document.getElementById('deleteIncomeConfirmationModal').addEventListener('click
 // Filter and Pagination Functions
 let currentIncomePage = 1;
 let isLoadingIncomes = false;
+let incomeSortColumn = @json($sortColumn ?? request('sort', 'date'));
+let incomeSortDirection = @json($sortDir ?? request('direction', 'desc'));
+
+function sortIncomes(column) {
+    if (incomeSortColumn === column) {
+        incomeSortDirection = incomeSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        incomeSortColumn = column;
+        incomeSortDirection = (column === 'date' || column === 'amount') ? 'desc' : 'asc';
+    }
+    const sortEl = document.getElementById('income_filter_sort');
+    const dirEl = document.getElementById('income_filter_direction');
+    if (sortEl) sortEl.value = incomeSortColumn;
+    if (dirEl) dirEl.value = incomeSortDirection;
+    applyFilters(1);
+}
+
+function updateIncomeSortHeaders(sort, dir) {
+    if (!sort || !dir) return;
+    document.querySelectorAll('#incomes-thead [data-sort-col]').forEach(function(btn) {
+        const col = btn.getAttribute('data-sort-col');
+        const icon = btn.querySelector('i.bi');
+        if (!icon) return;
+        icon.className = 'bi ml-1 ' + (col === sort
+            ? (dir === 'asc' ? 'bi-sort-up text-indigo-600' : 'bi-sort-down text-indigo-600')
+            : 'bi-arrow-down-up text-gray-300 group-hover:text-gray-500');
+    });
+}
 
 function applyFilters(page = 1) {
     if (isLoadingIncomes) return;
@@ -961,8 +1027,15 @@ function applyFilters(page = 1) {
         return response.json();
     })
     .then(data => {
+        if (data.sort !== undefined) incomeSortColumn = data.sort;
+        if (data.direction !== undefined) incomeSortDirection = data.direction;
+        const sortEl = document.getElementById('income_filter_sort');
+        const dirEl = document.getElementById('income_filter_direction');
+        if (sortEl && data.sort) sortEl.value = data.sort;
+        if (dirEl && data.direction) dirEl.value = data.direction;
         updateIncomesTable(data.incomes, data.current_page, data.per_page, data.total_amount);
         updateIncomesPagination(data.pagination);
+        updateIncomeSortHeaders(data.sort || incomeSortColumn, data.direction || incomeSortDirection);
         updateIncomeURL(params.toString());
         updateIncomesExportLink();
         
@@ -1080,7 +1153,7 @@ function updateIncomesExportLink() {
     if (!form) return;
     const formData = new FormData(form);
     const params = new URLSearchParams();
-    const exportParams = ['project_id', 'category_id', 'subcategory_id', 'start_date', 'end_date', 'keyword'];
+    const exportParams = ['project_id', 'category_id', 'subcategory_id', 'start_date', 'end_date', 'keyword', 'sort', 'direction'];
     for (const key of exportParams) {
         const val = formData.get(key);
         if (val) params.append(key, val);
@@ -1211,6 +1284,13 @@ function clearFilters() {
     document.getElementById('start_date').value = '';
     document.getElementById('end_date').value = '';
     document.getElementById('keyword').value = '';
+    incomeSortColumn = 'date';
+    incomeSortDirection = 'desc';
+    const sortEl = document.getElementById('income_filter_sort');
+    const dirEl = document.getElementById('income_filter_direction');
+    if (sortEl) sortEl.value = 'date';
+    if (dirEl) dirEl.value = 'desc';
+    updateIncomeSortHeaders('date', 'desc');
     
     // Apply filters (which will load all incomes)
     applyFilters();

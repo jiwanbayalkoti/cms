@@ -87,6 +87,7 @@ class AdvancePayment extends Model
         return [
             'vehicle_rent' => 'Vehicle Rent',
             'material_payment' => 'Material Payment',
+            'supplier' => 'Supplier Payment',
         ];
     }
 

@@ -397,6 +397,8 @@ class ReportController extends Controller
                     'category' => $e->category->name,
                     'staff' => $e->staff ? $e->staff->name : 'N/A',
                     'amount' => number_format($e->amount, 2),
+                    'has_advance' => (bool) $e->advance_payment_id,
+                    'expense_show_url' => $e->advance_payment_id ? route('admin.expenses.show', $e) : null,
                 ];
             });
             return response()->json([

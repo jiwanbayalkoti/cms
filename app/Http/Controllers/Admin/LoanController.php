@@ -12,6 +12,7 @@ use App\Models\Supplier;
 use App\Models\Project;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -60,10 +61,9 @@ class LoanController extends Controller
             $query->where('direction', $request->direction);
         }
 
-        $loans = (clone $query)
-            ->orderBy('loan_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
+        $listQuery = (clone $query);
+        [$sortColumn, $sortDir] = $this->applyLoanListSorting($listQuery, $request);
+        $loans = $listQuery->paginate(15)->withQueryString();
 
         $projects = $this->getAccessibleProjects();
         $suppliers = Supplier::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
@@ -122,8 +122,60 @@ class LoanController extends Controller
             'totalRepaid',
             'netBalance',
             'startDate',
-            'endDate'
+            'endDate',
+            'sortColumn',
+            'sortDir'
         ));
+    }
+
+    /**
+     * Whitelist sorting for loan list (table: loans). Uses sort_dir (asc|desc) to avoid
+     * clashing with the filter param "direction" (received/repaid).
+     *
+     * @return array{0: string, 1: string} [sortColumn, sortDir]
+     */
+    private function applyLoanListSorting(Builder $query, Request $request): array
+    {
+        $sortColumn = $request->get('sort', 'loan_date');
+        $sortDir = strtolower((string) $request->get('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowedSorts = ['loan_date', 'direction', 'party', 'project', 'amount', 'interest_rate', 'payment_method', 'bank'];
+        if (! in_array($sortColumn, $allowedSorts, true)) {
+            $sortColumn = 'loan_date';
+        }
+
+        $dirSql = $sortDir === 'asc' ? 'ASC' : 'DESC';
+
+        switch ($sortColumn) {
+            case 'project':
+                $query->orderByRaw(
+                    '(SELECT p.name FROM projects AS p WHERE p.id = loans.project_id LIMIT 1) '.$dirSql
+                );
+                break;
+            case 'party':
+                $query->orderByRaw(
+                    'COALESCE(loans.party_source, loans.party_name, loans.source, '
+                    .'(SELECT s.name FROM suppliers AS s WHERE s.id = loans.supplier_id LIMIT 1), '
+                    .'(SELECT st.name FROM staff AS st WHERE st.id = loans.staff_id LIMIT 1), '
+                    ."''"
+                    .') '.$dirSql
+                );
+                break;
+            case 'bank':
+                $query->orderByRaw(
+                    '(SELECT b.account_name FROM bank_accounts AS b WHERE b.id = loans.bank_account_id LIMIT 1) '.$dirSql
+                );
+                break;
+            case 'direction':
+                $query->orderBy('loans.direction', $sortDir);
+                break;
+            default:
+                $query->orderBy('loans.'.$sortColumn, $sortDir);
+                break;
+        }
+
+        $query->orderBy('loans.id', $sortDir === 'asc' ? 'asc' : 'desc');
+
+        return [$sortColumn, $sortDir];
     }
 
     public function create()

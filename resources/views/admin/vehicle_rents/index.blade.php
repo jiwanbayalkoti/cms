@@ -26,6 +26,8 @@
     </div>
     <div class="card-body">
         <form id="filterForm" class="row g-2 align-items-end">
+            <input type="hidden" name="sort" id="vehicle_filter_sort" value="{{ $sortColumn ?? request('sort', 'rent_date') }}">
+            <input type="hidden" name="sort_dir" id="vehicle_filter_sort_dir" value="{{ $sortDir ?? request('sort_dir', 'desc') }}">
             <div class="col-md-2">
                 <label class="form-label small mb-1">Project</label>
                 <select name="project_id" id="filter_project_id" class="form-select form-select-sm" onchange="applyFiltersDebounced()">
@@ -198,20 +200,76 @@
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover">
-                <thead>
+                <thead id="vehicle-rents-thead">
+                    @php
+                        $vsc = $sortColumn ?? request('sort', 'rent_date');
+                        $vsd = $sortDir ?? request('sort_dir', 'desc');
+                        $vehicleThSort = function (string $col) use ($vsc, $vsd) {
+                            $active = $vsc === $col;
+                            $icon = $active
+                                ? ($vsd === 'asc' ? 'bi-sort-up' : 'bi-sort-down')
+                                : 'bi-arrow-down-up';
+                            $cls = $active ? 'text-primary' : 'text-secondary';
+                            return '<i class="bi '.$icon.' ms-1 '.$cls.'" aria-hidden="true"></i>';
+                        };
+                    @endphp
                     <tr>
                         <th>SN</th>
-                        <th>Date</th>
-                        <th>Vehicle Type</th>
-                        <th>Vehicle #</th>
-                        <th>Route</th>
-                        <th>Rate Type</th>
-                        <th>Project</th>
-                        <th>Supplier</th>
-                        <th class="text-end">Total Amount</th>
-                        <th class="text-end">Paid</th>
-                        <th class="text-end">Balance</th>
-                        <th>Payment Status</th>
+                        <th>
+                            <button type="button" data-sort-col="rent_date" onclick="sortVehicleRents('rent_date')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Date {!! $vehicleThSort('rent_date') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="vehicle_type" onclick="sortVehicleRents('vehicle_type')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Vehicle Type {!! $vehicleThSort('vehicle_type') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="vehicle_number" onclick="sortVehicleRents('vehicle_number')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Vehicle # {!! $vehicleThSort('vehicle_number') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="route" onclick="sortVehicleRents('route')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Route {!! $vehicleThSort('route') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="rate_type" onclick="sortVehicleRents('rate_type')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Rate Type {!! $vehicleThSort('rate_type') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="project" onclick="sortVehicleRents('project')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Project {!! $vehicleThSort('project') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="supplier" onclick="sortVehicleRents('supplier')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Supplier {!! $vehicleThSort('supplier') !!}
+                            </button>
+                        </th>
+                        <th class="text-end">
+                            <button type="button" data-sort-col="total_amount" onclick="sortVehicleRents('total_amount')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Total Amount {!! $vehicleThSort('total_amount') !!}
+                            </button>
+                        </th>
+                        <th class="text-end">
+                            <button type="button" data-sort-col="paid_amount" onclick="sortVehicleRents('paid_amount')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Paid {!! $vehicleThSort('paid_amount') !!}
+                            </button>
+                        </th>
+                        <th class="text-end">
+                            <button type="button" data-sort-col="balance_amount" onclick="sortVehicleRents('balance_amount')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Balance {!! $vehicleThSort('balance_amount') !!}
+                            </button>
+                        </th>
+                        <th>
+                            <button type="button" data-sort-col="payment_status" onclick="sortVehicleRents('payment_status')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                                Payment Status {!! $vehicleThSort('payment_status') !!}
+                            </button>
+                        </th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -793,6 +851,38 @@ document.getElementById('deleteVehicleRentConfirmationModal')?.addEventListener(
 // Debounced filter function for performance
 const applyFiltersDebounced = window.debounce ? window.debounce(applyFilters, 300) : applyFilters;
 
+let vehicleSortColumn = @json($sortColumn ?? request('sort', 'rent_date'));
+let vehicleSortDir = @json($sortDir ?? request('sort_dir', 'desc'));
+
+function sortVehicleRents(column) {
+    if (vehicleSortColumn === column) {
+        vehicleSortDir = vehicleSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        vehicleSortColumn = column;
+        vehicleSortDir = ['rent_date', 'total_amount', 'paid_amount', 'balance_amount'].includes(column) ? 'desc' : 'asc';
+    }
+    const sEl = document.getElementById('vehicle_filter_sort');
+    const dEl = document.getElementById('vehicle_filter_sort_dir');
+    if (sEl) sEl.value = vehicleSortColumn;
+    if (dEl) dEl.value = vehicleSortDir;
+    applyFilters(1);
+}
+
+function updateVehicleRentSortHeaders(sort, dir) {
+    if (!sort || !dir) return;
+    document.querySelectorAll('#vehicle-rents-thead [data-sort-col]').forEach(function(btn) {
+        const col = btn.getAttribute('data-sort-col');
+        const icon = btn.querySelector('i.bi');
+        if (!icon) return;
+        icon.className = 'bi ms-1 ' + (col === sort
+            ? (dir === 'asc' ? 'bi-sort-up text-primary' : 'bi-sort-down text-primary')
+            : 'bi-arrow-down-up text-secondary');
+    });
+}
+
+// Expose for onclick handlers (inline handlers resolve on window)
+window.sortVehicleRents = sortVehicleRents;
+
 let currentVehicleRentPage = 1;
 let isLoadingVehicleRents = false;
 
@@ -842,6 +932,15 @@ function applyFilters(page = 1) {
         updateVehicleRentsPagination(data.pagination);
         updateVehicleRentsSummary(data.summary);
         updateVehicleRentsURL(params.toString());
+        if (data.sort !== undefined && data.sort_dir !== undefined) {
+            vehicleSortColumn = data.sort;
+            vehicleSortDir = data.sort_dir;
+            const sEl = document.getElementById('vehicle_filter_sort');
+            const dEl = document.getElementById('vehicle_filter_sort_dir');
+            if (sEl) sEl.value = data.sort;
+            if (dEl) dEl.value = data.sort_dir;
+            updateVehicleRentSortHeaders(data.sort, data.sort_dir);
+        }
         
         // Hide loading state
         document.getElementById('vehicle-rents-loading').classList.add('hidden');
@@ -1063,6 +1162,12 @@ function resetFilters() {
     document.getElementById('filter_rate_type').value = '';
     document.getElementById('filter_start_date').value = '';
     document.getElementById('filter_end_date').value = '';
+    const sEl = document.getElementById('vehicle_filter_sort');
+    const dEl = document.getElementById('vehicle_filter_sort_dir');
+    if (sEl) sEl.value = 'rent_date';
+    if (dEl) dEl.value = 'desc';
+    vehicleSortColumn = 'rent_date';
+    vehicleSortDir = 'desc';
     applyFilters();
 }
 

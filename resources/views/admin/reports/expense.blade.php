@@ -123,7 +123,14 @@
                             {{ $expense->expenseType ? $expense->expenseType->name : 'Other' }}
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-900">{{ $expense->item_name ?? Str::limit($expense->description, 30) }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">
+                        {{ $expense->item_name ?? Str::limit($expense->description, 30) }}
+                        @if($expense->advancePayment)
+                            <div class="mt-1">
+                                <a href="{{ route('admin.expenses.show', $expense) }}" class="text-xs text-indigo-600 hover:text-indigo-900">View expense (linked advance payment)</a>
+                            </div>
+                        @endif
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $expense->category->name }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $expense->staff ? $expense->staff->name : 'N/A' }}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-red-600">${{ number_format($expense->amount, 2) }}</td>
@@ -178,9 +185,13 @@
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">No expense records found</td></tr>';
             } else {
                 tbody.innerHTML = data.expenseRows.map(function(row) {
+                    var itemCell = escapeHtml(row.item);
+                    if (row.has_advance && row.expense_show_url) {
+                        itemCell += '<div class="mt-1"><a href="' + row.expense_show_url.replace(/"/g, '&quot;') + '" class="text-xs text-indigo-600 hover:text-indigo-900">View expense (linked advance payment)</a></div>';
+                    }
                     return '<tr><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">' + row.date + '</td>' +
                         '<td class="px-6 py-4 whitespace-nowrap"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ' + row.type_class + '">' + escapeHtml(row.expense_type) + '</span></td>' +
-                        '<td class="px-6 py-4 text-sm text-gray-900">' + escapeHtml(row.item) + '</td>' +
+                        '<td class="px-6 py-4 text-sm text-gray-900">' + itemCell + '</td>' +
                         '<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">' + escapeHtml(row.category) + '</td>' +
                         '<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">' + escapeHtml(row.staff) + '</td>' +
                         '<td class="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-red-600">$' + row.amount + '</td></tr>';

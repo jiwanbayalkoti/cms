@@ -19,6 +19,7 @@ use App\Models\AdvancePayment;
 use App\Models\Expense;
 use App\Models\Category;
 use App\Support\CompanyContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -187,8 +188,10 @@ class ConstructionMaterialController extends Controller
             $netBalance = $totalCost - $totalAdvancePayments;
         }
 
-        // Paginate results
-        $materials = $query->latest()->paginate(15)->withQueryString();
+        // Paginate with whitelist sorting (default: latest = created_at desc)
+        $listQuery = (clone $query);
+        [$sortColumn, $sortDir] = $this->applyConstructionMaterialListSorting($listQuery, $request);
+        $materials = $listQuery->paginate(15)->withQueryString();
         
         $materialNames = MaterialName::orderBy('name')->get();
         $suppliers = Supplier::where('company_id', $companyId)
@@ -222,11 +225,51 @@ class ConstructionMaterialController extends Controller
                 'materials' => $materials,
                 'totalCost' => $totalCost,
                 'totalAdvancePayments' => $totalAdvancePayments ?? 0,
-                'netBalance' => $netBalanceValue
+                'netBalance' => $netBalanceValue,
+                'sort' => $sortColumn,
+                'sort_dir' => $sortDir,
             ]);
         }
 
-        return view('admin.construction_materials.index', compact('materials', 'materialNames', 'suppliers', 'projects', 'purchasedBies', 'totalCost', 'totalQuantityReceived', 'totalQuantityUsed', 'totalQuantityRemaining', 'totalAdvancePayments', 'netBalance'));
+        return view('admin.construction_materials.index', compact(
+            'materials',
+            'materialNames',
+            'suppliers',
+            'projects',
+            'purchasedBies',
+            'totalCost',
+            'totalQuantityReceived',
+            'totalQuantityUsed',
+            'totalQuantityRemaining',
+            'totalAdvancePayments',
+            'netBalance',
+            'sortColumn',
+            'sortDir'
+        ));
+    }
+
+    /**
+     * Whitelist sorting for construction materials list (table: construction_materials).
+     *
+     * @return array{0: string, 1: string} [sortColumn, sortDir]
+     */
+    private function applyConstructionMaterialListSorting(Builder $query, Request $request): array
+    {
+        $sortColumn = $request->get('sort', 'created_at');
+        $sortDir = strtolower((string) $request->get('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowed = [
+            'material_name', 'project_name', 'supplier_name',
+            'quantity_received', 'quantity_used', 'quantity_remaining',
+            'total_cost', 'status', 'created_at',
+        ];
+        if (! in_array($sortColumn, $allowed, true)) {
+            $sortColumn = 'created_at';
+        }
+
+        $query->orderBy('construction_materials.'.$sortColumn, $sortDir);
+        $query->orderBy('construction_materials.id', $sortDir === 'asc' ? 'asc' : 'desc');
+
+        return [$sortColumn, $sortDir];
     }
 
     public function create()

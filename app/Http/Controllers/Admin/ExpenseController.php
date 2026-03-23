@@ -17,6 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Support\CompanyContext;
+use Illuminate\Database\Eloquent\Builder;
 
 class ExpenseController extends Controller
 {
@@ -75,8 +76,10 @@ class ExpenseController extends Controller
                     ->orWhere('notes', 'like', '%' . $keyword . '%');
             });
         }
-        
-        $expenses = $query->latest('date')->paginate(15)->withQueryString();
+
+        [$sortColumn, $sortDir] = $this->applyExpenseListSorting($query, $request);
+
+        $expenses = $query->paginate(15)->withQueryString();
         
         // Get only accessible projects for dropdown
         $projects = $this->getAccessibleProjects();
@@ -137,10 +140,12 @@ class ExpenseController extends Controller
                 'current_page' => $expenses->currentPage(),
                 'per_page' => $expenses->perPage(),
                 'total_amount' => $expenses->sum('amount'),
+                'sort' => $sortColumn,
+                'direction' => $sortDir,
             ]);
         }
         
-        return view('admin.expenses.index', compact('expenses', 'projects', 'expenseTypes', 'categories', 'subcategories'));
+        return view('admin.expenses.index', compact('expenses', 'projects', 'expenseTypes', 'categories', 'subcategories', 'sortColumn', 'sortDir'));
     }
 
     /**
@@ -184,9 +189,65 @@ class ExpenseController extends Controller
             $query->where('date', '<=', $request->end_date);
         }
 
+        $this->applyExpenseListSorting($query, $request);
+
         $filename = 'expenses_' . now()->format('Ymd_His') . '.xlsx';
 
         return Excel::download(new ExpenseExport($query), $filename);
+    }
+
+    /**
+     * Whitelist sorting for expense list / export (table: expenses).
+     *
+     * @return array{0: string, 1: string} [sortColumn, sortDir]
+     */
+    private function applyExpenseListSorting(Builder $query, Request $request): array
+    {
+        $sortColumn = $request->get('sort', 'date');
+        $sortDir = strtolower((string) $request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowedSorts = ['date', 'type', 'item', 'project', 'category', 'staff', 'amount'];
+        if (! in_array($sortColumn, $allowedSorts, true)) {
+            $sortColumn = 'date';
+        }
+
+        $dirSql = $sortDir === 'asc' ? 'ASC' : 'DESC';
+
+        switch ($sortColumn) {
+            case 'project':
+                $query->orderByRaw(
+                    '(SELECT p.name FROM projects AS p WHERE p.id = expenses.project_id LIMIT 1) '.$dirSql
+                );
+                break;
+            case 'category':
+                $query->orderByRaw(
+                    '(SELECT c.name FROM categories AS c WHERE c.id = expenses.category_id LIMIT 1) '.$dirSql
+                );
+                break;
+            case 'staff':
+                $query->orderByRaw(
+                    '(SELECT s.name FROM staff AS s WHERE s.id = expenses.staff_id LIMIT 1) '.$dirSql
+                );
+                break;
+            case 'type':
+                $query->orderByRaw(
+                    '(SELECT et.name FROM expense_types AS et WHERE et.id = expenses.expense_type_id LIMIT 1) '.$dirSql
+                );
+                break;
+            case 'item':
+                $query->orderByRaw('COALESCE(expenses.item_name, expenses.description, \'\') '.$dirSql);
+                break;
+            case 'amount':
+                $query->orderBy('expenses.amount', $sortDir);
+                break;
+            case 'date':
+            default:
+                $query->orderBy('expenses.date', $sortDir);
+                break;
+        }
+
+        $query->orderBy('expenses.id', $sortDir === 'asc' ? 'asc' : 'desc');
+
+        return [$sortColumn, $sortDir];
     }
 
     /**
