@@ -52,9 +52,18 @@ class SupplierController extends Controller
     public function index()
     {
         $companyId = CompanyContext::getActiveCompanyId();
+        $sortColumn = request('sort', 'name');
+        $sortDir = strtolower((string) request('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $allowedSorts = ['name', 'contact', 'email', 'is_active', 'created_at'];
+        if (!in_array($sortColumn, $allowedSorts, true)) {
+            $sortColumn = 'name';
+        }
+
         $suppliers = Supplier::where('company_id', $companyId)
-            ->orderBy('name')
-            ->paginate(15);
+            ->orderBy($sortColumn, $sortDir)
+            ->orderBy('id', $sortDir === 'asc' ? 'asc' : 'desc')
+            ->paginate(15)
+            ->withQueryString();
 
         $supplierIds = $suppliers->getCollection()->pluck('id');
         $supplierPayments = AdvancePayment::where('company_id', $companyId)
@@ -65,7 +74,7 @@ class SupplierController extends Controller
             ->get()
             ->groupBy('supplier_id');
 
-        return view('admin.suppliers.index', compact('suppliers', 'supplierPayments'));
+        return view('admin.suppliers.index', compact('suppliers', 'supplierPayments', 'sortColumn', 'sortDir'));
     }
 
     public function create()

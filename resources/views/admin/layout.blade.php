@@ -2058,8 +2058,14 @@
             const sidebarNav = document.getElementById('sidebar-nav');
             if (sidebarNav && sidebarNav.contains(link)) return;
             
-            // Skip if link has data-ajax="false" attribute
-            if (link.getAttribute('data-ajax') === 'false') return;
+            // Skip links explicitly marked for full page navigation
+            if (
+                link.getAttribute('data-ajax') === 'false' ||
+                link.dataset?.ajax === 'false' ||
+                link.classList.contains('supplier-sort-link')
+            ) {
+                return;
+            }
             
             const href = link.getAttribute('href');
             if (!href) return;

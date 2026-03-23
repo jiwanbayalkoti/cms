@@ -16,13 +16,43 @@
     </div>
     <div class="table-responsive">
         <table class="table table-striped mb-0">
-            <thead>
+            <thead id="suppliers-thead">
+                @php
+                    $ssc = $sortColumn ?? request('sort', 'name');
+                    $ssd = $sortDir ?? request('sort_dir', 'asc');
+                    $supSortUrl = function (string $col) use ($ssc, $ssd) {
+                        $nextDir = ($ssc === $col && $ssd === 'asc') ? 'desc' : 'asc';
+                        return route('admin.suppliers.index', array_merge(request()->query(), ['sort' => $col, 'sort_dir' => $nextDir]));
+                    };
+                    $supSortIcon = function (string $col) use ($ssc, $ssd) {
+                        $active = $ssc === $col;
+                        $icon = $active ? ($ssd === 'asc' ? 'bi-sort-up' : 'bi-sort-down') : 'bi-arrow-down-up';
+                        $cls = $active ? 'text-primary' : 'text-secondary';
+                        return '<i class="bi '.$icon.' ms-1 '.$cls.'" aria-hidden="true"></i>';
+                    };
+                @endphp
                 <tr>
                     <th>SN</th>
-                    <th>Name</th>
-                    <th>Contact</th>
-                    <th>Email</th>
-                    <th>Status</th>
+                    <th>
+                        <button type="button" onclick="navigateSupplierSort(@js($supSortUrl('name')))" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Name {!! $supSortIcon('name') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" onclick="navigateSupplierSort(@js($supSortUrl('contact')))" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Contact {!! $supSortIcon('contact') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" onclick="navigateSupplierSort(@js($supSortUrl('email')))" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Email {!! $supSortIcon('email') !!}
+                        </button>
+                    </th>
+                    <th>
+                        <button type="button" onclick="navigateSupplierSort(@js($supSortUrl('is_active')))" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
+                            Status {!! $supSortIcon('is_active') !!}
+                        </button>
+                    </th>
                     <th class="text-end text-nowrap">Actions</th>
                 </tr>
             </thead>
@@ -72,11 +102,31 @@
                                     <table class="table table-sm table-bordered mb-0" id="supplier-payments-table-{{ $supplier->id }}">
                                         <thead class="table-secondary">
                                             <tr>
-                                                <th>Date</th>
-                                                <th>Type</th>
-                                                <th>Project</th>
-                                                <th class="text-end">Amount</th>
-                                                <th>Method</th>
+                                                <th>
+                                                    <button type="button" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold" onclick="sortSupplierPayments({{ $supplier->id }}, 'date', event)">
+                                                        Date <i class="bi bi-arrow-down-up ms-1 text-secondary" id="supplier-payments-sort-icon-{{ $supplier->id }}-date"></i>
+                                                    </button>
+                                                </th>
+                                                <th>
+                                                    <button type="button" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold" onclick="sortSupplierPayments({{ $supplier->id }}, 'type', event)">
+                                                        Type <i class="bi bi-arrow-down-up ms-1 text-secondary" id="supplier-payments-sort-icon-{{ $supplier->id }}-type"></i>
+                                                    </button>
+                                                </th>
+                                                <th>
+                                                    <button type="button" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold" onclick="sortSupplierPayments({{ $supplier->id }}, 'project', event)">
+                                                        Project <i class="bi bi-arrow-down-up ms-1 text-secondary" id="supplier-payments-sort-icon-{{ $supplier->id }}-project"></i>
+                                                    </button>
+                                                </th>
+                                                <th class="text-end">
+                                                    <button type="button" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold" onclick="sortSupplierPayments({{ $supplier->id }}, 'amount', event)">
+                                                        Amount <i class="bi bi-arrow-down-up ms-1 text-secondary" id="supplier-payments-sort-icon-{{ $supplier->id }}-amount"></i>
+                                                    </button>
+                                                </th>
+                                                <th>
+                                                    <button type="button" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold" onclick="sortSupplierPayments({{ $supplier->id }}, 'method', event)">
+                                                        Method <i class="bi bi-arrow-down-up ms-1 text-secondary" id="supplier-payments-sort-icon-{{ $supplier->id }}-method"></i>
+                                                    </button>
+                                                </th>
                                                 <th>Reference</th>
                                             </tr>
                                         </thead>
@@ -359,6 +409,12 @@ const supplierPaymentStoreUrl = "{{ route('admin.advance-payments.store') }}";
 const supplierPaymentFormDataUrl = "{{ route('admin.advance-payments.create') }}";
 let currentSupplierId = null;
 let deleteSupplierId = null;
+const supplierPaymentSortState = {};
+
+function navigateSupplierSort(url) {
+    if (!url) return;
+    window.location.assign(url);
+}
 
 function toggleSupplierPayments(supplierId, evt = null) {
     if (evt) {
@@ -378,6 +434,54 @@ function toggleSupplierPayments(supplierId, evt = null) {
         row.classList.add('d-none');
         if (icon) icon.className = 'bi bi-chevron-down';
     }
+}
+
+function updateSupplierPaymentsSortIcons(supplierId, column, direction) {
+    ['date', 'type', 'project', 'amount', 'method'].forEach((col) => {
+        const icon = document.getElementById(`supplier-payments-sort-icon-${supplierId}-${col}`);
+        if (!icon) return;
+        if (col === column) {
+            icon.className = `bi ${direction === 'asc' ? 'bi-sort-up' : 'bi-sort-down'} ms-1 text-primary`;
+        } else {
+            icon.className = 'bi bi-arrow-down-up ms-1 text-secondary';
+        }
+    });
+}
+
+function sortSupplierPayments(supplierId, column, evt = null) {
+    if (evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+    }
+    const bodyEl = document.getElementById(`supplier-payments-body-${supplierId}`);
+    if (!bodyEl) return;
+
+    const current = supplierPaymentSortState[supplierId] || { column: 'date', direction: 'desc' };
+    const direction = (current.column === column && current.direction === 'asc') ? 'desc' : 'asc';
+    supplierPaymentSortState[supplierId] = { column, direction };
+
+    const rows = Array.from(bodyEl.querySelectorAll('tr'));
+    const idxMap = { date: 0, type: 1, project: 2, amount: 3, method: 4 };
+    const idx = idxMap[column] ?? 0;
+
+    rows.sort((a, b) => {
+        const av = a.children[idx]?.textContent?.trim() || '';
+        const bv = b.children[idx]?.textContent?.trim() || '';
+        if (column === 'amount') {
+            const an = parseFloat(av.replace(/[^0-9.-]/g, '')) || 0;
+            const bn = parseFloat(bv.replace(/[^0-9.-]/g, '')) || 0;
+            return direction === 'asc' ? an - bn : bn - an;
+        }
+        if (column === 'date') {
+            const ad = new Date(av).getTime() || 0;
+            const bd = new Date(bv).getTime() || 0;
+            return direction === 'asc' ? ad - bd : bd - ad;
+        }
+        return direction === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+
+    rows.forEach((r) => bodyEl.appendChild(r));
+    updateSupplierPaymentsSortIcons(supplierId, column, direction);
 }
 
 function formatMoney(value) {
@@ -411,11 +515,11 @@ function addSupplierPaymentToList(payment) {
                 <table class="table table-sm table-bordered mb-0" id="supplier-payments-table-${supplierId}">
                     <thead class="table-secondary">
                         <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Project</th>
-                            <th class="text-end">Amount</th>
-                            <th>Method</th>
+                            <th><button type="button" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold" onclick="sortSupplierPayments(${supplierId}, 'date', event)">Date <i class="bi bi-arrow-down-up ms-1 text-secondary" id="supplier-payments-sort-icon-${supplierId}-date"></i></button></th>
+                            <th><button type="button" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold" onclick="sortSupplierPayments(${supplierId}, 'type', event)">Type <i class="bi bi-arrow-down-up ms-1 text-secondary" id="supplier-payments-sort-icon-${supplierId}-type"></i></button></th>
+                            <th><button type="button" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold" onclick="sortSupplierPayments(${supplierId}, 'project', event)">Project <i class="bi bi-arrow-down-up ms-1 text-secondary" id="supplier-payments-sort-icon-${supplierId}-project"></i></button></th>
+                            <th class="text-end"><button type="button" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold" onclick="sortSupplierPayments(${supplierId}, 'amount', event)">Amount <i class="bi bi-arrow-down-up ms-1 text-secondary" id="supplier-payments-sort-icon-${supplierId}-amount"></i></button></th>
+                            <th><button type="button" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold" onclick="sortSupplierPayments(${supplierId}, 'method', event)">Method <i class="bi bi-arrow-down-up ms-1 text-secondary" id="supplier-payments-sort-icon-${supplierId}-method"></i></button></th>
                             <th>Reference</th>
                         </tr>
                     </thead>
@@ -456,6 +560,11 @@ function addSupplierPaymentToList(payment) {
         const existingTotal = parseFloat(String(totalEl.textContent || '').replace(/[^0-9.-]/g, '')) || 0;
         const added = parseFloat(payment.amount || 0) || 0;
         totalEl.textContent = `Rs. ${formatMoney(existingTotal + added)}`;
+    }
+
+    const state = supplierPaymentSortState[supplierId];
+    if (state?.column) {
+        sortSupplierPayments(supplierId, state.column);
     }
 }
 
