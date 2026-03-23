@@ -56,7 +56,16 @@ class SupplierController extends Controller
             ->orderBy('name')
             ->paginate(15);
 
-        return view('admin.suppliers.index', compact('suppliers'));
+        $supplierIds = $suppliers->getCollection()->pluck('id');
+        $supplierPayments = AdvancePayment::where('company_id', $companyId)
+            ->whereIn('supplier_id', $supplierIds)
+            ->with(['project', 'bankAccount'])
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy('supplier_id');
+
+        return view('admin.suppliers.index', compact('suppliers', 'supplierPayments'));
     }
 
     public function create()

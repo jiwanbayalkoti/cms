@@ -40,6 +40,9 @@
                         </td>
                         <td class="text-end">
                             <div class="d-flex gap-1 justify-content-end text-nowrap flex-wrap">
+                                <button type="button" onclick="toggleSupplierPayments({{ $supplier->id }}, event)" class="btn btn-sm btn-outline-info" title="Toggle payments">
+                                    <i class="bi bi-chevron-down" id="supplier-payments-icon-{{ $supplier->id }}"></i>
+                                </button>
                                 <button onclick="openViewSupplierModal({{ $supplier->id }})" class="btn btn-sm btn-outline-primary" title="View">
                                     <i class="bi bi-eye"></i>
                                 </button>
@@ -53,6 +56,52 @@
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
+                        </td>
+                    </tr>
+                    <tr id="supplier-payments-row-{{ $supplier->id }}" class="d-none bg-light">
+                        <td colspan="6" class="p-3">
+                            @php($payments = ($supplierPayments[$supplier->id] ?? collect()))
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong class="mb-0">Payment History</strong>
+                                <span class="text-muted small" id="supplier-payments-count-{{ $supplier->id }}">{{ $payments->count() }} records</span>
+                            </div>
+                            @if($payments->isEmpty())
+                                <div class="text-muted" id="supplier-payments-empty-{{ $supplier->id }}">No payments recorded yet.</div>
+                            @else
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered mb-0" id="supplier-payments-table-{{ $supplier->id }}">
+                                        <thead class="table-secondary">
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Type</th>
+                                                <th>Project</th>
+                                                <th class="text-end">Amount</th>
+                                                <th>Method</th>
+                                                <th>Reference</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="supplier-payments-body-{{ $supplier->id }}">
+                                            @foreach($payments as $p)
+                                                <tr>
+                                                    <td>{{ optional($p->payment_date)->format('Y-m-d') }}</td>
+                                                    <td>{{ ucfirst(str_replace('_', ' ', $p->payment_type ?? '')) }}</td>
+                                                    <td>{{ $p->project->name ?? 'N/A' }}</td>
+                                                    <td class="text-end">Rs. {{ number_format((float) $p->amount, 2) }}</td>
+                                                    <td>{{ ucfirst(str_replace('_', ' ', $p->payment_method ?? 'N/A')) }}</td>
+                                                    <td>{{ $p->transaction_reference ?: '—' }}</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                        <tfoot>
+                                            <tr class="table-light">
+                                                <td colspan="3" class="text-end"><strong>Total</strong></td>
+                                                <td class="text-end"><strong id="supplier-payments-total-{{ $supplier->id }}">Rs. {{ number_format((float) $payments->sum('amount'), 2) }}</strong></td>
+                                                <td colspan="2"></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -311,6 +360,105 @@ const supplierPaymentFormDataUrl = "{{ route('admin.advance-payments.create') }}
 let currentSupplierId = null;
 let deleteSupplierId = null;
 
+function toggleSupplierPayments(supplierId, evt = null) {
+    if (evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
+    }
+
+    const row = document.getElementById(`supplier-payments-row-${supplierId}`);
+    const icon = document.getElementById(`supplier-payments-icon-${supplierId}`);
+    if (!row) return;
+
+    const isHidden = row.classList.contains('d-none');
+    if (isHidden) {
+        row.classList.remove('d-none');
+        if (icon) icon.className = 'bi bi-chevron-up';
+    } else {
+        row.classList.add('d-none');
+        if (icon) icon.className = 'bi bi-chevron-down';
+    }
+}
+
+function formatMoney(value) {
+    return Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function renderPaymentTypeLabel(value) {
+    return String(value || '').replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function addSupplierPaymentToList(payment) {
+    const supplierId = payment?.supplier_id;
+    if (!supplierId) return;
+
+    const row = document.getElementById(`supplier-payments-row-${supplierId}`);
+    if (!row) return;
+
+    const countEl = document.getElementById(`supplier-payments-count-${supplierId}`);
+    const emptyEl = document.getElementById(`supplier-payments-empty-${supplierId}`);
+    let bodyEl = document.getElementById(`supplier-payments-body-${supplierId}`);
+    let totalEl = document.getElementById(`supplier-payments-total-${supplierId}`);
+
+    // If this supplier had no payments on initial render, build table skeleton on first insert.
+    if (!bodyEl) {
+        row.querySelector('td').innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong class="mb-0">Payment History</strong>
+                <span class="text-muted small" id="supplier-payments-count-${supplierId}">0 records</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0" id="supplier-payments-table-${supplierId}">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Project</th>
+                            <th class="text-end">Amount</th>
+                            <th>Method</th>
+                            <th>Reference</th>
+                        </tr>
+                    </thead>
+                    <tbody id="supplier-payments-body-${supplierId}"></tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <td colspan="3" class="text-end"><strong>Total</strong></td>
+                            <td class="text-end"><strong id="supplier-payments-total-${supplierId}">Rs. 0.00</strong></td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        `;
+        bodyEl = document.getElementById(`supplier-payments-body-${supplierId}`);
+        totalEl = document.getElementById(`supplier-payments-total-${supplierId}`);
+    }
+
+    if (!bodyEl) return;
+    if (emptyEl) emptyEl.remove();
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td>${payment.payment_date ? String(payment.payment_date).slice(0, 10) : 'N/A'}</td>
+        <td>${renderPaymentTypeLabel(payment.payment_type)}</td>
+        <td>${payment.project?.name || 'N/A'}</td>
+        <td class="text-end">Rs. ${formatMoney(payment.amount)}</td>
+        <td>${renderPaymentTypeLabel(payment.payment_method || 'N/A')}</td>
+        <td>${payment.transaction_reference || '—'}</td>
+    `;
+    bodyEl.prepend(tr);
+
+    const count = bodyEl.querySelectorAll('tr').length;
+    const countTarget = document.getElementById(`supplier-payments-count-${supplierId}`);
+    if (countTarget) countTarget.textContent = `${count} records`;
+
+    if (totalEl) {
+        const existingTotal = parseFloat(String(totalEl.textContent || '').replace(/[^0-9.-]/g, '')) || 0;
+        const added = parseFloat(payment.amount || 0) || 0;
+        totalEl.textContent = `Rs. ${formatMoney(existingTotal + added)}`;
+    }
+}
+
 function openSupplierPaymentModal(supplierId, supplierName) {
     const modal = document.getElementById('supplierPaymentModal');
     document.getElementById('sp_supplier_id').value = supplierId;
@@ -545,6 +693,9 @@ function addSupplierRow(supplier) {
         </td>
         <td class="text-end">
             <div class="d-flex gap-1 justify-content-end text-nowrap flex-wrap">
+                <button type="button" onclick="toggleSupplierPayments(${supplier.id}, event)" class="btn btn-sm btn-outline-info" title="Toggle payments">
+                    <i class="bi bi-chevron-down" id="supplier-payments-icon-${supplier.id}"></i>
+                </button>
                 <button onclick="openViewSupplierModal(${supplier.id})" class="btn btn-sm btn-outline-primary" title="View">
                     <i class="bi bi-eye"></i>
                 </button>
@@ -562,6 +713,20 @@ function addSupplierRow(supplier) {
     `;
     
     tbody.insertBefore(row, tbody.firstChild);
+
+    const paymentsRow = document.createElement('tr');
+    paymentsRow.id = `supplier-payments-row-${supplier.id}`;
+    paymentsRow.className = 'd-none bg-light';
+    paymentsRow.innerHTML = `
+        <td colspan="6" class="p-3">
+            <div class="text-muted">No payments recorded yet.</div>
+        </td>
+    `;
+    if (row.nextSibling) {
+        tbody.insertBefore(paymentsRow, row.nextSibling);
+    } else {
+        tbody.appendChild(paymentsRow);
+    }
 }
 
 function updateSupplierRow(supplier) {
@@ -579,6 +744,9 @@ function updateSupplierRow(supplier) {
             </td>
             <td class="text-end">
                 <div class="d-flex gap-1 justify-content-end text-nowrap flex-wrap">
+                    <button type="button" onclick="toggleSupplierPayments(${supplier.id}, event)" class="btn btn-sm btn-outline-info" title="Toggle payments">
+                        <i class="bi bi-chevron-down" id="supplier-payments-icon-${supplier.id}"></i>
+                    </button>
                     <button onclick="openViewSupplierModal(${supplier.id})" class="btn btn-sm btn-outline-primary" title="View">
                         <i class="bi bi-eye"></i>
                     </button>
@@ -775,11 +943,17 @@ function confirmDeleteSupplier() {
             showNotification(data.message, 'success');
             
             if (row) {
+                const detailsRow = document.getElementById(`supplier-payments-row-${supplierIdToDelete}`);
                 row.style.transition = 'opacity 0.3s, transform 0.3s';
                 row.style.opacity = '0';
                 row.style.transform = 'translateX(-20px)';
+                if (detailsRow) {
+                    detailsRow.style.transition = 'opacity 0.3s';
+                    detailsRow.style.opacity = '0';
+                }
                 setTimeout(() => {
                     row.remove();
+                    if (detailsRow) detailsRow.remove();
                     const tbody = document.querySelector('table tbody');
                     if (tbody && tbody.children.length === 0) {
                         tbody.innerHTML = `
@@ -863,6 +1037,9 @@ document.getElementById('supplierPaymentForm').addEventListener('submit', functi
     .then(data => {
         if (data.success) {
             showNotification(data.message || 'Payment recorded. Expense entry created.', 'success');
+            if (data.advancePayment) {
+                addSupplierPaymentToList(data.advancePayment);
+            }
             closeSupplierPaymentModal();
         } else if (data.errors) {
             Object.keys(data.errors).forEach(field => {
