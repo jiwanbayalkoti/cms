@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\AdvancePayment;
+use App\Models\ConstructionMaterial;
 use App\Models\PurchaseInvoice;
 use App\Models\Supplier;
 use App\Models\VehicleRent;
@@ -66,13 +67,103 @@ class SupplierController extends Controller
             ->withQueryString();
 
         $supplierIds = $suppliers->getCollection()->pluck('id');
-        $supplierPayments = AdvancePayment::where('company_id', $companyId)
+        $advancePaymentRows = AdvancePayment::where('company_id', $companyId)
             ->whereIn('supplier_id', $supplierIds)
             ->with(['project', 'bankAccount'])
             ->orderByDesc('payment_date')
             ->orderByDesc('id')
             ->get()
-            ->groupBy('supplier_id');
+            ->map(function ($p) {
+                return [
+                    'supplier_id' => (int) $p->supplier_id,
+                    'payment_date' => optional($p->payment_date)->format('Y-m-d'),
+                    'payment_label' => ucfirst(str_replace('_', ' ', $p->payment_type ?? '')),
+                    'project_name' => $p->project->name ?? 'N/A',
+                    'amount' => (float) ($p->amount ?? 0),
+                    'payment_method_label' => ucfirst(str_replace('_', ' ', $p->payment_method ?? 'N/A')),
+                    'transaction_reference' => $p->transaction_reference ?: '—',
+                ];
+            });
+
+        // Material-side transactions (Purchase Invoices paid amount).
+        $invoicePaymentRows = PurchaseInvoice::where('company_id', $companyId)
+            ->whereIn('vendor_id', $supplierIds)
+            ->where('paid_amount', '>', 0)
+            ->with(['project'])
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function ($inv) {
+                return [
+                    'supplier_id' => (int) $inv->vendor_id,
+                    'payment_date' => optional($inv->invoice_date)->format('Y-m-d'),
+                    'payment_label' => 'Material Purchase',
+                    'project_name' => $inv->project->name ?? 'N/A',
+                    'amount' => (float) ($inv->paid_amount ?? 0),
+                    'payment_method_label' => 'Invoice Payment',
+                    'transaction_reference' => $inv->invoice_number ?: '—',
+                ];
+            });
+
+        // Vehicle rent paid transactions.
+        $vehicleRentPaymentRows = VehicleRent::where('company_id', $companyId)
+            ->whereIn('supplier_id', $supplierIds)
+            ->whereIn('payment_status', ['paid', 'partial'])
+            ->where('paid_amount', '>', 0)
+            ->with(['project'])
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function ($rent) {
+                $methodLabel = $rent->bank_account_id ? 'Bank Transfer' : 'Cash/Unspecified';
+                return [
+                    'supplier_id' => (int) $rent->supplier_id,
+                    'payment_date' => optional($rent->payment_date ?: $rent->rent_date)->format('Y-m-d'),
+                    'payment_label' => 'Vehicle Rent',
+                    'project_name' => $rent->project->name ?? 'N/A',
+                    'amount' => (float) ($rent->paid_amount ?? 0),
+                    'payment_method_label' => $methodLabel,
+                    'transaction_reference' => $rent->vehicle_number ?: '—',
+                ];
+            });
+
+        // Construction materials paid transactions (legacy/material module).
+        $supplierNameMap = Supplier::where('company_id', $companyId)
+            ->whereIn('id', $supplierIds)
+            ->pluck('id', 'name');
+
+        $materialPaymentRows = ConstructionMaterial::where('company_id', $companyId)
+            ->whereIn('supplier_name', $supplierNameMap->keys())
+            ->whereIn('payment_status', ['Paid', 'Partial'])
+            ->where('total_cost', '>', 0)
+            ->orderByDesc('bill_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function ($m) use ($supplierNameMap) {
+                $supplierId = (int) ($supplierNameMap[$m->supplier_name] ?? 0);
+                if ($supplierId <= 0) {
+                    return null;
+                }
+                return [
+                    'supplier_id' => $supplierId,
+                    'payment_date' => optional($m->bill_date ?: $m->delivery_date)->format('Y-m-d'),
+                    'payment_label' => 'Construction Material',
+                    'project_name' => $m->project_name ?: 'N/A',
+                    'amount' => (float) ($m->total_cost ?? 0),
+                    'payment_method_label' => $m->payment_mode ?: 'N/A',
+                    'transaction_reference' => $m->bill_number ?: '—',
+                ];
+            })
+            ->filter();
+
+        $supplierPayments = $advancePaymentRows
+            ->concat($invoicePaymentRows)
+            ->concat($vehicleRentPaymentRows)
+            ->concat($materialPaymentRows)
+            ->groupBy('supplier_id')
+            ->map(function ($group) {
+                return $group->sortByDesc('payment_date')->values();
+            });
 
         return view('admin.suppliers.index', compact('suppliers', 'supplierPayments', 'sortColumn', 'sortDir'));
     }
