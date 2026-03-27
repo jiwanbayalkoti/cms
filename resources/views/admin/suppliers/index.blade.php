@@ -69,7 +69,7 @@
                             </span>
                         </td>
                         <td class="text-end">
-                            <div class="d-flex gap-1 justify-content-end text-nowrap flex-wrap">
+                            <div class="d-inline-flex gap-1 justify-content-end text-nowrap supplier-actions">
                                 <button type="button" onclick="toggleSupplierPayments({{ $supplier->id }}, event)" class="btn btn-sm btn-outline-info" title="Toggle payments">
                                     <i class="bi bi-chevron-down" id="supplier-payments-icon-{{ $supplier->id }}"></i>
                                 </button>
@@ -395,9 +395,16 @@
 </div>
 
 <style>
+    .supplier-actions {
+        flex-wrap: nowrap;
+        align-items: center;
+    }
     @media (max-width: 768px) {
         .supplier-btn-text {
             display: none;
+        }
+        .supplier-actions {
+            gap: 0.25rem !important;
         }
     }
 </style>
@@ -801,7 +808,7 @@ function addSupplierRow(supplier) {
             </span>
         </td>
         <td class="text-end">
-            <div class="d-flex gap-1 justify-content-end text-nowrap flex-wrap">
+            <div class="d-inline-flex gap-1 justify-content-end text-nowrap supplier-actions">
                 <button type="button" onclick="toggleSupplierPayments(${supplier.id}, event)" class="btn btn-sm btn-outline-info" title="Toggle payments">
                     <i class="bi bi-chevron-down" id="supplier-payments-icon-${supplier.id}"></i>
                 </button>
@@ -852,7 +859,7 @@ function updateSupplierRow(supplier) {
                 </span>
             </td>
             <td class="text-end">
-                <div class="d-flex gap-1 justify-content-end text-nowrap flex-wrap">
+                <div class="d-inline-flex gap-1 justify-content-end text-nowrap supplier-actions">
                     <button type="button" onclick="toggleSupplierPayments(${supplier.id}, event)" class="btn btn-sm btn-outline-info" title="Toggle payments">
                         <i class="bi bi-chevron-down" id="supplier-payments-icon-${supplier.id}"></i>
                     </button>
