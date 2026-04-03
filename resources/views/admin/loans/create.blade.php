@@ -80,8 +80,11 @@
                 </div>
 
                 <div class="col-md-4">
-                    <label class="form-label">Payment Method</label>
-                    <input type="text" name="payment_method" class="form-control" value="{{ old('payment_method') }}" placeholder="Cash / Bank Transfer / Cheque">
+                    <label class="form-label" for="loan_create_payment_method">Payment Method</label>
+                    @include('admin.partials.payment-method-select', [
+                        'id' => 'loan_create_payment_method',
+                        'selected' => old('payment_method'),
+                    ])
                 </div>
 
                 <div class="col-md-4">

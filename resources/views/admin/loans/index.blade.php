@@ -214,7 +214,7 @@
                                 <span class="text-danger fw-bold">${{ number_format($principal, 2) }}</span>
                             @endif
                         </td>
-                        <td>{{ $loan->payment_method ?? '—' }}</td>
+                        <td>{{ $loan->payment_method ? ucfirst(str_replace('_', ' ', $loan->payment_method)) : '—' }}</td>
                         <td>{{ $loan->bankAccount ? $loan->bankAccount->account_name : '—' }}</td>
                         <td class="text-end">
                             <div class="d-flex gap-2 justify-content-end loan-row-actions">
@@ -351,8 +351,11 @@
                             <input type="text" name="party_source" class="form-control">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Payment Method</label>
-                            <input type="text" name="payment_method" class="form-control">
+                            <label class="form-label" for="loan_crud_payment_method">Payment Method</label>
+                            @include('admin.partials.payment-method-select', [
+                                'id' => 'loan_crud_payment_method',
+                                'selected' => '',
+                            ])
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Bank Account</label>
@@ -413,8 +416,11 @@
                             <input type="number" step="0.01" min="0.01" name="amount" class="form-control" required>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Payment Method</label>
-                            <input type="text" name="payment_method" class="form-control" placeholder="Cash / Bank Transfer">
+                            <label class="form-label" for="loan_payment_payment_method">Payment Method</label>
+                            @include('admin.partials.payment-method-select', [
+                                'id' => 'loan_payment_payment_method',
+                                'selected' => '',
+                            ])
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Bank Account</label>
