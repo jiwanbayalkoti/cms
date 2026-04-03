@@ -18,6 +18,25 @@
     </div>
 </div>
 
+@if(session('success'))
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        {{ session('success') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+@endif
+@if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ session('error') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+@endif
+@if(session('info'))
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        {{ session('info') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+@endif
+
 <div class="bg-white shadow-lg rounded-lg p-4 mb-6">
     <form method="GET" action="{{ route('admin.loans.index') }}" class="row g-3" id="loanFilterForm" onsubmit="applyLoanFilters(event)">
         <input type="hidden" name="sort" id="loan_filter_sort" value="{{ $sortColumn ?? request('sort', 'loan_date') }}">
@@ -132,6 +151,7 @@
                             Bank {!! $loanThSort('bank') !!}
                         </button>
                     </th>
+                    <th class="text-center">Approval</th>
                     <th class="text-end">Actions</th>
                 </tr>
             </thead>
@@ -148,6 +168,7 @@
                         $interestAmount = $loan->direction === 'received' ? (float) ($outstanding['interest_due'] ?? 0) : 0.0;
                         $payableAmount = $loan->direction === 'received' ? (float) ($outstanding['total_due'] ?? 0) : $principal;
                         $isClosed = (bool) ($loan->is_closed ?? false) || (bool) ($outstanding['is_closed'] ?? false);
+                        $isApproved = $loan->isApproved();
                         $partyLabel =
                             $loan->party_source
                                 ?? $loan->party_name
@@ -216,9 +237,24 @@
                         </td>
                         <td>{{ $loan->payment_method ? ucfirst(str_replace('_', ' ', $loan->payment_method)) : '—' }}</td>
                         <td>{{ $loan->bankAccount ? $loan->bankAccount->account_name : '—' }}</td>
+                        <td class="text-center align-middle loan-approval-cell" onclick="event.stopPropagation();">
+                            @if($isApproved)
+                                <span class="badge bg-secondary">Approved</span>
+                                <div class="text-muted small mt-1">{{ $loan->approved_at->format('M d, Y') }}</div>
+                                <button type="button" class="btn btn-sm btn-secondary btn-keep-text mt-1" disabled>Approved</button>
+                            @else
+                                <span class="badge bg-warning text-dark">Pending</span>
+                                @if(Auth::user()->isAdmin())
+                                    <form action="{{ route('admin.loans.approve', $loan) }}" method="POST" class="mt-1 mb-0" onclick="event.stopPropagation();">
+                                        @csrf
+                                        <button type="submit" class="btn btn-sm btn-success btn-keep-text">Approve</button>
+                                    </form>
+                                @endif
+                            @endif
+                        </td>
                         <td class="text-end">
                             <div class="d-flex gap-2 justify-content-end loan-row-actions">
-                                @if($loan->direction === 'received' && !$isClosed)
+                                @if($loan->direction === 'received' && !$isClosed && $isApproved)
                                     <button type="button"
                                             class="btn btn-sm btn-primary loan-pay-btn"
                                             data-loan-id="{{ $loan->id }}"
@@ -228,24 +264,26 @@
                                         <i class="bi bi-cash-coin"></i>
                                     </button>
                                 @endif
-                                <button type="button" class="btn btn-sm btn-outline-warning"
-                                        onclick='openLoanCrudModal("edit", @json($loanPayload), event)'>
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <form action="{{ route('admin.loans.destroy', $loan) }}" method="POST" id="delete-loan-form-{{ $loan->id }}">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-danger"
-                                            onclick="confirmLoanDelete({{ $loan->id }}, event)">
-                                        <i class="bi bi-trash"></i>
+                                @if(!$isApproved)
+                                    <button type="button" class="btn btn-sm btn-outline-warning"
+                                            onclick='openLoanCrudModal("edit", @json($loanPayload), event)'>
+                                        <i class="bi bi-pencil"></i>
                                     </button>
-                                </form>
+                                    <form action="{{ route('admin.loans.destroy', $loan) }}" method="POST" id="delete-loan-form-{{ $loan->id }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger"
+                                                onclick="confirmLoanDelete({{ $loan->id }}, event)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                @endif
                             </div>
                         </td>
                     </tr>
                     <tr class="bg-light loan-payments-row">
-                        <td colspan="11" class="p-0">
+                        <td colspan="12" class="p-0">
                             <div id="{{ $paymentCollapseId }}" class="loan-payments-collapse d-none p-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <div class="fw-bold">Payments</div>
@@ -293,7 +331,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="11" class="text-center text-muted py-4">No loan transactions found.</td>
+                        <td colspan="12" class="text-center text-muted py-4">No loan transactions found.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -813,6 +851,7 @@
     function handleLoanRowToggle(e, row) {
         if (
             e.target.closest('.loan-row-actions') ||
+            e.target.closest('.loan-approval-cell') ||
             e.target.closest('.loan-payments-collapse') ||
             e.target.closest('a, button, input, select, textarea, label, form')
         ) {

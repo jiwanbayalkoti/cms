@@ -11,6 +11,7 @@ use App\Models\Staff;
 use App\Models\Supplier;
 use App\Models\Project;
 use App\Support\CompanyContext;
+use App\Support\ProjectContext;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -30,10 +31,10 @@ class LoanController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
 
         // Base query (NO pagination/order here) - used for totals to avoid ONLY_FULL_GROUP_BY errors
-        $query = Loan::with(['project', 'supplier', 'staff', 'bankAccount', 'payments', 'payments.bankAccount'])
+        $query = Loan::with(['project', 'supplier', 'staff', 'bankAccount', 'payments', 'payments.bankAccount', 'approvedBy'])
             ->where('company_id', $companyId);
 
-        $this->filterByAccessibleProjects($query, 'project_id');
+        $this->filterByAccessibleProjectsForLoans($query, 'project_id');
 
         if ($request->filled('project_id')) {
             $projectId = (int) $request->project_id;
@@ -103,7 +104,7 @@ class LoanController extends Controller
                 ->whereHas('loan', function ($q) {
                     $q->where('direction', 'received');
                 });
-            $this->filterByAccessibleProjects($paymentsQuery, 'project_id');
+            $this->filterByAccessibleProjectsForLoans($paymentsQuery, 'project_id');
             if ($request->filled('project_id')) {
                 $paymentsQuery->where('project_id', (int) $request->project_id);
             }
@@ -214,6 +215,13 @@ class LoanController extends Controller
             $this->authorizeProjectAccess((int) $validated['project_id']);
         }
 
+        if (empty($validated['project_id'])) {
+            $activePid = ProjectContext::getActiveProjectId();
+            if ($activePid && $this->canAccessProject((int) $activePid)) {
+                $validated['project_id'] = $activePid;
+            }
+        }
+
         // Merge party + source into one field for easier reporting.
         $partySource = $validated['party_source'] ?? null;
         if ($partySource !== null && $partySource !== '') {
@@ -231,6 +239,8 @@ class LoanController extends Controller
 
         $validated['company_id'] = $companyId;
         $validated['created_by'] = auth()->id();
+        $validated['approved_at'] = null;
+        $validated['approved_by'] = null;
 
         $loan = Loan::create($validated);
 
@@ -250,6 +260,11 @@ class LoanController extends Controller
             abort(403);
         }
 
+        if ($loan->isApproved()) {
+            return redirect()->route('admin.loans.index')
+                ->with('error', 'Approved loans cannot be edited.');
+        }
+
         $projects = $this->getAccessibleProjects();
         $suppliers = Supplier::where('company_id', $loan->company_id)->where('is_active', true)->orderBy('name')->get();
         $staff = Staff::where('company_id', $loan->company_id)->where('is_active', true)->orderBy('name')->get();
@@ -262,6 +277,17 @@ class LoanController extends Controller
     {
         if ($loan->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
+        }
+
+        if ($loan->isApproved()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Approved loans cannot be edited.',
+                ], 403);
+            }
+
+            return redirect()->route('admin.loans.index')
+                ->with('error', 'Approved loans cannot be edited.');
         }
 
         $validated = $request->validate([
@@ -312,10 +338,36 @@ class LoanController extends Controller
         return redirect()->route('admin.loans.index')->with('success', 'Loan transaction updated successfully.');
     }
 
+    public function approve(Request $request, Loan $loan)
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        if ($loan->company_id !== CompanyContext::getActiveCompanyId()) {
+            abort(403);
+        }
+
+        if ($loan->isApproved()) {
+            return redirect()->back()->with('info', 'This loan is already approved.');
+        }
+
+        $loan->update([
+            'approved_at' => now(),
+            'approved_by' => auth()->id(),
+            'updated_by' => auth()->id(),
+        ]);
+
+        return redirect()->back()->with('success', 'Loan approved.');
+    }
+
     public function destroy(Loan $loan)
     {
         if ($loan->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
+        }
+
+        if ($loan->isApproved()) {
+            return redirect()->route('admin.loans.index')
+                ->with('error', 'Approved loans cannot be deleted.');
         }
 
         $loan->delete();

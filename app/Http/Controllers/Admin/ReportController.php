@@ -80,12 +80,12 @@ class ReportController extends Controller
         $loanTakenQuery = Loan::where('company_id', $companyId)
             ->whereBetween('loan_date', [$startDate, $endDate])
             ->where('direction', 'received');
-        $this->filterByAccessibleProjects($loanTakenQuery, 'project_id');
+        $this->filterByAccessibleProjectsForLoans($loanTakenQuery, 'project_id');
 
         $loanGivenQuery = Loan::where('company_id', $companyId)
             ->whereBetween('loan_date', [$startDate, $endDate])
             ->where('direction', 'repaid');
-        $this->filterByAccessibleProjects($loanGivenQuery, 'project_id');
+        $this->filterByAccessibleProjectsForLoans($loanGivenQuery, 'project_id');
 
         if ($projectId) {
             $loanTakenQuery->where('project_id', $projectId);
@@ -827,7 +827,7 @@ class ReportController extends Controller
             ->where('loans.company_id', $companyId)
             ->whereDate('loans.loan_date', '<=', $endDate);
 
-        $this->filterByAccessibleProjects($query, 'loans.project_id');
+        $this->filterByAccessibleProjectsForLoans($query, 'loans.project_id');
 
         if ($projectId) {
             $projectId = (int) $projectId;

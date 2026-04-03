@@ -3,13 +3,12 @@
 namespace App\Models;
 
 use App\Models\Traits\CompanyScoped;
-use App\Models\Traits\ProjectScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Loan extends Model
 {
-    use HasFactory, CompanyScoped, ProjectScoped;
+    use HasFactory, CompanyScoped;
 
     protected $fillable = [
         'company_id',
@@ -29,6 +28,8 @@ class Loan extends Model
         'payment_method',
         'bank_account_id',
         'notes',
+        'approved_at',
+        'approved_by',
         'created_by',
         'updated_by',
     ];
@@ -39,6 +40,7 @@ class Loan extends Model
         'loan_date' => 'date',
         'is_closed' => 'boolean',
         'closed_at' => 'date',
+        'approved_at' => 'datetime',
     ];
 
     public function payments()
@@ -147,6 +149,16 @@ class Loan extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->approved_at !== null;
     }
 }
 

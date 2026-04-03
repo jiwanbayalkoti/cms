@@ -198,6 +198,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('purchased-bies', \App\Http\Controllers\Admin\PurchasedByController::class)->except(['show']);
 
         // Loans (separate from Income)
+        Route::post('loans/{loan}/approve', [LoanController::class, 'approve'])->name('loans.approve');
         Route::resource('loans', LoanController::class)->except(['show']);
         Route::get('loans/{loan}/outstanding', [LoanController::class, 'outstanding'])->name('loans.outstanding');
         Route::post('loans/{loan}/payments', [LoanController::class, 'recordPayment'])->name('loans.payments.store');

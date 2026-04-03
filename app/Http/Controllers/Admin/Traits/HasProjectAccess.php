@@ -64,6 +64,33 @@ trait HasProjectAccess
     }
 
     /**
+     * Like filterByAccessibleProjects, but rows with no project (project_id null) stay visible.
+     * Use for loans: company-wide entries must appear for every admin of that company.
+     */
+    protected function filterByAccessibleProjectsForLoans($query, string $projectIdColumn = 'project_id')
+    {
+        $user = auth()->user();
+        $accessibleProjectIds = $user->getAccessibleProjectIds();
+
+        if ($accessibleProjectIds === null) {
+            return $query;
+        }
+
+        if (empty($accessibleProjectIds)) {
+            $query->whereRaw('1 = 0');
+
+            return $query;
+        }
+
+        $query->where(function ($q) use ($accessibleProjectIds, $projectIdColumn) {
+            $q->whereIn($projectIdColumn, $accessibleProjectIds)
+                ->orWhereNull($projectIdColumn);
+        });
+
+        return $query;
+    }
+
+    /**
      * Check if user can access a specific project
      */
     protected function canAccessProject(int $projectId): bool
