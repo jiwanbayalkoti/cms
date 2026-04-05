@@ -234,7 +234,13 @@ class ProjectController extends Controller
 
         // AJAX filter: return only the list HTML (no full page reload)
         // Use header or query param so we always get JSON (some setups strip X-Requested-With)
-        $wantsJson = $request->ajax() || $request->wantsJson() || $request->get('filter_ajax') === '1';
+        // Admin layout's loadPageViaAjax() sends X-Page-Load: true + Accept: text/html — must return full view, not JSON
+        $isInLayoutPageLoad = $request->header('X-Page-Load') === 'true';
+        $wantsJson = ! $isInLayoutPageLoad && (
+            $request->get('filter_ajax') === '1'
+            || $request->ajax()
+            || $request->wantsJson()
+        );
         if ($wantsJson) {
             $listHtml = view('admin.projects.partials._list', [
                 'companiesWithProjects' => $companiesWithProjects,

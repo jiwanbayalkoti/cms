@@ -14,8 +14,9 @@
         <div class="flex items-start justify-between mb-4">
           <div class="flex-1">
             <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ $company->name }}</h3>
-            @if($company->logo_url)
-              <img src="{{ $company->logo_url }}" alt="{{ $company->name }} Logo" class="h-12 w-auto mt-2">
+            @php($cardLogoUrl = $company->getLogoUrl())
+            @if($cardLogoUrl)
+              <img src="{{ $cardLogoUrl }}" alt="{{ $company->name }} Logo" class="h-12 w-auto mt-2">
             @endif
           </div>
         </div>
@@ -84,6 +85,8 @@
             @csrf
             <input type="hidden" name="_method" id="form-method" value="POST">
             <input type="hidden" name="company_id" id="company-id" value="">
+            <input type="hidden" name="clear_logo" id="clear-logo-flag" value="0">
+            <input type="hidden" name="clear_favicon" id="clear-favicon-flag" value="0">
             <div id="form-errors" class="mb-4 hidden">
                 <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
                     <ul class="list-disc list-inside text-sm" id="error-list"></ul>
@@ -107,7 +110,12 @@
                 <div id="logo-preview" class="mb-2 hidden">
                     <img id="logo-preview-img" src="" alt="Company Logo" class="h-16 rounded shadow">
                 </div>
-                <input type="file" name="logo" id="company-logo" accept="image/*" class="w-full border rounded px-3 py-2" onchange="previewLogo(this)">
+                <p id="logo-remove-pending" class="text-amber-800 text-sm mb-2 hidden">Current logo will be removed when you save.</p>
+                <div class="flex flex-wrap items-center gap-2">
+                    <input type="file" name="logo" id="company-logo" accept="image/*" class="flex-1 min-w-[12rem] border rounded px-3 py-2" onchange="previewLogo(this)">
+                    <button type="button" onclick="clearLogoFileSelection()" class="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 whitespace-nowrap" title="Clear the file you chose (does not remove saved logo until you use Remove current)">Clear file</button>
+                    <button type="button" id="btn-remove-stored-logo" onclick="markRemoveStoredLogo()" class="hidden text-sm px-3 py-2 rounded border border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 whitespace-nowrap">Remove current logo</button>
+                </div>
                 <div class="field-error text-red-600 text-sm mt-1" data-field="logo" style="display: none;"></div>
             </div>
 
@@ -116,7 +124,12 @@
                 <div id="favicon-preview" class="mb-2 hidden">
                     <img id="favicon-preview-img" src="" alt="Company Favicon" class="h-8 w-8 rounded shadow">
                 </div>
-                <input type="file" name="favicon" id="company-favicon" accept="image/*" class="w-full border rounded px-3 py-2" onchange="previewFavicon(this)">
+                <p id="favicon-remove-pending" class="text-amber-800 text-sm mb-2 hidden">Current favicon will be replaced with a generated default when you save.</p>
+                <div class="flex flex-wrap items-center gap-2">
+                    <input type="file" name="favicon" id="company-favicon" accept="image/*" class="flex-1 min-w-[12rem] border rounded px-3 py-2" onchange="previewFavicon(this)">
+                    <button type="button" onclick="clearFaviconFileSelection()" class="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 whitespace-nowrap" title="Clear the file you chose">Clear file</button>
+                    <button type="button" id="btn-remove-stored-favicon" onclick="markRemoveStoredFavicon()" class="hidden text-sm px-3 py-2 rounded border border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 whitespace-nowrap">Reset to default</button>
+                </div>
                 <p class="text-gray-500 text-xs mt-1">Upload a favicon (32x32 recommended). If not provided, a default favicon will be generated.</p>
                 <div class="field-error text-red-600 text-sm mt-1" data-field="favicon" style="display: none;"></div>
             </div>
@@ -247,14 +260,28 @@ if (typeof window.csrfToken === 'undefined') {
 var csrfToken = window.csrfToken;
 let currentCompanyId = null;
 let deleteCompanyId = null;
+window.editModalStoredLogoUrl = '';
+window.editModalStoredFaviconUrl = '';
+
+function resetCompanyAssetFlags() {
+    document.getElementById('clear-logo-flag').value = '0';
+    document.getElementById('clear-favicon-flag').value = '0';
+    document.getElementById('logo-remove-pending').classList.add('hidden');
+    document.getElementById('favicon-remove-pending').classList.add('hidden');
+    document.getElementById('btn-remove-stored-logo').classList.add('hidden');
+    document.getElementById('btn-remove-stored-favicon').classList.add('hidden');
+}
 
 function openCreateCompanyModal() {
     currentCompanyId = null;
+    window.editModalStoredLogoUrl = '';
+    window.editModalStoredFaviconUrl = '';
     document.getElementById('modal-title').textContent = 'Create New Company';
     document.getElementById('form-method').value = 'POST';
     document.getElementById('company-id').value = '';
     document.getElementById('createCompanyModal').classList.remove('hidden');
     document.getElementById('createCompanyForm').reset();
+    resetCompanyAssetFlags();
     document.getElementById('form-errors').classList.add('hidden');
     document.getElementById('logo-preview').classList.add('hidden');
     document.getElementById('favicon-preview').classList.add('hidden');
@@ -269,9 +296,12 @@ function openCreateCompanyModal() {
 
 function openEditCompanyModal(companyId) {
     currentCompanyId = companyId;
+    window.editModalStoredLogoUrl = '';
+    window.editModalStoredFaviconUrl = '';
     document.getElementById('modal-title').textContent = 'Edit Company';
     document.getElementById('form-method').value = 'PUT';
     document.getElementById('company-id').value = companyId;
+    resetCompanyAssetFlags();
     
     // Fetch company data
     fetch(`/admin/companies/${companyId}`, {
@@ -331,6 +361,9 @@ function openEditCompanyModal(companyId) {
 function closeCreateCompanyModal() {
     document.getElementById('createCompanyModal').classList.add('hidden');
     document.getElementById('createCompanyForm').reset();
+    resetCompanyAssetFlags();
+    window.editModalStoredLogoUrl = '';
+    window.editModalStoredFaviconUrl = '';
     document.getElementById('form-errors').classList.add('hidden');
     document.getElementById('logo-preview').classList.add('hidden');
     document.getElementById('favicon-preview').classList.add('hidden');
@@ -346,6 +379,8 @@ function closeCreateCompanyModal() {
 }
 
 function previewLogo(input) {
+    document.getElementById('clear-logo-flag').value = '0';
+    document.getElementById('logo-remove-pending').classList.add('hidden');
     if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -357,6 +392,8 @@ function previewLogo(input) {
 }
 
 function previewFavicon(input) {
+    document.getElementById('clear-favicon-flag').value = '0';
+    document.getElementById('favicon-remove-pending').classList.add('hidden');
     if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -365,6 +402,52 @@ function previewFavicon(input) {
         };
         reader.readAsDataURL(input.files[0]);
     }
+}
+
+function clearLogoFileSelection() {
+    const input = document.getElementById('company-logo');
+    input.value = '';
+    const removePending = document.getElementById('clear-logo-flag').value === '1';
+    if (removePending) {
+        document.getElementById('logo-preview').classList.add('hidden');
+        return;
+    }
+    if (window.editModalStoredLogoUrl) {
+        document.getElementById('logo-preview-img').src = window.editModalStoredLogoUrl;
+        document.getElementById('logo-preview').classList.remove('hidden');
+    } else {
+        document.getElementById('logo-preview').classList.add('hidden');
+    }
+}
+
+function clearFaviconFileSelection() {
+    const input = document.getElementById('company-favicon');
+    input.value = '';
+    const removePending = document.getElementById('clear-favicon-flag').value === '1';
+    if (removePending) {
+        document.getElementById('favicon-preview').classList.add('hidden');
+        return;
+    }
+    if (window.editModalStoredFaviconUrl) {
+        document.getElementById('favicon-preview-img').src = window.editModalStoredFaviconUrl;
+        document.getElementById('favicon-preview').classList.remove('hidden');
+    } else {
+        document.getElementById('favicon-preview').classList.add('hidden');
+    }
+}
+
+function markRemoveStoredLogo() {
+    document.getElementById('clear-logo-flag').value = '1';
+    document.getElementById('company-logo').value = '';
+    document.getElementById('logo-preview').classList.add('hidden');
+    document.getElementById('logo-remove-pending').classList.remove('hidden');
+}
+
+function markRemoveStoredFavicon() {
+    document.getElementById('clear-favicon-flag').value = '1';
+    document.getElementById('company-favicon').value = '';
+    document.getElementById('favicon-preview').classList.add('hidden');
+    document.getElementById('favicon-remove-pending').classList.remove('hidden');
 }
 
 document.getElementById('createCompanyForm').addEventListener('submit', function(e) {
@@ -983,7 +1066,17 @@ document.getElementById('viewCompanyModal').addEventListener('click', function(e
 });
 
 // Delete Confirmation Functions
+function resetDeleteSubmitButton() {
+    const form = document.getElementById('delete-company-form');
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Delete';
+    }
+}
+
 function showDeleteConfirmation(companyId, companyName) {
+    resetDeleteSubmitButton();
     deleteCompanyId = companyId;
     document.getElementById('delete-company-name').textContent = companyName;
     document.getElementById('delete-company-form').action = `/admin/companies/${companyId}`;
@@ -993,6 +1086,7 @@ function showDeleteConfirmation(companyId, companyName) {
 function closeDeleteConfirmation() {
     document.getElementById('deleteConfirmationModal').classList.add('hidden');
     deleteCompanyId = null;
+    resetDeleteSubmitButton();
 }
 
 // Handle delete form submission

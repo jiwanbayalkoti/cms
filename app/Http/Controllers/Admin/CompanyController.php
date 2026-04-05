@@ -66,10 +66,14 @@ class CompanyController extends Controller
 
         // Return JSON response for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
+            $fresh = $company->fresh();
             return response()->json([
                 'success' => true,
                 'message' => 'Company created successfully.',
-                'company' => $company
+                'company' => array_merge($fresh->toArray(), [
+                    'logo_url' => $fresh->getLogoUrl(),
+                    'favicon_url' => $fresh->getFaviconUrl(),
+                ]),
             ]);
         }
 
@@ -106,6 +110,8 @@ class CompanyController extends Controller
                     'zip' => $company->zip,
                     'logo_url' => $company->getLogoUrl(),
                     'favicon_url' => $company->getFaviconUrl(),
+                    'has_stored_logo' => (bool) $company->logo,
+                    'has_stored_favicon' => (bool) $company->favicon,
                     'project_count' => $projectCount,
                 ]
             ]);
@@ -130,31 +136,55 @@ class CompanyController extends Controller
             'zip' => 'nullable|string|max:20',
             'logo' => 'nullable|image|max:5120',
             'favicon' => 'nullable|image|max:1024',
+            'clear_logo' => 'nullable|boolean',
+            'clear_favicon' => 'nullable|boolean',
         ]);
 
+        $clearLogo = $request->boolean('clear_logo');
+        $clearFavicon = $request->boolean('clear_favicon');
+
+        unset($validated['clear_logo'], $validated['clear_favicon']);
+
+        $disk = Storage::disk('public');
+        $faviconService = app(FaviconGeneratorService::class);
+
         if ($request->hasFile('logo')) {
-            // delete old logo file if exists
-            if ($company->logo && \Illuminate\Support\Facades\Storage::disk('public')->exists($company->logo)) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($company->logo);
+            if ($company->logo && $disk->exists($company->logo)) {
+                $disk->delete($company->logo);
             }
             $validated['logo'] = $request->file('logo')->store('companies', 'public');
+        } elseif ($clearLogo) {
+            if ($company->logo && $disk->exists($company->logo)) {
+                $disk->delete($company->logo);
+            }
+            $validated['logo'] = null;
+        }
+
+        if ($request->hasFile('favicon')) {
+            if ($company->favicon && $disk->exists($company->favicon)) {
+                $disk->delete($company->favicon);
+            }
+            $validated['favicon'] = $faviconService->generateFromFile($request->file('favicon'), $company->name);
+        } elseif ($clearFavicon) {
+            if ($company->favicon && $disk->exists($company->favicon)) {
+                $disk->delete($company->favicon);
+            }
+            $validated['favicon'] = $faviconService->generateDefaultFavicon($company->name);
         }
 
         $company->update($validated);
 
-        // Handle favicon
-        $faviconService = app(FaviconGeneratorService::class);
-        if ($request->hasFile('favicon')) {
-            $validated['favicon'] = $faviconService->generateFromFile($request->file('favicon'), $company->name);
-            $company->update(['favicon' => $validated['favicon']]);
-        }
-
         // Return JSON response for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
+            $fresh = $company->fresh();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Company updated successfully.',
-                'company' => $company->fresh()
+                'company' => array_merge($fresh->toArray(), [
+                    'logo_url' => $fresh->getLogoUrl(),
+                    'favicon_url' => $fresh->getFaviconUrl(),
+                ]),
             ]);
         }
 
