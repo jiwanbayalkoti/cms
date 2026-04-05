@@ -88,9 +88,12 @@ class CompanyController extends Controller
 
     public function show(Company $company)
     {
-        // Get project count for THIS specific company (not filtered by any context)
-        // Use direct query to ensure we get the count for the specific company
-        $projectCount = \App\Models\Project::where('company_id', $company->id)->count();
+        // Count projects for this company only. Must bypass CompanyScoped global scope,
+        // which filters by session active company — otherwise super admin viewing company B
+        // while active company is A would get 0 or a wrong count.
+        $projectCount = \App\Models\Project::withoutGlobalScope('company')
+            ->where('company_id', $company->id)
+            ->count();
         
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
