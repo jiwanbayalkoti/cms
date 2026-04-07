@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\PaymentTypeController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\CompanyController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\UserActivityLogController;
 use App\Http\Controllers\Admin\MaterialCalculatorController;
 use App\Http\Controllers\Admin\LoanController;
 
@@ -59,7 +60,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::match(['get', 'post'], '/logout', [LoginController::class, 'logout'])->name('logout');
     
     // Protected Admin Routes
-    Route::middleware(['admin', 'site_engineer'])->group(function () {
+    Route::middleware(['admin', 'site_engineer', 'activity_log'])->group(function () {
         // Dashboard (Admin only - not accessible to regular users)
         Route::middleware(['admin_only'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -383,6 +384,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('users', [UserController::class, 'index'])->name('users.index');
             Route::get('users/create', [UserController::class, 'create'])->name('users.create');
             Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+            Route::get('user-activities', [UserActivityLogController::class, 'index'])->name('user-activities.index');
+            Route::get('user-activities/export/excel', [UserActivityLogController::class, 'exportExcel'])->name('user-activities.export.excel');
             Route::middleware(['throttle:forms'])->group(function () {
                 Route::post('users', [UserController::class, 'store'])->name('users.store');
                 Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');

@@ -949,7 +949,7 @@
                         $projectsOpen = $projectsOpen ?? request()->routeIs('admin.projects.*');
                         $materialsOpen = $materialsOpen ?? (request()->routeIs('admin.construction-materials.*') || request()->routeIs('admin.materials-report.*') || request()->routeIs('admin.material-*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.payment-modes.*') || request()->routeIs('admin.purchased-bies.*'));
                         $billingOpen = $billingOpen ?? (request()->routeIs('admin.bill-*') || request()->routeIs('admin.measurement-books.*') || request()->routeIs('admin.running-bills.*') || request()->routeIs('admin.boq.*') || request()->routeIs('admin.completed-work.*') || request()->routeIs('admin.boq-measurement-books.*') || request()->routeIs('admin.boq-bill-statements.*'));
-                        $staffOpen = $staffOpen ?? (request()->routeIs('admin.staff.*') || request()->routeIs('admin.positions.*') || request()->routeIs('admin.users.*'));
+                        $staffOpen = $staffOpen ?? (request()->routeIs('admin.staff.*') || request()->routeIs('admin.positions.*') || request()->routeIs('admin.users.*') || request()->routeIs('admin.user-activities.*'));
                         $financeOpen = $financeOpen ?? (request()->routeIs('admin.incomes.*') || request()->routeIs('admin.expenses.*') || request()->routeIs('admin.reports.*') || request()->routeIs('admin.categories.*') || request()->routeIs('admin.subcategories.*'));
                         $accountingOpen = $accountingOpen ?? (request()->routeIs('admin.chart-of-accounts.*') || request()->routeIs('admin.journal-entries.*') || request()->routeIs('admin.bank-accounts.*') || request()->routeIs('admin.purchase-invoices.*') || request()->routeIs('admin.sales-invoices.*') || request()->routeIs('admin.customers.*'));
                         $vehicleRentOpen = $vehicleRentOpen ?? request()->routeIs('admin.vehicle-rents.*');
@@ -1092,6 +1092,9 @@
                         </a>
                         <a href="{{ route('admin.users.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.users.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Users</span>
+                        </a>
+                        <a href="{{ route('admin.user-activities.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.user-activities.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">User Activity Logs</span>
                         </a>
                     </div>
                     @endif

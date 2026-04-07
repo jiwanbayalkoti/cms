@@ -19,6 +19,8 @@
             <form id="companyProfileForm" method="POST" action="{{ route('admin.companies.profile.update') }}" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
+                <input type="hidden" name="clear_logo" id="clear_logo" value="0">
+                <input type="hidden" name="clear_favicon" id="clear_favicon" value="0">
 
                 <div class="row g-3">
                     <div class="col-md-12">
@@ -35,15 +37,22 @@
                         @php
                             $logoUrl = $company->getLogoUrl();
                         @endphp
-                        @if($logoUrl)
-                            <div class="mb-3">
-                                <img src="{{ $logoUrl }}" alt="Company Logo" 
-                                    class="img-thumbnail" style="max-height: 120px;">
-                                <p class="text-muted small mt-2">Current logo</p>
-                            </div>
-                        @endif
-                        <input type="file" name="logo" accept="image/*" 
-                            class="form-control @error('logo') is-invalid @enderror">
+                        <div class="mb-3 {{ $logoUrl ? '' : 'd-none' }}" id="profile-logo-preview-wrap">
+                            <img src="{{ $logoUrl ?: '' }}" alt="Company Logo" id="profile-logo-preview"
+                                class="img-thumbnail" style="max-height: 120px;">
+                            <p class="text-muted small mt-2">Current logo</p>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <input type="file" name="logo" id="profile-logo-input" accept="image/*" 
+                                class="form-control @error('logo') is-invalid @enderror" style="max-width: 520px;">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="clear-logo-file-btn">
+                                <i class="bi bi-x-circle me-1"></i>Clear file
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm {{ $company->logo ? '' : 'd-none' }}" id="remove-logo-btn">
+                                <i class="bi bi-trash me-1"></i>Remove current logo
+                            </button>
+                        </div>
+                        <small id="logo-clear-note" class="text-warning d-none mt-1 d-inline-block">Current logo will be removed after save.</small>
                         <small class="text-muted">Max file size: 5MB. Supported formats: JPG, PNG, GIF</small>
                         @error('logo')
                             <div class="invalid-feedback">{{ $message }}</div>
@@ -55,15 +64,22 @@
                         @php
                             $faviconUrl = $company->getFaviconUrl();
                         @endphp
-                        @if($company->favicon)
-                            <div class="mb-3">
-                                <img src="{{ $faviconUrl }}" alt="Company Favicon" 
-                                    class="img-thumbnail" style="max-height: 32px; width: 32px;">
-                                <p class="text-muted small mt-2">Current favicon</p>
-                            </div>
-                        @endif
-                        <input type="file" name="favicon" accept="image/*" 
-                            class="form-control @error('favicon') is-invalid @enderror">
+                        <div class="mb-3 {{ $company->favicon ? '' : 'd-none' }}" id="profile-favicon-preview-wrap">
+                            <img src="{{ $company->favicon ? $faviconUrl : '' }}" alt="Company Favicon" id="profile-favicon-preview"
+                                class="img-thumbnail" style="max-height: 32px; width: 32px;">
+                            <p class="text-muted small mt-2">Current favicon</p>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <input type="file" name="favicon" id="profile-favicon-input" accept="image/*" 
+                                class="form-control @error('favicon') is-invalid @enderror" style="max-width: 520px;">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="clear-favicon-file-btn">
+                                <i class="bi bi-x-circle me-1"></i>Clear file
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm {{ $company->favicon ? '' : 'd-none' }}" id="remove-favicon-btn">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to default
+                            </button>
+                        </div>
+                        <small id="favicon-clear-note" class="text-warning d-none mt-1 d-inline-block">Current favicon will be reset to default after save.</small>
                         <small class="text-muted">Max file size: 1MB. Recommended size: 32x32px. If not provided, a default favicon will be generated using the first letter of the company name.</small>
                         @error('favicon')
                             <div class="invalid-feedback">{{ $message }}</div>
@@ -172,6 +188,128 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('companyProfileForm');
     const submitBtn = document.getElementById('profile-submit-btn');
     const submitText = document.getElementById('profile-submit-text');
+    const logoInput = document.getElementById('profile-logo-input');
+    const faviconInput = document.getElementById('profile-favicon-input');
+    const clearLogoField = document.getElementById('clear_logo');
+    const clearFaviconField = document.getElementById('clear_favicon');
+    const logoNote = document.getElementById('logo-clear-note');
+    const faviconNote = document.getElementById('favicon-clear-note');
+    const clearLogoFileBtn = document.getElementById('clear-logo-file-btn');
+    const clearFaviconFileBtn = document.getElementById('clear-favicon-file-btn');
+    const removeLogoBtn = document.getElementById('remove-logo-btn');
+    const removeFaviconBtn = document.getElementById('remove-favicon-btn');
+    const logoPreviewWrap = document.getElementById('profile-logo-preview-wrap');
+    const faviconPreviewWrap = document.getElementById('profile-favicon-preview-wrap');
+    const logoPreviewImg = document.getElementById('profile-logo-preview');
+    const faviconPreviewImg = document.getElementById('profile-favicon-preview');
+
+    function notifyUser(message, type) {
+        if (typeof showNotification === 'function') {
+            showNotification(message, type);
+            return;
+        }
+
+        const div = document.createElement('div');
+        const isError = type === 'error';
+        div.className = `position-fixed top-0 end-0 m-3 alert ${isError ? 'alert-danger' : 'alert-success'} shadow`;
+        div.style.zIndex = '1080';
+        div.textContent = message;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 3000);
+    }
+
+    function applyCompanyProfileData(company) {
+        if (!company) return;
+
+        const nameInput = form.querySelector('input[name="name"]');
+        if (nameInput && typeof company.name === 'string') {
+            nameInput.value = company.name;
+        }
+
+        if (logoPreviewWrap && logoPreviewImg) {
+            if (company.logo_url) {
+                logoPreviewImg.src = company.logo_url;
+                logoPreviewWrap.classList.remove('d-none');
+            } else {
+                logoPreviewImg.src = '';
+                logoPreviewWrap.classList.add('d-none');
+            }
+        }
+
+        if (faviconPreviewWrap && faviconPreviewImg) {
+            if (company.favicon_url) {
+                faviconPreviewImg.src = company.favicon_url;
+                faviconPreviewWrap.classList.remove('d-none');
+            } else {
+                faviconPreviewImg.src = '';
+                faviconPreviewWrap.classList.add('d-none');
+            }
+        }
+
+        if (removeLogoBtn) {
+            removeLogoBtn.classList.toggle('d-none', !company.has_stored_logo);
+        }
+        if (removeFaviconBtn) {
+            removeFaviconBtn.classList.toggle('d-none', !company.has_stored_favicon);
+        }
+
+        if (logoInput) logoInput.value = '';
+        if (faviconInput) faviconInput.value = '';
+        if (clearLogoField) clearLogoField.value = '0';
+        if (clearFaviconField) clearFaviconField.value = '0';
+        if (logoNote) logoNote.classList.add('d-none');
+        if (faviconNote) faviconNote.classList.add('d-none');
+    }
+
+    if (clearLogoFileBtn && logoInput) {
+        clearLogoFileBtn.addEventListener('click', function() {
+            logoInput.value = '';
+        });
+    }
+
+    if (clearFaviconFileBtn && faviconInput) {
+        clearFaviconFileBtn.addEventListener('click', function() {
+            faviconInput.value = '';
+        });
+    }
+
+    if (removeLogoBtn && logoInput && clearLogoField) {
+        removeLogoBtn.addEventListener('click', function() {
+            logoInput.value = '';
+            clearLogoField.value = '1';
+            if (logoNote) logoNote.classList.remove('d-none');
+            if (logoPreviewWrap && logoPreviewImg) {
+                logoPreviewImg.src = '';
+                logoPreviewWrap.classList.add('d-none');
+            }
+            removeLogoBtn.classList.add('d-none');
+        });
+        logoInput.addEventListener('change', function() {
+            if (logoInput.files.length > 0) {
+                clearLogoField.value = '0';
+                if (logoNote) logoNote.classList.add('d-none');
+                if (removeLogoBtn) removeLogoBtn.classList.remove('d-none');
+            }
+        });
+    }
+
+    if (removeFaviconBtn && faviconInput && clearFaviconField) {
+        removeFaviconBtn.addEventListener('click', function() {
+            faviconInput.value = '';
+            clearFaviconField.value = '1';
+            if (faviconNote) faviconNote.classList.remove('d-none');
+            if (faviconPreviewWrap && faviconPreviewImg) {
+                faviconPreviewImg.src = '';
+                faviconPreviewWrap.classList.add('d-none');
+            }
+        });
+        faviconInput.addEventListener('change', function() {
+            if (faviconInput.files.length > 0) {
+                clearFaviconField.value = '0';
+                if (faviconNote) faviconNote.classList.add('d-none');
+            }
+        });
+    }
     
     if (form) {
         form.addEventListener('submit', function(e) {
@@ -209,42 +347,8 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 if (data.success) {
-                    // Show success notification
-                    if (typeof showNotification === 'function') {
-                        showNotification(data.message, 'success');
-                    } else {
-                        alert(data.message);
-                    }
-                    
-                    // Update logo/favicon preview if they were changed
-                    if (formData.has('logo')) {
-                        // Reload logo preview (would need to fetch new URL from server)
-                        const logoInput = form.querySelector('input[name="logo"]');
-                        if (logoInput && logoInput.files.length > 0) {
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                const logoPreview = form.querySelector('img[alt="Company Logo"]');
-                                if (logoPreview) {
-                                    logoPreview.src = e.target.result;
-                                }
-                            };
-                            reader.readAsDataURL(logoInput.files[0]);
-                        }
-                    }
-                    
-                    if (formData.has('favicon')) {
-                        const faviconInput = form.querySelector('input[name="favicon"]');
-                        if (faviconInput && faviconInput.files.length > 0) {
-                            const reader = new FileReader();
-                            reader.onload = function(e) {
-                                const faviconPreview = form.querySelector('img[alt="Company Favicon"]');
-                                if (faviconPreview) {
-                                    faviconPreview.src = e.target.result;
-                                }
-                            };
-                            reader.readAsDataURL(faviconInput.files[0]);
-                        }
-                    }
+                    notifyUser(data.message, 'success');
+                    applyCompanyProfileData(data.company || null);
                 }
             })
             .catch(error => {
@@ -256,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const input = form.querySelector(`[name="${field}"]`);
                         if (input) {
                             input.classList.add('is-invalid');
-                            const errorDiv = input.nextElementSibling;
+                            const errorDiv = input.closest('.col-md-12, .col-md-6')?.querySelector('.invalid-feedback');
                             if (errorDiv && errorDiv.classList.contains('invalid-feedback')) {
                                 errorDiv.textContent = error.errors[field][0];
                                 errorDiv.style.display = 'block';
@@ -267,11 +371,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Show error notification
                 const errorMessage = error.message || 'An error occurred while updating the profile.';
-                if (typeof showNotification === 'function') {
-                    showNotification(errorMessage, 'error');
-                } else {
-                    alert(errorMessage);
-                }
+                notifyUser(errorMessage, 'error');
             })
             .finally(() => {
                 submitBtn.disabled = false;

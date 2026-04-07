@@ -297,7 +297,14 @@ class CompanyController extends Controller
             'zip' => 'nullable|string|max:20',
             'logo' => 'nullable|image|max:5120',
             'favicon' => 'nullable|image|max:1024',
+            'clear_logo' => 'nullable|boolean',
+            'clear_favicon' => 'nullable|boolean',
         ]);
+
+        $clearLogo = $request->boolean('clear_logo');
+        $clearFavicon = $request->boolean('clear_favicon');
+
+        unset($validated['clear_logo'], $validated['clear_favicon']);
 
         if ($request->hasFile('logo')) {
             // delete old logo file if exists
@@ -305,6 +312,11 @@ class CompanyController extends Controller
                 Storage::disk('public')->delete($company->logo);
             }
             $validated['logo'] = $request->file('logo')->store('companies', 'public');
+        } elseif ($clearLogo) {
+            if ($company->logo && Storage::disk('public')->exists($company->logo)) {
+                Storage::disk('public')->delete($company->logo);
+            }
+            $validated['logo'] = null;
         }
 
         // Handle favicon
@@ -315,6 +327,11 @@ class CompanyController extends Controller
                 Storage::disk('public')->delete($company->favicon);
             }
             $validated['favicon'] = $faviconService->generateFromFile($request->file('favicon'), $company->name);
+        } elseif ($clearFavicon) {
+            if ($company->favicon && Storage::disk('public')->exists($company->favicon)) {
+                Storage::disk('public')->delete($company->favicon);
+            }
+            $validated['favicon'] = $faviconService->generateDefaultFavicon($company->name);
         } elseif (!$company->favicon) {
             // Generate default favicon if none exists
             $validated['favicon'] = $faviconService->generateDefaultFavicon($company->name);
@@ -324,10 +341,16 @@ class CompanyController extends Controller
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
+            $fresh = $company->fresh();
             return response()->json([
                 'success' => true,
                 'message' => 'Company profile updated successfully.',
-                'company' => $company->fresh()
+                'company' => array_merge($fresh->toArray(), [
+                    'logo_url' => $fresh->getLogoUrl(),
+                    'favicon_url' => $fresh->getFaviconUrl(),
+                    'has_stored_logo' => (bool) $fresh->logo,
+                    'has_stored_favicon' => (bool) $fresh->favicon,
+                ]),
             ]);
         }
         
