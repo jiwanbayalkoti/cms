@@ -374,8 +374,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Company Profile (Admin only - not accessible to regular users)
         Route::middleware(['admin_only'])->group(function () {
         Route::get('/company/profile', [CompanyController::class, 'profile'])->name('companies.profile');
+        Route::get('/company/letterhead', [CompanyController::class, 'letterhead'])->name('companies.letterhead');
+        Route::get('/company/letterhead/exports', [CompanyController::class, 'letterheadExportList'])->name('companies.letterhead.exports');
+        Route::get('/company/letterhead/export/pdf', [CompanyController::class, 'letterheadExportPdf'])->name('companies.letterhead.export.pdf');
         Route::middleware(['throttle:uploads'])->group(function () {
             Route::put('/company/profile', [CompanyController::class, 'profileUpdate'])->name('companies.profile.update');
+            Route::put('/company/letterhead', [CompanyController::class, 'letterheadUpdate'])->name('companies.letterhead.update');
+            Route::post('/company/letterhead/export/pdf', [CompanyController::class, 'letterheadExportPdf'])->name('companies.letterhead.export.pdf.post');
+            Route::post('/company/letterhead/assets', [CompanyController::class, 'letterheadAssetStore'])->name('companies.letterhead.assets.store');
+            Route::delete('/company/letterhead/assets/{asset}', [CompanyController::class, 'letterheadAssetDestroy'])->name('companies.letterhead.assets.destroy');
         });
         });
 

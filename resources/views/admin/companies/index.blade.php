@@ -151,8 +151,9 @@
                     <div class="field-error text-red-600 text-sm mt-1" data-field="website" style="display: none;"></div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1">Tax Number</label>
-                    <input type="text" name="tax_number" id="company-tax-number" class="w-full border rounded px-3 py-2">
+                    <label class="block text-sm font-medium mb-1">PAN No. <span class="text-gray-500 font-normal">(प्यान नं.)</span></label>
+                    <input type="text" name="tax_number" id="company-tax-number" class="w-full border rounded px-3 py-2" placeholder="e.g. 606961234" autocomplete="off">
+                    <p class="text-gray-500 text-xs mt-1">Letterhead माथि दायाँ देखाइन्छ।</p>
                     <div class="field-error text-red-600 text-sm mt-1" data-field="tax_number" style="display: none;"></div>
                 </div>
             </div>
@@ -927,7 +928,7 @@ function openViewCompanyModal(companyId) {
                             <div class="font-medium">${company.website ? `<a href="${escapeHtml(company.website)}" target="_blank" class="text-indigo-600 hover:underline">${escapeHtml(company.website)}</a>` : '—'}</div>
                         </div>
                         <div>
-                            <div class="text-sm text-gray-500 mb-1">Tax Number</div>
+                            <div class="text-sm text-gray-500 mb-1">PAN No.</div>
                             <div class="font-medium">${escapeHtml(company.tax_number || '—')}</div>
                         </div>
                         <div>

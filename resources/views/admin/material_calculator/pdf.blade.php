@@ -15,6 +15,7 @@
     </style>
 </head>
 <body>
+    @include('admin.partials.pdf-letterhead', ['company' => $company ?? null])
     <h1>Construction Material Calculator</h1>
     <p class="muted">Generated on {{ $generatedAt->format('d M, Y H:i') }}</p>
 

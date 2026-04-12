@@ -11,6 +11,16 @@ class Company extends Model
 
     protected $casts = [
         'bill_date' => 'date',
+        'letterhead_show_watermark' => 'boolean',
+        'letterhead_show_border' => 'boolean',
+        'letterhead_watermark_opacity' => 'integer',
+        'letterhead_chs_last_no' => 'integer',
+        'letterhead_ps_last_no' => 'integer',
+        'letterhead_name_en_size' => 'float',
+        'letterhead_name_np_size' => 'float',
+        'letterhead_address_size' => 'float',
+        'letterhead_name_letter_spacing' => 'float',
+        'letterhead_name_line_height' => 'float',
     ];
 
     protected $fillable = [
@@ -30,6 +40,36 @@ class Company extends Model
         'zip',
         'logo',
         'favicon',
+        'letterhead_template',
+        'letterhead_primary_color',
+        'letterhead_font_family',
+        'letterhead_header_alignment',
+        'letterhead_tagline',
+        'letterhead_name_en_size',
+        'letterhead_name_np_size',
+        'letterhead_address_size',
+        'letterhead_name_letter_spacing',
+        'letterhead_name_line_height',
+        'letterhead_name_en_color',
+        'letterhead_name_np_color',
+        'letterhead_address_color',
+        'letterhead_name_font_style',
+        'letterhead_name_en_align',
+        'letterhead_name_np_align',
+        'letterhead_address_align',
+        'letterhead_meta_chs_align',
+        'letterhead_meta_ps_align',
+        'letterhead_meta_date_align',
+        'letterhead_meta_chs_value',
+        'letterhead_meta_ps_value',
+        'letterhead_meta_date_value',
+        'letterhead_layout_json',
+        'letterhead_footer_text',
+        'letterhead_watermark_text',
+        'letterhead_watermark_mode',
+        'letterhead_show_watermark',
+        'letterhead_watermark_opacity',
+        'letterhead_show_border',
     ];
 
     public function users()
@@ -50,6 +90,16 @@ class Company extends Model
     public function projects()
     {
         return $this->hasMany(Project::class);
+    }
+
+    public function letterheadAssets()
+    {
+        return $this->hasMany(CompanyLetterheadAsset::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function letterheadExports()
+    {
+        return $this->hasMany(CompanyLetterheadExport::class)->latest();
     }
 
     /**

@@ -18,6 +18,7 @@
     </style>
 </head>
 <body>
+    @include('admin.partials.pdf-letterhead', ['company' => $company ?? null])
     <h1>Work & BoQ</h1>
     @if($company)
         <p class="muted">{{ $company->name ?? '' }} @if($company->client) | Client: {{ $company->client }} @endif @if($company->project) | Project: {{ $company->project }} @endif</p>

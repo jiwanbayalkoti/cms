@@ -33,6 +33,17 @@
                     </div>
 
                     <div class="col-md-12">
+                        <label class="form-label fw-semibold">PAN No. <span class="text-muted fw-normal">(प्यान नं. / tax ID)</span></label>
+                        <input type="text" name="tax_number" value="{{ old('tax_number', $company->tax_number) }}"
+                            class="form-control @error('tax_number') is-invalid @enderror"
+                            placeholder="e.g. 606961234" autocomplete="off">
+                        <small class="text-muted">Letterhead र कागजातमा माथि दायाँ देखाइन्छ।</small>
+                        @error('tax_number')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-12">
                         <label class="form-label fw-semibold">Company Logo</label>
                         @php
                             $logoUrl = $company->getLogoUrl();
@@ -158,15 +169,6 @@
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Tax Number</label>
-                        <input type="text" name="tax_number" value="{{ old('tax_number', $company->tax_number) }}" 
-                            class="form-control @error('tax_number') is-invalid @enderror">
-                        @error('tax_number')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
                 </div>
 
                 <div class="mt-4 pt-3 border-top">
@@ -224,6 +226,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const nameInput = form.querySelector('input[name="name"]');
         if (nameInput && typeof company.name === 'string') {
             nameInput.value = company.name;
+        }
+
+        const panInput = form.querySelector('input[name="tax_number"]');
+        if (panInput && company.tax_number !== undefined && company.tax_number !== null) {
+            panInput.value = company.tax_number;
         }
 
         if (logoPreviewWrap && logoPreviewImg) {

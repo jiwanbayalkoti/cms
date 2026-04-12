@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Exports\MaterialCalculatorExport;
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\MaterialCalculatorSet;
 use App\Support\CompanyContext;
 use Illuminate\Http\Request;
@@ -96,11 +97,13 @@ class MaterialCalculatorController extends Controller
     public function exportPdf(Request $request)
     {
         [$items, $summary] = $this->validatePayload($request);
+        $company = Company::find(CompanyContext::getActiveCompanyId());
 
         $pdf = App::make('dompdf.wrapper');
         $pdf->loadView('admin.material_calculator.pdf', [
             'items' => $items,
             'summary' => $summary,
+            'company' => $company,
             'generatedAt' => now(),
         ])->setPaper('a4', 'portrait');
 

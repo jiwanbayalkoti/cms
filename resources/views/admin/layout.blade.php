@@ -969,6 +969,12 @@
                         </svg>
                         <span class="nav-item-text">Company Profile</span>
                     </a>
+                    <a href="{{ route('admin.companies.letterhead') }}" data-tooltip="Letterhead Design" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.letterhead*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <span class="nav-item-text">Letterhead Design</span>
+                    </a>
                     @endif
                     @if(Auth::user()->role === 'super_admin')
                     <a href="{{ route('admin.companies.index') }}" data-tooltip="Companies" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.index') || request()->routeIs('admin.companies.create') || request()->routeIs('admin.companies.edit') || request()->routeIs('admin.companies.show') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
@@ -1614,11 +1620,69 @@
                 this.cache.clear();
             }
         };
+
+        // Global safety cleanup for stuck overlays/backdrops.
+        // Prevents rare cases where a modal backdrop remains and blocks clicks.
+        window.cleanupStuckOverlays = function() {
+            try {
+                // Tailwind-style custom modals used in many pages
+                document.querySelectorAll('[id$="Modal"], [id$="ConfirmationModal"]').forEach(function(el) {
+                    if (el.classList && !el.classList.contains('hidden')) {
+                        el.classList.add('hidden');
+                    }
+                });
+
+                // Remove orphan full-screen overlays (no modal id) that block clicks.
+                document.querySelectorAll('div.fixed.inset-0').forEach(function(el) {
+                    const className = el.className || '';
+                    const looksLikeBackdrop = className.includes('bg-black') || className.includes('bg-opacity-50');
+                    const isTopLayer = className.includes('z-50') || className.includes('z-[60]');
+                    const hasModalLikeId = /Modal$|ConfirmationModal$/.test(el.id || '');
+                    if (looksLikeBackdrop && isTopLayer && !hasModalLikeId) {
+                        el.remove();
+                    }
+                });
+
+                // Bootstrap modal cleanup (if any modal/backdrop is stuck)
+                document.querySelectorAll('.modal.show').forEach(function(modalEl) {
+                    modalEl.classList.remove('show');
+                    modalEl.setAttribute('aria-hidden', 'true');
+                    modalEl.style.display = 'none';
+                });
+                document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                    backdrop.remove();
+                });
+
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('overflow');
+                document.body.style.removeProperty('padding-right');
+            } catch (e) {
+                console.warn('Overlay cleanup warning:', e);
+            }
+        };
+
+        // Run once on full page load (important for post-login hard loads).
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                if (typeof window.cleanupStuckOverlays === 'function') {
+                    window.cleanupStuckOverlays();
+                    setTimeout(window.cleanupStuckOverlays, 120);
+                }
+            });
+        } else if (typeof window.cleanupStuckOverlays === 'function') {
+            window.cleanupStuckOverlays();
+            setTimeout(window.cleanupStuckOverlays, 120);
+        }
         
         // AJAX Page Loading Function (make it globally accessible)
         window.loadPageViaAjax = function(url) {
             const contentContainer = document.getElementById('page-content');
             if (!contentContainer) return;
+
+            // Always reset any stale overlay before loading a new page.
+            if (typeof window.cleanupStuckOverlays === 'function') {
+                window.cleanupStuckOverlays();
+            }
             
             // Check cache first
             const cacheKey = 'page_' + url;
@@ -2029,6 +2093,11 @@
                 
                 // Scroll to top
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                // Final safeguard after new content/scripts are injected.
+                if (typeof window.cleanupStuckOverlays === 'function') {
+                    window.cleanupStuckOverlays();
+                }
             })
             .catch(error => {
                 console.error('Error loading page:', error);
