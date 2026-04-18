@@ -9,6 +9,7 @@ use App\Models\Expense;
 use App\Models\Category;
 use App\Models\Subcategory;
 use App\Models\Staff;
+use App\Models\Subcontractor;
 use App\Models\Project;
 use App\Models\ConstructionMaterial;
 use App\Exports\ExpenseExport;
@@ -18,6 +19,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Support\CompanyContext;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ExpenseController extends Controller
 {
@@ -36,7 +39,7 @@ class ExpenseController extends Controller
     public function index(Request $request)
     {
         $companyId = CompanyContext::getActiveCompanyId();
-        $query = Expense::with(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType'])
+        $query = Expense::with(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType'])
             ->where('company_id', $companyId);
         
         // Filter by accessible projects
@@ -65,6 +68,13 @@ class ExpenseController extends Controller
         // Filter by subcategory
         if ($request->filled('subcategory_id')) {
             $query->where('subcategory_id', $request->subcategory_id);
+        }
+
+        if ($request->filled('subcontractor_id')) {
+            $sid = (int) $request->subcontractor_id;
+            if (Subcontractor::where('company_id', $companyId)->whereKey($sid)->exists()) {
+                $query->where('subcontractor_id', $sid);
+            }
         }
         
         // Filter by keyword (item name, description, notes)
@@ -111,6 +121,9 @@ class ExpenseController extends Controller
                 } elseif ($expense->vehicleRent) {
                     $typeName = 'Vehicle rent';
                     $typeClass = 'bg-purple-100 text-purple-800';
+                } elseif ($expense->subcontractor) {
+                    $typeName = 'Sub-contractor';
+                    $typeClass = 'bg-teal-100 text-teal-800';
                 } elseif ($expense->expenseType) {
                     $typeName = $expense->expenseType->name;
                     $typeClass = 'bg-gray-100 text-gray-800';
@@ -128,6 +141,8 @@ class ExpenseController extends Controller
                     'category_name' => $expense->category->name,
                     'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
                     'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
+                    'subcontractor_name' => $expense->subcontractor ? $expense->subcontractor->name : 'N/A',
+                    'has_subcontractor' => $expense->subcontractor_id ? true : false,
                     'amount' => number_format($expense->amount, 2),
                     'has_construction_material' => $expense->constructionMaterial ? true : false,
                     'has_advance_payment' => $expense->advancePayment ? true : false,
@@ -145,7 +160,18 @@ class ExpenseController extends Controller
             ]);
         }
         
-        return view('admin.expenses.index', compact('expenses', 'projects', 'expenseTypes', 'categories', 'subcategories', 'sortColumn', 'sortDir'));
+        $subcontractorFilterId = $request->filled('subcontractor_id') ? (int) $request->subcontractor_id : null;
+        $subcontractors = Subcontractor::where('company_id', $companyId)
+            ->where(function ($q) use ($subcontractorFilterId) {
+                $q->where('is_active', true);
+                if ($subcontractorFilterId) {
+                    $q->orWhere('id', $subcontractorFilterId);
+                }
+            })
+            ->orderBy('name')
+            ->get();
+
+        return view('admin.expenses.index', compact('expenses', 'projects', 'expenseTypes', 'categories', 'subcategories', 'subcontractors', 'sortColumn', 'sortDir'));
     }
 
     /**
@@ -173,6 +199,12 @@ class ExpenseController extends Controller
         }
         if ($request->filled('subcategory_id')) {
             $query->where('subcategory_id', $request->subcategory_id);
+        }
+        if ($request->filled('subcontractor_id')) {
+            $sid = (int) $request->subcontractor_id;
+            if (Subcontractor::where('company_id', $companyId)->whereKey($sid)->exists()) {
+                $query->where('subcontractor_id', $sid);
+            }
         }
         if ($request->filled('keyword')) {
             $keyword = trim($request->keyword);
@@ -264,6 +296,10 @@ class ExpenseController extends Controller
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
         $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
+        $subcontractors = Subcontractor::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
         
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
@@ -273,6 +309,7 @@ class ExpenseController extends Controller
                 'staff' => $staff,
                 'projects' => $projects,
                 'expenseTypes' => $expenseTypes,
+                'subcontractors' => $subcontractors,
             ]);
         }
         
@@ -285,12 +322,18 @@ class ExpenseController extends Controller
      */
     public function validateExpense(Request $request)
     {
+        $companyId = CompanyContext::getActiveCompanyId();
         $rules = [
             'project_id' => 'nullable|exists:projects,id',
-            'category_id' => 'required|exists:categories,id',
+            'category_id' => 'nullable|exists:categories,id',
             'subcategory_id' => 'nullable|exists:subcategories,id',
             'expense_type_id' => 'required|exists:expense_types,id',
             'staff_id' => 'nullable|exists:staff,id',
+            'subcontractor_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('subcontractors', 'id')->where('company_id', $companyId),
+            ],
             'item_name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'amount' => 'required|numeric|min:0',
@@ -308,12 +351,18 @@ class ExpenseController extends Controller
      */
     public function store(Request $request)
     {
+        $companyId = CompanyContext::getActiveCompanyId();
         $validated = $request->validate([
             'project_id' => 'nullable|exists:projects,id',
-            'category_id' => 'required|exists:categories,id',
+            'category_id' => 'nullable|exists:categories,id',
             'subcategory_id' => 'nullable|exists:subcategories,id',
             'expense_type_id' => 'required|exists:expense_types,id',
             'staff_id' => 'nullable|required_if:expense_type,salary,advance|exists:staff,id',
+            'subcontractor_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('subcontractors', 'id')->where('company_id', $companyId),
+            ],
             'item_name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'amount' => 'required|numeric|min:0',
@@ -322,6 +371,8 @@ class ExpenseController extends Controller
             'notes' => 'nullable|string',
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB max per image
         ]);
+
+        $this->applyExpenseCategoryAndSubcategoryForStore($request, $validated);
 
         // Handle image uploads
         if ($request->hasFile('images')) {
@@ -338,10 +389,10 @@ class ExpenseController extends Controller
             $this->authorizeProjectAccess((int) $validated['project_id']);
         }
 
-        $validated['company_id'] = CompanyContext::getActiveCompanyId();
+        $validated['company_id'] = $companyId;
         $validated['created_by'] = auth()->id();
         $expense = Expense::create($validated);
-        $expense->load(['category', 'subcategory', 'staff', 'project', 'expenseType']);
+        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'expenseType']);
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
@@ -394,7 +445,7 @@ class ExpenseController extends Controller
             $this->authorizeProjectAccess($expense->project_id);
         }
         
-        $expense->load(['category', 'subcategory', 'staff', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType']);
+        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType']);
         
         // Return JSON only when AJAX and expects JSON (view modal); normal browser visit gets HTML
         if (request()->ajax() && request()->wantsJson()) {
@@ -437,6 +488,11 @@ class ExpenseController extends Controller
                     'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
                     'staff_id' => $expense->staff_id,
                     'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
+                    'subcontractor_id' => $expense->subcontractor_id,
+                    'subcontractor_name' => $expense->subcontractor ? $expense->subcontractor->name : 'N/A',
+                    'subcontractor_url' => $expense->subcontractor_id
+                        ? route('admin.subcontractors.show', $expense->subcontractor_id)
+                        : null,
                     'expense_type_id' => $expense->expense_type_id,
                     'expense_type_name' => $expense->expenseType ? $expense->expenseType->name : 'N/A',
                     'images' => $imageUrls,
@@ -487,6 +543,15 @@ class ExpenseController extends Controller
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
         $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
+        $subcontractors = Subcontractor::where('company_id', $companyId)
+            ->where(function ($q) use ($expense) {
+                $q->where('is_active', true);
+                if ($expense->subcontractor_id) {
+                    $q->orWhere('id', $expense->subcontractor_id);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
         
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
@@ -510,6 +575,7 @@ class ExpenseController extends Controller
                     'category_id' => $expense->category_id,
                     'subcategory_id' => $expense->subcategory_id,
                     'staff_id' => $expense->staff_id,
+                    'subcontractor_id' => $expense->subcontractor_id,
                     'expense_type_id' => $expense->expense_type_id,
                     'images' => $imageUrls,
                     'image_paths' => $expense->images ?? [],
@@ -519,6 +585,7 @@ class ExpenseController extends Controller
                 'staff' => $staff,
                 'projects' => $projects,
                 'expenseTypes' => $expenseTypes,
+                'subcontractors' => $subcontractors,
             ]);
         }
         
@@ -534,12 +601,18 @@ class ExpenseController extends Controller
         if ($expense->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
         }
+        $companyId = CompanyContext::getActiveCompanyId();
         $validated = $request->validate([
             'project_id' => 'nullable|exists:projects,id',
-            'category_id' => 'required|exists:categories,id',
+            'category_id' => 'nullable|exists:categories,id',
             'subcategory_id' => 'nullable|exists:subcategories,id',
             'expense_type_id' => 'required|exists:expense_types,id',
             'staff_id' => 'nullable|required_if:expense_type,salary,advance|exists:staff,id',
+            'subcontractor_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('subcontractors', 'id')->where('company_id', $companyId),
+            ],
             'item_name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'amount' => 'required|numeric|min:0',
@@ -549,6 +622,8 @@ class ExpenseController extends Controller
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // 5MB max per image
             'delete_images' => 'nullable|array',
         ]);
+
+        $this->mergeExpenseCategoryAndSubcategoryForUpdate($request, $validated, $expense);
 
         // Handle image uploads
         if ($request->hasFile('images')) {
@@ -578,7 +653,7 @@ class ExpenseController extends Controller
 
         $validated['updated_by'] = auth()->id();
         $expense->update($validated);
-        $expense->load(['category', 'subcategory', 'staff', 'project', 'expenseType', 'constructionMaterial', 'advancePayment', 'vehicleRent']);
+        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'expenseType', 'constructionMaterial', 'advancePayment', 'vehicleRent']);
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
@@ -723,5 +798,69 @@ class ExpenseController extends Controller
 
         return redirect()->route('admin.expenses.edit', $newExpense)
             ->with('success', 'Expense record duplicated successfully. You can now edit it.');
+    }
+
+    /**
+     * Resolve category (default: first active expense category) and align subcategory to category.
+     */
+    protected function applyExpenseCategoryAndSubcategoryForStore(Request $request, array &$validated): void
+    {
+        if ($request->filled('category_id')) {
+            $cat = Category::whereKey($validated['category_id'])->where('type', 'expense')->where('is_active', true)->first();
+            if (! $cat) {
+                throw ValidationException::withMessages([
+                    'category_id' => ['Please select a valid active expense category.'],
+                ]);
+            }
+        } else {
+            $validated['category_id'] = Category::firstOrCreateDefaultExpense()->id;
+        }
+
+        $this->syncSubcategoryToCategory($validated);
+    }
+
+    /**
+     * When the list modal omits category/subcategory, keep existing values; otherwise validate and sync.
+     */
+    protected function mergeExpenseCategoryAndSubcategoryForUpdate(Request $request, array &$validated, Expense $expense): void
+    {
+        if ($request->filled('category_id')) {
+            $cat = Category::whereKey($validated['category_id'])->where('type', 'expense')->where('is_active', true)->first();
+            if (! $cat) {
+                throw ValidationException::withMessages([
+                    'category_id' => ['Please select a valid active expense category.'],
+                ]);
+            }
+            if (array_key_exists('subcategory_id', $validated)) {
+                $this->syncSubcategoryToCategory($validated);
+            } else {
+                unset($validated['subcategory_id']);
+            }
+        } else {
+            unset($validated['category_id']);
+            if (! $request->filled('subcategory_id')) {
+                unset($validated['subcategory_id']);
+            } elseif (! empty($validated['subcategory_id'])) {
+                $ok = Subcategory::whereKey($validated['subcategory_id'])
+                    ->where('category_id', $expense->category_id)
+                    ->exists();
+                if (! $ok) {
+                    unset($validated['subcategory_id']);
+                }
+            }
+        }
+    }
+
+    protected function syncSubcategoryToCategory(array &$validated): void
+    {
+        $subId = $validated['subcategory_id'] ?? null;
+        if ($subId !== null && $subId !== '') {
+            $ok = Subcategory::whereKey($subId)
+                ->where('category_id', $validated['category_id'])
+                ->exists();
+            $validated['subcategory_id'] = $ok ? $subId : null;
+        } else {
+            $validated['subcategory_id'] = null;
+        }
     }
 }

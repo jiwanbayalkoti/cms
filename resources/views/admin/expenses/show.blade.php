@@ -68,6 +68,16 @@
                 </dd>
             </div>
             @endif
+            @if($expense->subcontractor)
+            <div>
+                <dt class="text-sm font-medium text-gray-500">Sub-contractor</dt>
+                <dd class="mt-1">
+                    <a href="{{ route('admin.subcontractors.show', $expense->subcontractor) }}" class="text-sm text-indigo-600 hover:text-indigo-900">
+                        {{ $expense->subcontractor->name }}
+                    </a>
+                </dd>
+            </div>
+            @endif
             @if($expense->constructionMaterial)
             <div>
                 <dt class="text-sm font-medium text-gray-500">Linked Material Purchase</dt>

@@ -16,6 +16,7 @@ class Expense extends Model
         'project_id',
         'construction_material_id',
         'vehicle_rent_id',
+        'subcontractor_id',
         'advance_payment_id',
         'category_id',
         'subcategory_id',
@@ -86,6 +87,11 @@ class Expense extends Model
     public function vehicleRent()
     {
         return $this->belongsTo(\App\Models\VehicleRent::class);
+    }
+
+    public function subcontractor()
+    {
+        return $this->belongsTo(Subcontractor::class);
     }
 
     public function expenseType()

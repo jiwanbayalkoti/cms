@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\SubcategoryController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\SubcontractorController;
 use App\Http\Controllers\Admin\PositionController;
 use App\Http\Controllers\Admin\ProjectController;
 use App\Http\Controllers\Admin\ConstructionMaterialController;
@@ -113,6 +114,20 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('staff/validate', [StaffController::class, 'validateStaff'])->name('staff.validate');
             Route::post('staff/{staff}/validate', [StaffController::class, 'validateStaff'])->name('staff.validate.edit');
             Route::get('staff/{staff}/details', [StaffController::class, 'getDetails'])->name('staff.details');
+
+            // Sub-contractors
+            Route::get('subcontractors', [SubcontractorController::class, 'index'])->name('subcontractors.index');
+            Route::get('subcontractors/create', [SubcontractorController::class, 'create'])->name('subcontractors.create');
+            Route::get('subcontractors/{subcontractor}/payment-data', [SubcontractorController::class, 'paymentModalData'])->name('subcontractors.payment-data');
+            Route::get('subcontractors/{subcontractor}', [SubcontractorController::class, 'show'])->name('subcontractors.show');
+            Route::get('subcontractors/{subcontractor}/edit', [SubcontractorController::class, 'edit'])->name('subcontractors.edit');
+            Route::middleware(['throttle:forms'])->group(function () {
+                Route::post('subcontractors', [SubcontractorController::class, 'store'])->name('subcontractors.store');
+                Route::put('subcontractors/{subcontractor}', [SubcontractorController::class, 'update'])->name('subcontractors.update');
+                Route::patch('subcontractors/{subcontractor}', [SubcontractorController::class, 'update']);
+                Route::delete('subcontractors/{subcontractor}', [SubcontractorController::class, 'destroy'])->name('subcontractors.destroy');
+                Route::post('subcontractors/{subcontractor}/payments', [SubcontractorController::class, 'storePayment'])->name('subcontractors.payments.store');
+            });
             
             // Positions CRUD
             Route::get('positions', [PositionController::class, 'index'])->name('positions.index');

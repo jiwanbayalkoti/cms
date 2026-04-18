@@ -92,6 +92,11 @@ class Company extends Model
         return $this->hasMany(Project::class);
     }
 
+    public function subcontractors()
+    {
+        return $this->hasMany(Subcontractor::class);
+    }
+
     public function letterheadAssets()
     {
         return $this->hasMany(CompanyLetterheadAsset::class)->orderBy('sort_order')->orderBy('id');

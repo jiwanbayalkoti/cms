@@ -355,7 +355,7 @@
                         <div class="flex justify-between items-center pb-3 border-b border-gray-100 last:border-0">
                             <div>
                                 <p class="font-medium text-gray-900">{{ $income->source }}</p>
-                                <p class="text-sm text-gray-500">{{ $income->category->name }} • {{ $income->date->format('M d, Y') }}</p>
+                                <p class="text-sm text-gray-500">{{ $income->category?->name ?? '—' }} • {{ $income->date?->format('M d, Y') ?? '—' }}</p>
                             </div>
                             <p class="font-semibold text-green-600">${{ number_format($income->amount, 2) }}</p>
                         </div>
@@ -380,7 +380,7 @@
                         <div class="flex justify-between items-center pb-3 border-b border-gray-100 last:border-0">
                             <div>
                                 <p class="font-medium text-gray-900">{{ $expense->item_name ?? ucfirst($expense->expense_type) }}</p>
-                                <p class="text-sm text-gray-500">{{ $expense->category->name }} • {{ $expense->date->format('M d, Y') }}</p>
+                                <p class="text-sm text-gray-500">{{ $expense->category?->name ?? '—' }} • {{ $expense->date?->format('M d, Y') ?? '—' }}</p>
                             </div>
                             <p class="font-semibold text-red-600">${{ number_format($expense->amount, 2) }}</p>
                         </div>

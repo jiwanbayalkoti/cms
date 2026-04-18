@@ -18,7 +18,7 @@
 </div>
 
 <div class="mb-4 bg-white shadow-lg rounded-lg p-4">
-    <form method="GET" action="{{ route('admin.expenses.index') }}" id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+    <form method="GET" action="{{ route('admin.expenses.index') }}" id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
         <div class="hidden">
             <input type="hidden" name="sort" id="expense_filter_sort" value="{{ $sortColumn ?? request('sort', 'date') }}">
             <input type="hidden" name="direction" id="expense_filter_direction" value="{{ $sortDir ?? request('direction', 'desc') }}">
@@ -232,6 +232,7 @@
                         <div class="text-sm font-medium text-gray-900">${itemName}</div>
                         ${expense.has_construction_material ? '<div class="text-xs text-indigo-600 mt-1"><i class="bi bi-link-45deg"></i> Linked to Material Purchase</div>' : ''}
                         ${expense.has_advance_payment ? '<div class="text-xs text-purple-600 mt-1"><i class="bi bi-link-45deg"></i> Linked to Advance Payment</div>' : ''}
+                        ${expense.has_subcontractor ? '<div class="text-xs text-teal-600 mt-1"><i class="bi bi-link-45deg"></i> Sub-contractor payment</div>' : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm text-gray-900">${expense.project_name}</div>
@@ -241,6 +242,7 @@
                         ${expense.subcategory_name ? `<div class="text-xs text-gray-500">${expense.subcategory_name}</div>` : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
+                        ${expense.has_subcontractor && expense.subcontractor_name && expense.subcontractor_name !== 'N/A' ? '<div class="text-xs font-medium text-teal-800">Sub: ' + expense.subcontractor_name.replace(/</g, '&lt;') + '</div>' : ''}
                         <div class="text-sm text-gray-900">${expense.staff_name}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -310,7 +312,7 @@
         if (!form) return;
         const formData = new FormData(form);
         const params = new URLSearchParams();
-        const exportParams = ['project_id', 'expense_type_id', 'category_id', 'subcategory_id', 'keyword', 'sort', 'direction', 'start_date', 'end_date'];
+        const exportParams = ['project_id', 'expense_type_id', 'category_id', 'subcategory_id', 'subcontractor_id', 'keyword', 'sort', 'direction', 'start_date', 'end_date'];
         for (const key of exportParams) {
             const val = formData.get(key);
             if (val) params.append(key, val);
@@ -540,7 +542,7 @@
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <button type="button" data-sort-col="staff" onclick="sortExpenses('staff')" class="group inline-flex items-center font-medium text-gray-500 hover:text-indigo-700 focus:outline-none">
-                            Staff {!! $expThSort('staff') !!}
+                            Staff / Sub {!! $expThSort('staff') !!}
                         </button>
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -572,6 +574,9 @@
                                 } elseif ($expense->vehicleRent) {
                                     $typeName = 'Vehicle rent';
                                     $typeClass = 'bg-purple-100 text-purple-800';
+                                } elseif ($expense->subcontractor) {
+                                    $typeName = 'Sub-contractor';
+                                    $typeClass = 'bg-teal-100 text-teal-800';
                                 } elseif ($expense->expenseType) {
                                     $typeName = $expense->expenseType->name;
                                     $typeClass = 'bg-gray-100 text-gray-800';
@@ -593,6 +598,11 @@
                             @if($expense->advancePayment)
                                 <div class="text-xs text-purple-600 mt-1">
                                     <i class="bi bi-link-45deg"></i> Linked to Advance Payment
+                                </div>
+                            @endif
+                            @if($expense->subcontractor_id)
+                                <div class="text-xs text-teal-600 mt-1">
+                                    <i class="bi bi-link-45deg"></i> Sub-contractor payment
                                 </div>
                             @endif
                         </td>
@@ -724,6 +734,9 @@
                 <input type="hidden" name="_method" id="expense-method" value="POST">
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="md:col-span-2">
+                        <p class="text-sm text-gray-600">Category is set automatically (first active expense category in your list).</p>
+                    </div>
                     <div>
                         <label for="expense-project-id" class="block text-sm font-medium text-gray-700 mb-2">Project</label>
                         <select name="project_id" id="expense-project-id"
@@ -751,30 +764,22 @@
                         <div class="field-error text-red-600 text-sm mt-1" data-field="staff_id" style="display: none;"></div>
                     </div>
 
+                    <div>
+                        <label for="expense-subcontractor-id" class="block text-sm font-medium text-gray-700 mb-2">Sub-contractor</label>
+                        <select name="subcontractor_id" id="expense-subcontractor-id"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">None (optional)</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Link this expense to a sub-contractor payment record.</p>
+                        <div class="field-error text-red-600 text-sm mt-1" data-field="subcontractor_id" style="display: none;"></div>
+                    </div>
+
                     <div id="expense-item-field">
                         <label for="expense-item-name" class="block text-sm font-medium text-gray-700 mb-2">Item Name</label>
                         <input type="text" name="item_name" id="expense-item-name"
                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                placeholder="e.g., Office Supplies, Equipment">
                         <div class="field-error text-red-600 text-sm mt-1" data-field="item_name" style="display: none;"></div>
-                    </div>
-
-                    <div>
-                        <label for="expense-category-id" class="block text-sm font-medium text-gray-700 mb-2">Category <span class="text-red-500">*</span></label>
-                        <select name="category_id" id="expense-category-id" required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="">Select a category</option>
-                        </select>
-                        <div class="field-error text-red-600 text-sm mt-1" data-field="category_id" style="display: none;"></div>
-                    </div>
-
-                    <div>
-                        <label for="expense-subcategory-id" class="block text-sm font-medium text-gray-700 mb-2">Subcategory</label>
-                        <select name="subcategory_id" id="expense-subcategory-id"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="">Select a subcategory (optional)</option>
-                        </select>
-                        <div class="field-error text-red-600 text-sm mt-1" data-field="subcategory_id" style="display: none;"></div>
                     </div>
 
                     <div>
@@ -878,7 +883,6 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribut
 let currentExpenseId = null;
 let deleteExpenseId = null;
 let cloneExpenseId = null;
-let allSubcategories = [];
 let existingImagesToDelete = [];
 
 // Expense modal functions will be added here
@@ -993,20 +997,14 @@ function populateExpenseFormDropdowns(data) {
         staffSelect.appendChild(option);
     });
     
-    // Categories
-    const categorySelect = document.getElementById('expense-category-id');
-    categorySelect.innerHTML = '<option value="">Select a category</option>';
-    (data.categories || []).forEach(cat => {
+    const subcontractorSelect = document.getElementById('expense-subcontractor-id');
+    subcontractorSelect.innerHTML = '<option value="">None (optional)</option>';
+    (data.subcontractors || []).forEach(sc => {
         const option = document.createElement('option');
-        option.value = cat.id;
-        option.textContent = cat.name;
-        categorySelect.appendChild(option);
+        option.value = sc.id;
+        option.textContent = sc.name;
+        subcontractorSelect.appendChild(option);
     });
-    
-    // Subcategories
-    const subcategorySelect = document.getElementById('expense-subcategory-id');
-    subcategorySelect.innerHTML = '<option value="">Select a subcategory (optional)</option>';
-    allSubcategories = data.subcategories || [];
 }
 
 function populateExpenseFormFields(data) {
@@ -1015,18 +1013,13 @@ function populateExpenseFormFields(data) {
         document.getElementById('expense-project-id').value = exp.project_id || '';
         document.getElementById('expense-expense-type-id').value = exp.expense_type_id || '';
         document.getElementById('expense-staff-id').value = exp.staff_id || '';
+        document.getElementById('expense-subcontractor-id').value = exp.subcontractor_id || '';
         document.getElementById('expense-item-name').value = exp.item_name || '';
-        document.getElementById('expense-category-id').value = exp.category_id || '';
         document.getElementById('expense-amount').value = exp.amount || '';
         document.getElementById('expense-date').value = exp.date || '';
         document.getElementById('expense-payment-method').value = exp.payment_method || '';
         document.getElementById('expense-description').value = exp.description || '';
         document.getElementById('expense-notes').value = exp.notes || '';
-        
-        // Load subcategories for selected category
-        if (exp.category_id) {
-            loadExpenseSubcategories(exp.category_id, exp.subcategory_id);
-        }
         
         // Toggle fields based on expense type
         toggleExpenseFields(exp.expense_type_id);
@@ -1041,12 +1034,6 @@ function setupExpenseFormHandlers() {
     const expenseTypeSelect = document.getElementById('expense-expense-type-id');
     expenseTypeSelect.onchange = function() {
         toggleExpenseFields(this.value);
-    };
-    
-    // Category change handler
-    const categorySelect = document.getElementById('expense-category-id');
-    categorySelect.onchange = function() {
-        loadExpenseSubcategories(this.value);
     };
     
     // Image preview handler
@@ -1083,45 +1070,6 @@ function toggleExpenseFields(expenseTypeId) {
         staffSelect.required = false;
         staffSelect.value = '';
     }
-}
-
-function loadExpenseSubcategories(categoryId, selectedId = null) {
-    if (!categoryId) {
-        document.getElementById('expense-subcategory-id').innerHTML = '<option value="">Select a subcategory (optional)</option>';
-        return;
-    }
-    
-    const subcategorySelect = document.getElementById('expense-subcategory-id');
-    subcategorySelect.disabled = true;
-    subcategorySelect.innerHTML = '<option value="">Loading...</option>';
-    
-    fetch(`/admin/categories/${categoryId}/subcategories`, {
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        subcategorySelect.innerHTML = '<option value="">Select a subcategory (optional)</option>';
-        if (data && Array.isArray(data) && data.length > 0) {
-            data.forEach(sub => {
-                const option = document.createElement('option');
-                option.value = sub.id;
-                option.textContent = sub.name;
-                if (selectedId && sub.id == selectedId) {
-                    option.selected = true;
-                }
-                subcategorySelect.appendChild(option);
-            });
-        }
-        subcategorySelect.disabled = false;
-    })
-    .catch(error => {
-        console.error('Error loading subcategories:', error);
-        subcategorySelect.innerHTML = '<option value="">Error loading</option>';
-        subcategorySelect.disabled = false;
-    });
 }
 
 function previewExpenseImages(files) {
@@ -1335,6 +1283,14 @@ function openViewExpenseModal(expenseId) {
                         <dt class="text-sm font-medium text-gray-500">Staff</dt>
                         <dd class="mt-1 text-sm text-gray-900">${exp.staff_name || 'N/A'}</dd>
                     </div>
+                    ${exp.subcontractor_id && exp.subcontractor_name && exp.subcontractor_name !== 'N/A' ? `
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Sub-contractor</dt>
+                        <dd class="mt-1 text-sm text-gray-900">
+                            <a href="${exp.subcontractor_url || '#'}" class="text-indigo-600 hover:underline font-medium">${exp.subcontractor_name}</a>
+                        </dd>
+                    </div>
+                    ` : ''}
                     <div>
                         <dt class="text-sm font-medium text-gray-500">Created At</dt>
                         <dd class="mt-1 text-sm text-gray-900">${exp.created_at || ''}</dd>

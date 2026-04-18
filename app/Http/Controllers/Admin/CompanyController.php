@@ -9,6 +9,7 @@ use App\Models\CompanyLetterheadExport;
 use App\Support\CompanyContext;
 use App\Services\FaviconGeneratorService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Mpdf\Config\FontVariables;
@@ -211,6 +212,32 @@ class CompanyController extends Controller
 
     public function destroy(Company $company)
     {
+        [$references, $totalLinkedRows] = $this->companyReferenceSummary($company->id);
+        if ($totalLinkedRows > 0) {
+            $preview = collect($references)
+                ->take(5)
+                ->map(function (array $ref) {
+                    return $ref['table'] . ' (' . $ref['count'] . ')';
+                })
+                ->implode(', ');
+
+            $message = 'Cannot delete company: linked data exists in ' . count($references) . ' table(s), total rows ' . $totalLinkedRows . '.';
+            if ($preview !== '') {
+                $message .= ' Example: ' . $preview . '.';
+            }
+            $message .= ' Remove or reassign those records first.';
+
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message,
+                    'references' => $references,
+                ], 422);
+            }
+
+            return redirect()->route('admin.companies.index')->with('error', $message);
+        }
+
         $company->delete();
         
         // Return JSON response for AJAX requests
@@ -222,6 +249,50 @@ class CompanyController extends Controller
         }
         
         return redirect()->route('admin.companies.index')->with('success', 'Company deleted successfully.');
+    }
+
+    /**
+     * Find every table/column that references companies.id and count matching rows.
+     *
+     * @return array{0: array<int, array{table: string, column: string, count: int}>, 1: int}
+     */
+    protected function companyReferenceSummary(int $companyId): array
+    {
+        $rows = DB::select(
+            "SELECT TABLE_NAME, COLUMN_NAME
+             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+             WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
+               AND REFERENCED_TABLE_NAME = 'companies'
+               AND REFERENCED_COLUMN_NAME = 'id'"
+        );
+
+        $references = [];
+        $totalLinkedRows = 0;
+
+        foreach ($rows as $row) {
+            $table = (string) ($row->TABLE_NAME ?? '');
+            $column = (string) ($row->COLUMN_NAME ?? '');
+
+            if ($table === '' || $column === '' || $table === 'companies') {
+                continue;
+            }
+
+            $count = (int) DB::table($table)->where($column, $companyId)->count();
+            if ($count < 1) {
+                continue;
+            }
+
+            $references[] = [
+                'table' => $table,
+                'column' => $column,
+                'count' => $count,
+            ];
+            $totalLinkedRows += $count;
+        }
+
+        usort($references, static fn (array $a, array $b) => $b['count'] <=> $a['count']);
+
+        return [$references, $totalLinkedRows];
     }
 
     public function switch(Request $request)
