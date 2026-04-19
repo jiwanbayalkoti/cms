@@ -41,6 +41,9 @@
                     </td>
                     <td>
                         @foreach($item['materials'] as $key => $value)
+                            @if(is_array($value))
+                                @continue
+                            @endif
                             <div>{{ ucfirst(str_replace('_',' ', $key)) }}: <strong>{{ $value }}</strong></div>
                         @endforeach
                     </td>

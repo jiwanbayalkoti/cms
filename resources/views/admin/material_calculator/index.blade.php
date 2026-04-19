@@ -680,6 +680,7 @@
                         
                         <div class="mt-4 d-none" data-section="rod_calculation">
                             <h6 class="fw-semibold text-primary">Rod Calculation</h6>
+                            <p class="small text-muted mb-2">Rod order (pieces &amp; bundle) uses <strong>12 m</strong> full bars and <strong>100 kg</strong> bundles — adjust mentally if your supplier differs.</p>
                             <div class="row g-3 mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">For What? <span class="text-red-500">*</span></label>
@@ -1782,6 +1783,32 @@
 .value-display strong {
     font-size: 1em;
 }
+
+    /* Rod breakdown mini-table in Steel column */
+    #resultsTable tbody td:nth-child(9) {
+        min-width: 220px;
+        vertical-align: top;
+    }
+    .rod-breakdown-wrap .rod-breakdown-table {
+        width: 100%;
+        max-width: 340px;
+    }
+    .rod-breakdown-wrap .rod-breakdown-table th,
+    .rod-breakdown-wrap .rod-breakdown-table td {
+        padding: 0.28rem 0.4rem;
+    }
+    .beam-rebar-wrap .beam-rebar-table {
+        width: 100%;
+        max-width: 340px;
+    }
+    .beam-rebar-wrap .beam-rebar-table th,
+    .beam-rebar-wrap .beam-rebar-table td {
+        padding: 0.28rem 0.4rem;
+    }
+
+    #resultsFooter #totalSteel {
+        vertical-align: top;
+    }
 </style>
 @endpush
 
@@ -1977,6 +2004,177 @@ function resetForm() {
 
 function roundValue(value, precision = 2) {
     return Math.round((value + Number.EPSILON) * Math.pow(10, precision)) / Math.pow(10, precision);
+}
+
+/** Site ordering: full bar length (m) and typical TMT bundle weight (kg) — used for pieces & bundle count */
+const ROD_ORDER_BAR_LENGTH_M = 12;
+const ROD_ORDER_KG_PER_BUNDLE = 100;
+
+function mergeSteelLengthByDiameter(entries) {
+    const map = {};
+    (entries || []).forEach(({ diameter_mm, length_m }) => {
+        const d = Number(diameter_mm);
+        const len = Number(length_m);
+        if (!d || isNaN(d) || !len || len <= 0 || isNaN(len)) return;
+        map[d] = (map[d] || 0) + len;
+    });
+    return map;
+}
+
+function attachRodBreakdownToMaterials(materials, lengthByDiameter, wastagePercent) {
+    if (!materials || !lengthByDiameter) return materials;
+    const keys = Object.keys(lengthByDiameter).filter(k => Number(lengthByDiameter[k]) > 0);
+    if (keys.length === 0) return materials;
+    const wastageFactor = 1 + wastagePercent / 100;
+    const rows = keys
+        .map(k => Number(k))
+        .sort((a, b) => a - b)
+        .map(diameterMm => {
+            const lengthM = lengthByDiameter[diameterMm];
+            const wpm = (diameterMm * diameterMm) / 162;
+            const kgExact = lengthM * wpm * wastageFactor;
+            return {
+                diameter_mm: diameterMm,
+                length_m: roundValue(lengthM, 3),
+                length_m_exact: lengthM,
+                kg: roundValue(kgExact, 2),
+                kg_exact: kgExact,
+                pieces: Math.ceil(lengthM / ROD_ORDER_BAR_LENGTH_M),
+                bundles: Math.ceil(kgExact / ROD_ORDER_KG_PER_BUNDLE),
+            };
+        });
+    materials.rod_breakdown = rows;
+    materials.rod_order_bar_length_m = ROD_ORDER_BAR_LENGTH_M;
+    materials.rod_order_kg_per_bundle = ROD_ORDER_KG_PER_BUNDLE;
+    materials.rod_breakdown_summary = rows.map(r =>
+        `${r.diameter_mm}mm: ${r.kg} kg, ${r.pieces} pcs (${ROD_ORDER_BAR_LENGTH_M}m bar), ${r.bundles} bundle (${ROD_ORDER_KG_PER_BUNDLE} kg/bundle)`
+    ).join(' | ');
+    return materials;
+}
+
+function formatRodBreakdownTableHtml(materials, options = {}) {
+    if (!materials || !Array.isArray(materials.rod_breakdown) || materials.rod_breakdown.length === 0) {
+        return '';
+    }
+    const title = options.title || 'Rod details';
+    const barLen = materials.rod_order_bar_length_m || ROD_ORDER_BAR_LENGTH_M;
+    const bundleKg = materials.rod_order_kg_per_bundle || ROD_ORDER_KG_PER_BUNDLE;
+    const rows = materials.rod_breakdown.map(r => `
+        <tr>
+            <td class="text-nowrap">${r.diameter_mm} mm</td>
+            <td class="text-end text-nowrap">${r.length_m}</td>
+            <td class="text-end text-nowrap">${r.kg}</td>
+            <td class="text-end text-nowrap">${r.pieces}</td>
+            <td class="text-end text-nowrap">${r.bundles}</td>
+        </tr>
+    `).join('');
+    return `
+        <div class="mt-2 rod-breakdown-wrap">
+            <div class="fw-semibold small text-muted mb-1">${title}</div>
+            <table class="table table-sm table-bordered mb-0 align-middle rod-breakdown-table" style="font-size: 0.72rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Size</th>
+                        <th scope="col" class="text-end">Length (m)</th>
+                        <th scope="col" class="text-end">Weight (kg)</th>
+                        <th scope="col" class="text-end">Pieces (${barLen}m)</th>
+                        <th scope="col" class="text-end">Bundles (${bundleKg} kg)</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function formatBeamRebarTableHtml(materials, options = {}) {
+    if (!materials || materials.bottom_bars_count === undefined) {
+        return '';
+    }
+    const title = options.title || 'Beam rebar details';
+    const rows = [];
+    const pushRow = (label, count, dia, lengthExact, lengthRounded, kgExact, kgRounded) => {
+        if (count === undefined || count === null) return;
+        const qty = Number(count) || 0;
+        if (qty <= 0) return;
+        const len = (lengthExact !== undefined && lengthExact !== null) ? roundValue(Number(lengthExact) || 0, 3) : (lengthRounded ?? '-');
+        const wt = (kgExact !== undefined && kgExact !== null) ? roundValue(Number(kgExact) || 0, 2) : (kgRounded ?? '-');
+        rows.push(`
+            <tr>
+                <td class="text-nowrap">${label}</td>
+                <td class="text-end text-nowrap">${qty}</td>
+                <td class="text-end text-nowrap">${dia ?? '-'}</td>
+                <td class="text-end text-nowrap">${len}</td>
+                <td class="text-end text-nowrap">${wt}</td>
+            </tr>
+        `);
+    };
+    pushRow('Bottom bars', materials.bottom_bars_count, materials.bottom_bars_diameter_mm, materials.bottom_bars_length_m_exact, materials.bottom_bars_length_m, materials.bottom_bars_kg_exact, materials.bottom_bars_kg);
+    pushRow('Top bars', materials.top_bars_count, materials.top_bars_diameter_mm, materials.top_bars_length_m_exact, materials.top_bars_length_m, materials.top_bars_kg_exact, materials.top_bars_kg);
+    pushRow('Extra top bars', materials.extra_bars_count, materials.extra_bars_diameter_mm, materials.extra_bars_length_m_exact, materials.extra_bars_length_m, materials.extra_bars_kg_exact, materials.extra_bars_kg);
+    pushRow('Stirrups', materials.stirrups_count, materials.stirrups_diameter_mm, materials.stirrups_length_m_exact, materials.stirrups_length_m, materials.stirrups_kg_exact, materials.stirrups_kg);
+    if (!rows.length) return '';
+    return `
+        <div class="mt-2 beam-rebar-wrap">
+            <div class="fw-semibold small text-muted mb-1">${title}</div>
+            <table class="table table-sm table-bordered mb-0 align-middle beam-rebar-table" style="font-size: 0.72rem;">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Type</th>
+                        <th scope="col" class="text-end">Qty</th>
+                        <th scope="col" class="text-end">Dia (mm)</th>
+                        <th scope="col" class="text-end">Length (m)</th>
+                        <th scope="col" class="text-end">Weight (kg)</th>
+                    </tr>
+                </thead>
+                <tbody>${rows.join('')}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+/** Merge rod_breakdown from every work item (same diameter → summed length & kg; pieces/bundles recalculated). */
+function aggregateRodBreakdownFromResults(items) {
+    const byDia = {};
+    (items || []).forEach(item => {
+        const rb = item?.materials?.rod_breakdown;
+        if (!Array.isArray(rb)) return;
+        rb.forEach(r => {
+            const d = Number(r.diameter_mm);
+            if (!d || isNaN(d)) return;
+            const lenEx = r.length_m_exact != null && !isNaN(Number(r.length_m_exact))
+                ? Number(r.length_m_exact)
+                : (Number(r.length_m) || 0);
+            const kgEx = r.kg_exact != null && !isNaN(Number(r.kg_exact))
+                ? Number(r.kg_exact)
+                : (Number(r.kg) || 0);
+            if (!byDia[d]) byDia[d] = { length_m_exact: 0, kg_exact: 0 };
+            byDia[d].length_m_exact += lenEx;
+            byDia[d].kg_exact += kgEx;
+        });
+    });
+    const keys = Object.keys(byDia);
+    if (!keys.length) return null;
+    const rows = keys.map(Number).sort((a, b) => a - b).map(d => {
+        const { length_m_exact, kg_exact } = byDia[d];
+        return {
+            diameter_mm: d,
+            length_m: roundValue(length_m_exact, 3),
+            length_m_exact: length_m_exact,
+            kg: roundValue(kg_exact, 2),
+            kg_exact: kg_exact,
+            pieces: Math.ceil(length_m_exact / ROD_ORDER_BAR_LENGTH_M),
+            bundles: Math.ceil(kg_exact / ROD_ORDER_KG_PER_BUNDLE),
+        };
+    });
+    return {
+        rod_breakdown: rows,
+        rod_order_bar_length_m: ROD_ORDER_BAR_LENGTH_M,
+        rod_order_kg_per_bundle: ROD_ORDER_KG_PER_BUNDLE,
+        rod_breakdown_summary: rows.map(r =>
+            `${r.diameter_mm}mm: ${r.kg} kg, ${r.pieces} pcs (${ROD_ORDER_BAR_LENGTH_M}m bar), ${r.bundles} bundle (${ROD_ORDER_KG_PER_BUNDLE} kg/bundle)`
+        ).join(' | '),
+    };
 }
 
 // Unit conversion functions - convert to meters (for length) or square meters (for area)
@@ -3941,19 +4139,25 @@ function calculateRodFooting(wastage, label, notes) {
     }
     if (label) description += ` | ${label}`;
     
+    const materials = {
+        steel_kg: roundValue(totalWeight),
+        steel_kg_exact: totalWeight,
+        steel_length_m: roundValue(totalLength),
+        steel_length_m_exact: totalLength,
+        main_bars: mainBars,
+        distribution_bars: distBars,
+    };
+    if (method === 'area' && totalLength > 0) {
+        const lengthByD = { [diameter]: mainTotalLength + distTotalLength };
+        attachRodBreakdownToMaterials(materials, lengthByD, wastage);
+    }
+    
     return {
         id: Date.now(),
         work_type: 'Rod Calculation - Footing',
         description,
         notes,
-        materials: {
-            steel_kg: roundValue(totalWeight),
-            steel_kg_exact: totalWeight,
-            steel_length_m: roundValue(totalLength),
-            steel_length_m_exact: totalLength,
-            main_bars: mainBars,
-            distribution_bars: distBars,
-        }
+        materials,
     };
 }
 
@@ -4012,6 +4216,16 @@ function calculateRodBeam(wastage, label, notes) {
     // Update work type
     if (result) {
         result.work_type = 'Rod Calculation - Beam';
+        const m = result.materials;
+        const entries = [
+            { diameter_mm: m.bottom_bars_diameter_mm, length_m: m.bottom_bars_length_m_exact },
+            { diameter_mm: m.top_bars_diameter_mm, length_m: m.top_bars_length_m_exact },
+        ];
+        if (hasExtraTopBar && (m.extra_bars_length_m_exact || 0) > 0) {
+            entries.push({ diameter_mm: m.extra_bars_diameter_mm, length_m: m.extra_bars_length_m_exact });
+        }
+        entries.push({ diameter_mm: m.stirrups_diameter_mm, length_m: m.stirrups_length_m_exact });
+        attachRodBreakdownToMaterials(m, mergeSteelLengthByDiameter(entries), wastage);
     }
     
     return result;
@@ -4031,6 +4245,7 @@ function calculateRodPillar(wastage, label, notes) {
     let totalStirrupLength = 0;
     const wastageFactor = 1 + wastage / 100;
     const pillarDetails = [];
+    const rodLenEntries = [];
     
     rodPillarTypes.forEach(pillarType => {
         const height = parseFloat(pillarType.height);
@@ -4064,6 +4279,7 @@ function calculateRodPillar(wastage, label, notes) {
             
             pillarLength += groupLength;
             pillarWeight += groupWeight;
+            rodLenEntries.push({ diameter_mm: diameter, length_m: groupLength });
             
             barGroupsDetail.push(`${bars}@${diameter}mm`);
         });
@@ -4093,6 +4309,7 @@ function calculateRodPillar(wastage, label, notes) {
             stirrupWeight = stirrupLength * stirrupWeightPerM;
             
             barGroupsDetail.push(`Stirrups: ${totalStirrups}@${stirrupDia}mm`);
+            rodLenEntries.push({ diameter_mm: stirrupDia, length_m: stirrupLength });
         }
         
         totalWeight += (pillarWeight + stirrupWeight) * wastageFactor;
@@ -4112,23 +4329,26 @@ function calculateRodPillar(wastage, label, notes) {
     description += pillarDetails.join(' | ');
     if (label) description += ` | ${label}`;
     
+    const materials = {
+        steel_kg: roundValue(totalWeight),
+        steel_kg_exact: totalWeight,
+        steel_length_m: roundValue(totalLength),
+        steel_length_m_exact: totalLength,
+        steel_bars: totalPillars,
+        stirrups_kg: roundValue(totalStirrupWeight),
+        stirrups_kg_exact: totalStirrupWeight,
+        stirrups_length_m: roundValue(totalStirrupLength),
+        stirrups_length_m_exact: totalStirrupLength,
+        pillar_details: pillarDetails.join('; '),
+    };
+    attachRodBreakdownToMaterials(materials, mergeSteelLengthByDiameter(rodLenEntries), wastage);
+    
     return {
         id: Date.now(),
         work_type: 'Rod Calculation - Pillar/Column',
         description,
         notes,
-        materials: {
-            steel_kg: roundValue(totalWeight),
-            steel_kg_exact: totalWeight,
-            steel_length_m: roundValue(totalLength),
-            steel_length_m_exact: totalLength,
-            steel_bars: totalPillars,
-            stirrups_kg: roundValue(totalStirrupWeight),
-            stirrups_kg_exact: totalStirrupWeight,
-            stirrups_length_m: roundValue(totalStirrupLength),
-            stirrups_length_m_exact: totalStirrupLength,
-            pillar_details: pillarDetails.join('; '),
-        }
+        materials,
     };
 }
 
@@ -4169,19 +4389,25 @@ function calculateRodSlab(wastage, label, notes) {
     let description = `Slab Rod Calculation | Main: ${mainBars}@${mainDiameter}mm | Dist: ${distBars}@${distDiameter}mm | ${length}m × ${width}m`;
     if (label) description += ` | ${label}`;
     
+    const materials = {
+        steel_kg: roundValue(totalWeight),
+        steel_kg_exact: totalWeight,
+        steel_length_m: roundValue(mainTotalLength + distTotalLength),
+        steel_length_m_exact: mainTotalLength + distTotalLength,
+        main_bars: mainBars,
+        distribution_bars: distBars,
+    };
+    attachRodBreakdownToMaterials(materials, mergeSteelLengthByDiameter([
+        { diameter_mm: mainDiameter, length_m: mainTotalLength },
+        { diameter_mm: distDiameter, length_m: distTotalLength },
+    ]), wastage);
+    
     return {
         id: Date.now(),
         work_type: 'Rod Calculation - Slab',
         description,
         notes,
-        materials: {
-            steel_kg: roundValue(totalWeight),
-            steel_kg_exact: totalWeight,
-            steel_length_m: roundValue(mainTotalLength + distTotalLength),
-            steel_length_m_exact: mainTotalLength + distTotalLength,
-            main_bars: mainBars,
-            distribution_bars: distBars,
-        }
+        materials,
     };
 }
 
@@ -5431,10 +5657,8 @@ function renderSummary() {
                 ${item.materials.steel_kg_exact !== undefined ? formatValueWithRounding(item.materials.steel_kg_exact, item.materials.steel_kg, ' kg', 2) : (item.materials.steel_kg ?? '-')}
                 ${item.materials.main_bars !== undefined && item.materials.distribution_bars !== undefined ? 
                     `<br><small class="text-muted">Main: ${item.materials.main_bars} bars | Dist: ${item.materials.distribution_bars} bars</small>` : ''}
-                ${item.materials.bottom_bars_count !== undefined ? 
-                    `<br><small class="text-muted">Bottom: ${item.materials.bottom_bars_count}@${item.materials.bottom_bars_diameter_mm}mm | Top: ${item.materials.top_bars_count}@${item.materials.top_bars_diameter_mm}mm</small>` : ''}
-                ${item.materials.stirrups_count !== undefined ? 
-                    `<br><small class="text-muted">Stirrups: ${item.materials.stirrups_count}@${item.materials.stirrups_diameter_mm}mm</small>` : ''}
+                ${formatBeamRebarTableHtml(item.materials)}
+                ${formatRodBreakdownTableHtml(item.materials)}
             </td>
             <td>
                 ${(item.materials.skilled_labor_days || item.materials.unskilled_labor_days) ? 
@@ -5469,7 +5693,12 @@ function renderSummary() {
     
     document.getElementById('totalWater').innerHTML = formatValueWithRounding(totals.water_litres_exact, roundValue(totals.water_litres_exact, 2), ' L', 2);
     document.getElementById('totalSoling').innerHTML = formatValueWithRounding(totals.soling_volume_m3_exact, roundValue(totals.soling_volume_m3_exact, 3), ' m³', 3);
-    document.getElementById('totalSteel').innerHTML = formatValueWithRounding(totals.steel_kg_exact, roundValue(totals.steel_kg_exact, 2), ' kg', 2);
+    let totalSteelHtml = formatValueWithRounding(totals.steel_kg_exact, roundValue(totals.steel_kg_exact, 2), ' kg', 2);
+    const rodTotalsMaterials = aggregateRodBreakdownFromResults(results);
+    if (rodTotalsMaterials) {
+        totalSteelHtml += formatRodBreakdownTableHtml(rodTotalsMaterials, { title: 'Total rod — all calculations' });
+    }
+    document.getElementById('totalSteel').innerHTML = totalSteelHtml;
     
     // Display labor totals
     let laborText = '';
@@ -5525,23 +5754,29 @@ function updateExportPayload(totals = null) {
     const toolsMachinesTotal = toolsMachines.reduce((sum, item) => sum + item.total_cost, 0);
     const grandTotal = totals ? (totals.total_cost || 0) + toolsMachinesTotal : toolsMachinesTotal;
 
+    const aggregatedRodForExport = aggregateRodBreakdownFromResults(results);
+    const summaryTotals = totals ? {
+        cement_bags: roundValue(totals.cement_bags || 0),
+        sand_m3: roundValue(totals.sand_m3 || 0),
+        aggregate_m3: roundValue(totals.aggregate_m3 || 0),
+        bricks_units: Math.round(totals.bricks_units || 0),
+        stone_volume_m3: roundValue(totals.stone_volume_m3 || 0),
+        water_litres: roundValue(totals.water_litres || 0),
+        soling_volume_m3: roundValue(totals.soling_volume_m3 || 0),
+        steel_kg: roundValue(totals.steel_kg || 0),
+        total_cost: roundValue(totals.total_cost || 0, 2),
+        tools_machines_cost: roundValue(toolsMachinesTotal, 2),
+        grand_total: roundValue(grandTotal, 2),
+    } : {
+        tools_machines_cost: roundValue(toolsMachinesTotal, 2),
+        grand_total: roundValue(grandTotal, 2),
+    };
+    if (aggregatedRodForExport?.rod_breakdown_summary) {
+        summaryTotals.rod_breakdown_total = aggregatedRodForExport.rod_breakdown_summary;
+    }
+
     const summary = {
-        totals: totals ? {
-            cement_bags: roundValue(totals.cement_bags || 0),
-            sand_m3: roundValue(totals.sand_m3 || 0),
-            aggregate_m3: roundValue(totals.aggregate_m3 || 0),
-            bricks_units: Math.round(totals.bricks_units || 0),
-            stone_volume_m3: roundValue(totals.stone_volume_m3 || 0),
-            water_litres: roundValue(totals.water_litres || 0),
-            soling_volume_m3: roundValue(totals.soling_volume_m3 || 0),
-            steel_kg: roundValue(totals.steel_kg || 0),
-            total_cost: roundValue(totals.total_cost || 0, 2),
-            tools_machines_cost: roundValue(toolsMachinesTotal, 2),
-            grand_total: roundValue(grandTotal, 2),
-        } : {
-            tools_machines_cost: roundValue(toolsMachinesTotal, 2),
-            grand_total: roundValue(grandTotal, 2),
-        },
+        totals: summaryTotals,
         unit_costs: unitCosts,
         currency,
         tools_machines: toolsMachines.map(item => ({
@@ -5764,6 +5999,7 @@ function showHistoryDetails(id) {
             `;
             if (item.materials) {
                 Object.entries(item.materials).forEach(([k, v]) => {
+                    if (k === 'rod_breakdown' || Array.isArray(v)) return;
                     const label = k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                     html += `
                         <div class="col-md-4">
@@ -5772,6 +6008,12 @@ function showHistoryDetails(id) {
                         </div>
                     `;
                 });
+                if (Array.isArray(item.materials.rod_breakdown) && item.materials.rod_breakdown.length) {
+                    html += `<div class="col-12 mt-2">${formatRodBreakdownTableHtml(item.materials)}</div>`;
+                }
+                if (item.materials.bottom_bars_count !== undefined) {
+                    html += `<div class="col-12 mt-2">${formatBeamRebarTableHtml(item.materials)}</div>`;
+                }
             }
             if (item.cost) {
                 html += '<div class="col-12 mt-2"><hr></div>';

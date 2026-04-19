@@ -40,6 +40,7 @@ class MaterialCalculatorExport implements FromCollection, WithHeadings, WithMapp
     public function map($row): array
     {
         $materials = collect($row['materials'] ?? [])
+            ->reject(fn ($value) => is_array($value))
             ->map(fn ($value, $key) => ucfirst(str_replace('_', ' ', $key)) . ': ' . $value)
             ->implode(PHP_EOL);
 

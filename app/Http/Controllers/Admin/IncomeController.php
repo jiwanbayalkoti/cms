@@ -111,7 +111,7 @@ class IncomeController extends Controller
         
         $categories = Category::where('type', 'income')
             ->where('is_active', true)
-            ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%'])
+            // ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%'])
             ->orderBy('name')
             ->get();
         
