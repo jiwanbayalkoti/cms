@@ -56,11 +56,11 @@ class IncomeController extends Controller
         $query = Income::with(['category', 'subcategory', 'project', 'creator', 'updater'])
             ->where('company_id', $companyId);
 
-        // Loans are not income; exclude legacy loan categories from income reporting
-        $query->whereHas('category', function ($q) {
-            $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
-        });
-        
+        // Loans are not income; exclude legacy loan categories from income reporting (disabled for now)
+        // $query->whereHas('category', function ($q) {
+        //     $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+        // });
+
         // Filter by accessible projects
         $this->filterByAccessibleProjects($query, 'project_id');
         
@@ -111,7 +111,7 @@ class IncomeController extends Controller
         
         $categories = Category::where('type', 'income')
             ->where('is_active', true)
-            // ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%'])
+            // ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']) // disabled for now
             ->orderBy('name')
             ->get();
         
@@ -163,10 +163,10 @@ class IncomeController extends Controller
 
         $query = Income::where('company_id', $companyId);
 
-        // Exclude legacy loan categories from export
-        $query->whereHas('category', function ($q) {
-            $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
-        });
+        // Exclude legacy loan categories from export (disabled for now)
+        // $query->whereHas('category', function ($q) {
+        //     $q->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+        // });
 
         $this->filterByAccessibleProjects($query, 'project_id');
 
@@ -251,13 +251,13 @@ class IncomeController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
         $categories = Category::where('type', 'income')
             ->where('is_active', true)
-            ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%'])
+            // ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']) // disabled for now
             ->orderBy('name')
             ->get();
         $subcategories = Subcategory::whereHas('category', function($q) {
             $q->where('type', 'income')
-                ->where('is_active', true)
-                ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+                ->where('is_active', true);
+                // ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']); // disabled for now
         })->where('is_active', true)->orderBy('name')->get();
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
@@ -382,13 +382,13 @@ class IncomeController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
         $categories = Category::where('type', 'income')
             ->where('is_active', true)
-            ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%'])
+            // ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']) // disabled for now
             ->orderBy('name')
             ->get();
         $subcategories = Subcategory::whereHas('category', function($q) {
             $q->where('type', 'income')
-                ->where('is_active', true)
-                ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']);
+                ->where('is_active', true);
+                // ->whereRaw('LOWER(name) NOT LIKE ?', ['%loan%']); // disabled for now
         })->where('is_active', true)->orderBy('name')->get();
         // Check project access if income has a project
         if ($income->project_id) {
