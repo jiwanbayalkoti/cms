@@ -893,37 +893,53 @@ class CompanyController extends Controller
 
             // Fallback: if mPDF fails in production (font/extension issues), try Dompdf so export still works.
             try {
-                $fallbackBodyHtml = view('admin.companies.letterhead-pdf-body', [
-                    'company' => $company,
-                    'letterContentPages' => $this->letterheadBodyPagesFromRequest($request),
-                    'pdfFontStack' => 'DejaVu Sans, sans-serif',
-                ])->render();
-                $fallbackHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>'
-                    . $fallbackBodyHtml
-                    . '</body></html>';
+                $fallbackName = 'letterhead-fallback-' . now()->format('Ymd_His') . '.pdf';
+                $fallbackPages = $this->letterheadBodyPagesFromRequest($request);
+                $fallbackHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
+                    . 'body{font-family:DejaVu Sans,sans-serif;font-size:12pt;line-height:1.55;color:#111827;}'
+                    . '.p{min-height:240mm;padding:6mm 4mm 10mm;}'
+                    . '.pb{page-break-before:always;}'
+                    . '</style></head><body>';
+                foreach ($fallbackPages as $i => $chunk) {
+                    $fallbackHtml .= '<div class="' . ($i > 0 ? 'p pb' : 'p') . '">' . $chunk . '</div>';
+                }
+                $fallbackHtml .= '</body></html>';
 
+                if (class_exists(\Dompdf\Dompdf::class)) {
+                    $options = new \Dompdf\Options();
+                    $options->set('isHtml5ParserEnabled', true);
+                    $dompdf = new \Dompdf\Dompdf($options);
+                    $dompdf->loadHtml($fallbackHtml, 'UTF-8');
+                    $dompdf->setPaper('A4', 'portrait');
+                    $dompdf->render();
+                    $binary = $dompdf->output();
+
+                    return response($binary, 200, [
+                        'Content-Type' => 'application/pdf',
+                        'Content-Disposition' => 'attachment; filename="' . $fallbackName . '"',
+                    ]);
+                }
+
+                // Secondary attempt via Laravel wrapper binding (if present).
                 $pdf = App::make('dompdf.wrapper');
                 $pdf->loadHTML($fallbackHtml)->setPaper('a4', 'portrait');
-                $fallbackName = 'letterhead-fallback-' . now()->format('Ymd_His') . '.pdf';
-
                 return $pdf->download($fallbackName);
             } catch (\Throwable $fallbackEx) {
                 report($fallbackEx);
+                $message = 'Letterhead PDF export failed. mPDF error: '
+                    . class_basename($e) . ' - ' . $e->getMessage()
+                    . ' | Dompdf fallback error: '
+                    . class_basename($fallbackEx) . ' - ' . $fallbackEx->getMessage();
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $message,
+                    ], 500);
+                }
+                return redirect()
+                    ->route('admin.companies.letterhead')
+                    ->with('error', $message);
             }
-
-            $message = 'Letterhead PDF export failed. Please check server PDF configuration. Error: '
-                . class_basename($e) . ' - ' . $e->getMessage();
-
-            if ($request->ajax() || $request->wantsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $message,
-                ], 500);
-            }
-
-            return redirect()
-                ->route('admin.companies.letterhead')
-                ->with('error', $message);
         }
     }
 
