@@ -853,8 +853,15 @@ class CompanyController extends Controller
         $timestamp = now()->format('Ymd_His');
         $safeCompany = Str::slug($company->name ?: 'company');
         $fileName = "letterhead-{$safeCompany}-{$timestamp}.pdf";
-        $storagePath = "company-letterheads/{$company->id}/{$fileName}";
-        Storage::disk('public')->put($storagePath, $pdfBinary);
+        $storagePath = null;
+        try {
+            $candidatePath = "company-letterheads/{$company->id}/{$fileName}";
+            Storage::disk('public')->put($candidatePath, $pdfBinary);
+            $storagePath = $candidatePath;
+        } catch (\Throwable $e) {
+            // If filesystem is read-only/misconfigured on live, still serve the generated PDF.
+            report($e);
+        }
 
         // Persist sequence/meta values if DB schema supports them; never fail export on DB mismatch.
         try {
@@ -863,15 +870,17 @@ class CompanyController extends Controller
             report($e);
         }
 
-        // Save export history when table exists; avoid hard-failing PDF response in production.
-        try {
-            CompanyLetterheadExport::create([
-                'company_id' => $company->id,
-                'path' => $storagePath,
-                'file_name' => $fileName,
-            ]);
-        } catch (\Throwable $e) {
-            report($e);
+        // Save export history only if the file was persisted successfully.
+        if ($storagePath !== null) {
+            try {
+                CompanyLetterheadExport::create([
+                    'company_id' => $company->id,
+                    'path' => $storagePath,
+                    'file_name' => $fileName,
+                ]);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return response($pdfBinary, 200, [
