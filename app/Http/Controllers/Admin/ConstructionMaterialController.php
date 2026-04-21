@@ -426,8 +426,9 @@ class ConstructionMaterialController extends Controller
         $paymentModes = PaymentMode::orderBy('name')->get();
         $purchasedBies = PurchasedBy::where('is_active', true)->orderBy('name')->get();
 
-        // Return JSON for AJAX requests
-        if (request()->ajax() || request()->wantsJson()) {
+        // Return JSON only for explicit AJAX calls (modal edit flow).
+        // Using wantsJson() here can accidentally render raw JSON on normal browser redirects.
+        if (request()->ajax()) {
             return response()->json([
                 'material' => $construction_material,
                 'categories' => $categories,
@@ -669,10 +670,10 @@ class ConstructionMaterialController extends Controller
             $newMaterial->delivery_photo = $newPath;
         }
         
-        // Reset payment status to Unpaid for the clone
-        $newMaterial->payment_status = 'Unpaid';
-        
         $newMaterial->save();
+
+        // If cloned material is already paid, auto-create linked expense.
+        $this->createExpenseFromMaterial($newMaterial);
 
         return redirect()->route('admin.construction-materials.edit', $newMaterial)
             ->with('success', 'Construction material record duplicated successfully. You can now edit it.');

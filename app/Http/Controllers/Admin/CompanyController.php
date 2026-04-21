@@ -726,14 +726,28 @@ class CompanyController extends Controller
         $fontVars = new FontVariables();
         $fontDefaults = $fontVars->getDefaults();
         $fontdata = $fontDefaults['fontdata'];
-        $fontdata['notosans'] = [
-            'R' => 'NotoSans-Regular.ttf',
-            'B' => 'NotoSans-Bold.ttf',
-        ];
-        $fontdata['notodevanagari'] = [
-            'R' => 'NotoSansDevanagari-Regular.ttf',
-            'B' => 'NotoSansDevanagari-Bold.ttf',
-        ];
+        $hasFontFile = function (string $fontFile) use ($fontDirs): bool {
+            foreach ($fontDirs as $dir) {
+                if (is_file(rtrim($dir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $fontFile)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        $hasNotoSans = $hasFontFile('NotoSans-Regular.ttf') && $hasFontFile('NotoSans-Bold.ttf');
+        $hasNotoDevanagari = $hasFontFile('NotoSansDevanagari-Regular.ttf') && $hasFontFile('NotoSansDevanagari-Bold.ttf');
+        if ($hasNotoSans) {
+            $fontdata['notosans'] = [
+                'R' => 'NotoSans-Regular.ttf',
+                'B' => 'NotoSans-Bold.ttf',
+            ];
+        }
+        if ($hasNotoDevanagari) {
+            $fontdata['notodevanagari'] = [
+                'R' => 'NotoSansDevanagari-Regular.ttf',
+                'B' => 'NotoSansDevanagari-Bold.ttf',
+            ];
+        }
         $selectedFont = (string) ($company->letterhead_font_family ?: 'Inter, Arial, sans-serif');
         $pdfDefaultFont = 'freeserif';
         $pdfFontStack = 'freeserif, notosans, notodevanagari, dejavusans, serif';
@@ -749,8 +763,15 @@ class CompanyController extends Controller
             $pdfDefaultFont = $fontMap[$selectedFont];
             $pdfFontStack = $pdfDefaultFont . ', notosans, notodevanagari, dejavusans, serif';
         }
+        $preferredSubs = [];
+        if ($hasNotoSans) {
+            $preferredSubs[] = 'notosans';
+        }
+        if ($hasNotoDevanagari) {
+            $preferredSubs[] = 'notodevanagari';
+        }
         $backupSubsFont = array_values(array_unique(array_merge(
-            ['notosans', 'notodevanagari'],
+            $preferredSubs,
             $fontDefaults['backupSubsFont'] ?? []
         )));
 
@@ -834,13 +855,23 @@ class CompanyController extends Controller
         $storagePath = "company-letterheads/{$company->id}/{$fileName}";
         Storage::disk('public')->put($storagePath, $pdfBinary);
 
-        $company->save();
+        // Persist sequence/meta values if DB schema supports them; never fail export on DB mismatch.
+        try {
+            $company->save();
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
-        CompanyLetterheadExport::create([
-            'company_id' => $company->id,
-            'path' => $storagePath,
-            'file_name' => $fileName,
-        ]);
+        // Save export history when table exists; avoid hard-failing PDF response in production.
+        try {
+            CompanyLetterheadExport::create([
+                'company_id' => $company->id,
+                'path' => $storagePath,
+                'file_name' => $fileName,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response($pdfBinary, 200, [
             'Content-Type' => 'application/pdf',
