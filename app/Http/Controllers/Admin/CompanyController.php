@@ -9,7 +9,6 @@ use App\Models\CompanyLetterheadExport;
 use App\Support\CompanyContext;
 use App\Services\FaviconGeneratorService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -891,7 +890,8 @@ class CompanyController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            // Fallback: if mPDF fails in production (font/extension issues), try Dompdf so export still works.
+            // Fallback: if mPDF fails in production (font/extension issues), try Dompdf.
+            // If no PDF library is available, return print-friendly HTML so export flow doesn't hard-fail.
             try {
                 $fallbackName = 'letterhead-fallback-' . now()->format('Ymd_His') . '.pdf';
                 $fallbackPages = $this->letterheadBodyPagesFromRequest($request);
@@ -920,15 +920,25 @@ class CompanyController extends Controller
                     ]);
                 }
 
-                // Secondary attempt via Laravel wrapper binding (if present).
-                $pdf = App::make('dompdf.wrapper');
-                $pdf->loadHTML($fallbackHtml)->setPaper('a4', 'portrait');
-                return $pdf->download($fallbackName);
+                // No PDF engine available on server: return printable HTML preview instead of 500.
+                $printHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Letterhead Export Preview</title><style>'
+                    . 'body{font-family:Arial,sans-serif;margin:0;padding:16px;color:#111827;}'
+                    . '.notice{background:#fff3cd;border:1px solid #ffeeba;padding:10px 12px;margin-bottom:12px;font-size:14px;}'
+                    . '@media print {.notice{display:none;} body{padding:0;}}'
+                    . '</style></head><body>'
+                    . '<div class="notice">PDF libraries are not installed on this server. Use browser Print (Ctrl+P) and choose "Save as PDF".</div>'
+                    . $fallbackHtml
+                    . '</body></html>';
+
+                return response($printHtml, 200, [
+                    'Content-Type' => 'text/html; charset=UTF-8',
+                    'X-Letterhead-Export-Fallback' => 'print-html',
+                ]);
             } catch (\Throwable $fallbackEx) {
                 report($fallbackEx);
                 $message = 'Letterhead PDF export failed. mPDF error: '
                     . class_basename($e) . ' - ' . $e->getMessage()
-                    . ' | Dompdf fallback error: '
+                    . ' | Fallback error: '
                     . class_basename($fallbackEx) . ' - ' . $fallbackEx->getMessage();
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json([
