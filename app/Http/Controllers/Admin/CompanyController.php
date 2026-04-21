@@ -9,6 +9,7 @@ use App\Models\CompanyLetterheadExport;
 use App\Support\CompanyContext;
 use App\Services\FaviconGeneratorService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -890,10 +891,28 @@ class CompanyController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            $message = 'Letterhead PDF export failed. Please check font/filesystem/migration setup.';
-            if (app()->environment('local')) {
-                $message .= ' Error: ' . $e->getMessage();
+            // Fallback: if mPDF fails in production (font/extension issues), try Dompdf so export still works.
+            try {
+                $fallbackBodyHtml = view('admin.companies.letterhead-pdf-body', [
+                    'company' => $company,
+                    'letterContentPages' => $this->letterheadBodyPagesFromRequest($request),
+                    'pdfFontStack' => 'DejaVu Sans, sans-serif',
+                ])->render();
+                $fallbackHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>'
+                    . $fallbackBodyHtml
+                    . '</body></html>';
+
+                $pdf = App::make('dompdf.wrapper');
+                $pdf->loadHTML($fallbackHtml)->setPaper('a4', 'portrait');
+                $fallbackName = 'letterhead-fallback-' . now()->format('Ymd_His') . '.pdf';
+
+                return $pdf->download($fallbackName);
+            } catch (\Throwable $fallbackEx) {
+                report($fallbackEx);
             }
+
+            $message = 'Letterhead PDF export failed. Please check server PDF configuration. Error: '
+                . class_basename($e) . ' - ' . $e->getMessage();
 
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
