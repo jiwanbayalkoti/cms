@@ -629,6 +629,7 @@ class CompanyController extends Controller
         }
 
         $company = Company::findOrFail($companyId);
+        try {
         $fontFamilyInput = $request->input('letterhead_font_family');
         if (is_string($fontFamilyInput) && trim($fontFamilyInput) !== '' && mb_strlen($fontFamilyInput) <= 191) {
             $company->letterhead_font_family = trim($fontFamilyInput);
@@ -877,6 +878,25 @@ class CompanyController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $fileName . '"',
         ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            $message = 'Letterhead PDF export failed. Please check font/filesystem/migration setup.';
+            if (app()->environment('local')) {
+                $message .= ' Error: ' . $e->getMessage();
+            }
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message,
+                ], 500);
+            }
+
+            return redirect()
+                ->route('admin.companies.letterhead')
+                ->with('error', $message);
+        }
     }
 
     /**
