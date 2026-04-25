@@ -151,6 +151,13 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribut
 let currentPurchasedById = null;
 let deletePurchasedById = null;
 
+function resetPurchasedBySubmitButton() {
+    const submitBtn = document.getElementById('purchased-by-submit-btn');
+    if (!submitBtn) return;
+    submitBtn.disabled = false;
+    submitBtn.textContent = currentPurchasedById ? 'Update' : 'Save';
+}
+
 function openCreatePurchasedByModal() {
     currentPurchasedById = null;
     const modal = document.getElementById('purchasedByModal');
@@ -163,6 +170,7 @@ function openCreatePurchasedByModal() {
     title.textContent = 'Add Person';
     methodInput.value = 'POST';
     submitBtn.textContent = 'Save';
+    submitBtn.disabled = false;
     form.reset();
     document.getElementById('purchased-by-is-active').checked = true;
     
@@ -184,6 +192,7 @@ function openEditPurchasedByModal(purchasedById) {
     title.textContent = 'Edit Person';
     methodInput.value = 'PUT';
     submitBtn.textContent = 'Update';
+    submitBtn.disabled = false;
     
     document.querySelectorAll('.field-error').forEach(el => {
         el.style.display = 'none';
@@ -268,8 +277,10 @@ function submitPurchasedByForm(e) {
             });
         }
         showNotification(error.message || 'Validation failed', 'error');
+    })
+    .finally(() => {
         submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+        submitBtn.textContent = currentPurchasedById ? 'Update' : originalText;
     });
 }
 
@@ -277,6 +288,7 @@ function closePurchasedByModal() {
     document.getElementById('purchasedByModal').classList.add('hidden');
     currentPurchasedById = null;
     document.getElementById('purchasedByForm').reset();
+    resetPurchasedBySubmitButton();
 }
 
 function addPurchasedByRow(purchasedBy) {

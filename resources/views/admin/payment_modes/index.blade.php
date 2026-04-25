@@ -123,6 +123,13 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribut
 let currentPaymentModeId = null;
 let deletePaymentModeId = null;
 
+function resetPaymentModeSubmitButton() {
+    const submitBtn = document.getElementById('payment-mode-submit-btn');
+    if (!submitBtn) return;
+    submitBtn.disabled = false;
+    submitBtn.textContent = currentPaymentModeId ? 'Update' : 'Save';
+}
+
 function openCreatePaymentModeModal() {
     currentPaymentModeId = null;
     const modal = document.getElementById('paymentModeModal');
@@ -135,6 +142,7 @@ function openCreatePaymentModeModal() {
     title.textContent = 'Add Payment Mode';
     methodInput.value = 'POST';
     submitBtn.textContent = 'Save';
+    submitBtn.disabled = false;
     form.reset();
     
     document.querySelectorAll('.field-error').forEach(el => {
@@ -155,6 +163,7 @@ function openEditPaymentModeModal(paymentModeId) {
     title.textContent = 'Edit Payment Mode';
     methodInput.value = 'PUT';
     submitBtn.textContent = 'Update';
+    submitBtn.disabled = false;
     
     document.querySelectorAll('.field-error').forEach(el => {
         el.style.display = 'none';
@@ -236,8 +245,10 @@ function submitPaymentModeForm(e) {
             });
         }
         showNotification(error.message || 'Validation failed', 'error');
+    })
+    .finally(() => {
         submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+        submitBtn.textContent = currentPaymentModeId ? 'Update' : originalText;
     });
 }
 
@@ -245,6 +256,7 @@ function closePaymentModeModal() {
     document.getElementById('paymentModeModal').classList.add('hidden');
     currentPaymentModeId = null;
     document.getElementById('paymentModeForm').reset();
+    resetPaymentModeSubmitButton();
 }
 
 function addPaymentModeRow(paymentMode) {

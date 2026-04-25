@@ -82,23 +82,28 @@
     @endif
 
     <!-- Stats Card - Total Staff -->
-    <div class="bg-white overflow-hidden shadow-lg rounded-lg">
+    <a href="{{ route('admin.staff.index') }}" class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-200 cursor-pointer group border-2 border-transparent hover:border-indigo-500">
         <div class="p-5">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
-                    <svg class="h-8 w-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-8 w-8 text-indigo-500 group-hover:text-indigo-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
                     </svg>
                 </div>
                 <div class="ml-5 w-0 flex-1">
                     <dl>
                         <dt class="text-sm font-medium text-gray-500 truncate">Total Staff</dt>
-                        <dd class="text-lg font-semibold text-gray-900">{{ $totalStaff }}</dd>
+                        <dd class="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{{ $totalStaff }}</dd>
                     </dl>
+                </div>
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
                 </div>
             </div>
         </div>
-    </div>
+    </a>
 
     <!-- Stats Card - Total Suppliers (active, this company) -->
     <a href="{{ route('admin.suppliers.index') }}" class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-all duration-200 cursor-pointer group border-2 border-transparent hover:border-amber-500">

@@ -148,6 +148,13 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribut
 let currentMaterialNameId = null;
 let deleteMaterialNameId = null;
 
+function resetMaterialNameSubmitButton() {
+    const submitBtn = document.getElementById('material-name-submit-btn');
+    if (!submitBtn) return;
+    submitBtn.disabled = false;
+    submitBtn.textContent = currentMaterialNameId ? 'Update' : 'Save';
+}
+
 function openCreateMaterialNameModal() {
     currentMaterialNameId = null;
     const modal = document.getElementById('materialNameModal');
@@ -160,6 +167,7 @@ function openCreateMaterialNameModal() {
     title.textContent = 'Add Material Name';
     methodInput.value = 'POST';
     submitBtn.textContent = 'Save';
+    submitBtn.disabled = false;
     form.reset();
     
     document.querySelectorAll('.field-error').forEach(el => {
@@ -180,6 +188,7 @@ function openEditMaterialNameModal(materialNameId) {
     title.textContent = 'Edit Material Name';
     methodInput.value = 'PUT';
     submitBtn.textContent = 'Update';
+    submitBtn.disabled = false;
     
     document.querySelectorAll('.field-error').forEach(el => {
         el.style.display = 'none';
@@ -330,8 +339,13 @@ function submitMaterialNameForm(e) {
             });
         }
         showNotification(error.message || 'Validation failed', 'error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+    })
+    .finally(() => {
+        // Keep button usable for subsequent create/edit without page refresh.
+        if (document.getElementById('materialNameModal')) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = currentMaterialNameId ? 'Update' : originalText;
+        }
     });
 }
 
@@ -339,6 +353,7 @@ function closeMaterialNameModal() {
     document.getElementById('materialNameModal').classList.add('hidden');
     currentMaterialNameId = null;
     document.getElementById('materialNameForm').reset();
+    resetMaterialNameSubmitButton();
 }
 
 function addMaterialNameRow(materialName) {

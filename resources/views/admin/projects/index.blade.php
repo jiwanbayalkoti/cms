@@ -1183,6 +1183,12 @@ window.showDeleteProjectConfirmation = function(projectId, projectName) {
 
 window.closeDeleteProjectConfirmation = function() {
     document.getElementById('deleteProjectConfirmationModal').classList.add('hidden');
+    const deleteForm = document.getElementById('delete-project-form');
+    const submitBtn = deleteForm ? deleteForm.querySelector('button[type="submit"]') : null;
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Delete Project';
+    }
     deleteProjectId = null;
 }
 
@@ -1300,8 +1306,12 @@ document.getElementById('delete-project-form').addEventListener('submit', functi
     .catch(error => {
         console.error('Error:', error);
         showNotification('An error occurred while deleting the project: ' + error.message, 'error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+    })
+    .finally(() => {
+        if (!document.getElementById('deleteProjectConfirmationModal').classList.contains('hidden')) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
     });
 });
 

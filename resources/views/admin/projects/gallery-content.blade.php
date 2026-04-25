@@ -261,7 +261,14 @@
         if (modal) {
             modal.classList.add('hidden');
             const form = document.getElementById('addAlbumForm');
-            if (form) form.reset();
+            if (form) {
+                form.reset();
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Add Album';
+                }
+            }
         }
     };
 
@@ -277,6 +284,7 @@
         }
 
         const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
         submitBtn.disabled = true;
         submitBtn.textContent = 'Adding...';
 
@@ -296,15 +304,15 @@
                 }
             } else {
                 alert(data.error || 'Failed to add album');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Add Album';
             }
         })
         .catch(error => {
             console.error('Error:', error);
             alert('An error occurred while adding the album');
+        })
+        .finally(() => {
             submitBtn.disabled = false;
-            submitBtn.textContent = 'Add Album';
+            submitBtn.textContent = originalText;
         });
     };
 

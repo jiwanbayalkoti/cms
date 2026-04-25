@@ -197,7 +197,13 @@ function showAddAlbumModal() {
 
 function closeAddAlbumModal() {
     document.getElementById('addAlbumModal').classList.add('hidden');
-    document.getElementById('addAlbumForm').reset();
+    const form = document.getElementById('addAlbumForm');
+    form.reset();
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add Album';
+    }
 }
 
 function addAlbum(e) {
@@ -212,6 +218,7 @@ function addAlbum(e) {
     }
 
     const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
     submitBtn.disabled = true;
     submitBtn.textContent = 'Adding...';
 
@@ -226,15 +233,15 @@ function addAlbum(e) {
             location.reload();
         } else {
             alert(data.error || 'Failed to add album');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Add Album';
         }
     })
     .catch(error => {
         console.error('Error:', error);
         alert('An error occurred while adding the album');
+    })
+    .finally(() => {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Add Album';
+        submitBtn.textContent = originalText;
     });
 }
 

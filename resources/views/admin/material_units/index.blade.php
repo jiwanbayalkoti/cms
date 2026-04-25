@@ -133,6 +133,13 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribut
 let currentMaterialUnitId = null;
 let deleteMaterialUnitId = null;
 
+function resetMaterialUnitSubmitButton() {
+    const submitBtn = document.getElementById('material-unit-submit-btn');
+    if (!submitBtn) return;
+    submitBtn.disabled = false;
+    submitBtn.textContent = currentMaterialUnitId ? 'Update Unit' : 'Save Unit';
+}
+
 function openCreateMaterialUnitModal() {
     currentMaterialUnitId = null;
     const modal = document.getElementById('materialUnitModal');
@@ -145,6 +152,7 @@ function openCreateMaterialUnitModal() {
     title.textContent = 'Add Material Unit';
     methodInput.value = 'POST';
     submitBtn.textContent = 'Save Unit';
+    submitBtn.disabled = false;
     form.reset();
     
     document.querySelectorAll('.field-error').forEach(el => {
@@ -165,6 +173,7 @@ function openEditMaterialUnitModal(unitId) {
     title.textContent = 'Edit Material Unit';
     methodInput.value = 'PUT';
     submitBtn.textContent = 'Update Unit';
+    submitBtn.disabled = false;
     
     document.querySelectorAll('.field-error').forEach(el => {
         el.style.display = 'none';
@@ -244,8 +253,13 @@ function submitMaterialUnitForm(e) {
     .catch(error => {
         console.error('Error:', error);
         showNotification('An error occurred while saving', 'error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+    })
+    .finally(() => {
+        // Ensure button is active for subsequent saves without refresh.
+        if (document.getElementById('materialUnitModal')) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = currentMaterialUnitId ? 'Update Unit' : originalText;
+        }
     });
 }
 
@@ -253,6 +267,7 @@ function closeMaterialUnitModal() {
     document.getElementById('materialUnitModal').classList.add('hidden');
     currentMaterialUnitId = null;
     document.getElementById('materialUnitForm').reset();
+    resetMaterialUnitSubmitButton();
 }
 
 function addMaterialUnitRow(unit) {

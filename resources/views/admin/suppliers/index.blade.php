@@ -418,6 +418,13 @@ let currentSupplierId = null;
 let deleteSupplierId = null;
 const supplierPaymentSortState = {};
 
+function resetSupplierSubmitButton() {
+    const submitBtn = document.getElementById('supplier-submit-btn');
+    if (!submitBtn) return;
+    submitBtn.disabled = false;
+    submitBtn.textContent = currentSupplierId ? 'Update Supplier' : 'Save Supplier';
+}
+
 function navigateSupplierSort(url) {
     if (!url) return;
     window.location.assign(url);
@@ -659,6 +666,7 @@ function openCreateSupplierModal() {
     title.textContent = 'Add Supplier';
     methodInput.value = 'POST';
     submitBtn.textContent = 'Save Supplier';
+    submitBtn.disabled = false;
     form.reset();
     document.getElementById('supplier-is-active').checked = true;
     document.getElementById('qr-preview').style.display = 'none';
@@ -681,6 +689,7 @@ function openEditSupplierModal(supplierId) {
     title.textContent = 'Edit Supplier';
     methodInput.value = 'PUT';
     submitBtn.textContent = 'Update Supplier';
+    submitBtn.disabled = false;
     
     document.querySelectorAll('.field-error').forEach(el => {
         el.style.display = 'none';
@@ -775,8 +784,10 @@ function submitSupplierForm(e) {
     .catch(error => {
         console.error('Error:', error);
         showNotification('An error occurred while saving', 'error');
+    })
+    .finally(() => {
         submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+        submitBtn.textContent = currentSupplierId ? 'Update Supplier' : originalText;
     });
 }
 
@@ -785,6 +796,7 @@ function closeSupplierModal() {
     currentSupplierId = null;
     document.getElementById('supplierForm').reset();
     document.getElementById('qr-preview').style.display = 'none';
+    resetSupplierSubmitButton();
 }
 
 function addSupplierRow(supplier) {
