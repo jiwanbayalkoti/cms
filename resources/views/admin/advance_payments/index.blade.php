@@ -132,7 +132,7 @@
                         </th>
                         <th>
                             <button type="button" data-sort-col="supplier" onclick="sortAdvancePayments('supplier')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-dark fw-semibold">
-                                Supplier {!! $advanceThSort('supplier') !!}
+                                Beneficiary {!! $advanceThSort('supplier') !!}
                             </button>
                         </th>
                         <th>
@@ -160,7 +160,13 @@
                             </td>
                             <td>N/A</td>
                             <td>{{ $payment->project->name ?? 'N/A' }}</td>
-                            <td>{{ $payment->supplier->name ?? 'N/A' }}</td>
+                            <td>
+                                @if(($payment->beneficiary_type ?? ($payment->subcontractor_id ? 'subcontractor' : 'supplier')) === 'subcontractor')
+                                    {{ $payment->subcontractor->name ?? 'N/A' }} <span class="badge bg-secondary ms-1">Sub-contractor</span>
+                                @else
+                                    {{ $payment->supplier->name ?? 'N/A' }} <span class="badge bg-light text-dark border ms-1">Supplier</span>
+                                @endif
+                            </td>
                             <td><strong>Rs. {{ number_format($payment->amount, 2) }}</strong></td>
                             <td>{{ ucfirst(str_replace('_', ' ', $payment->payment_method ?? 'N/A')) }}</td>
                             <td>
@@ -224,13 +230,25 @@
                     </div>
                     
                     <div class="col-md-4 mb-3">
-                        <label class="form-label">Supplier <span class="text-danger">*</span></label>
-                        <select name="supplier_id" id="supplier_id" class="form-select">
+                        <label class="form-label">For <span class="text-danger">*</span></label>
+                        <select name="beneficiary_type" id="beneficiary_type" class="form-select">
+                            <option value="supplier">Supplier</option>
+                            <option value="subcontractor">Sub-contractor</option>
+                        </select>
+                        <div class="field-error text-danger small mt-1" data-field="beneficiary_type" style="display: none;"></div>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label" id="beneficiary_label">Supplier <span class="text-danger">*</span></label>
+                        <select id="beneficiary_id" class="form-select">
                             <option value="">Select Supplier</option>
                         </select>
                         <div class="field-error text-danger small mt-1" data-field="supplier_id" style="display: none;"></div>
+                        <div class="field-error text-danger small mt-1" data-field="subcontractor_id" style="display: none;"></div>
                     </div>
                 </div>
+                <input type="hidden" name="supplier_id" id="supplier_id">
+                <input type="hidden" name="subcontractor_id" id="subcontractor_id">
                 
                 <div class="card mb-4">
                     <div class="card-header">
@@ -344,6 +362,65 @@
 
 <script>
 let deleteAdvancePaymentId = null;
+let modalSuppliers = [];
+let modalSubcontractors = [];
+
+if (typeof showNotification !== 'function') {
+    window.showNotification = function(message, type) {
+        const prefix = type === 'error' ? 'Error: ' : '';
+        window.alert(prefix + (message || 'Done'));
+    };
+}
+
+function getBeneficiaryLabel(type) {
+    return type === 'subcontractor' ? 'Sub-contractor' : 'Supplier';
+}
+
+function updateBeneficiaryDropdown(selectedType = 'supplier', selectedId = '') {
+    const beneficiaryLabel = document.getElementById('beneficiary_label');
+    const beneficiarySelect = document.getElementById('beneficiary_id');
+    const supplierIdInput = document.getElementById('supplier_id');
+    const subcontractorIdInput = document.getElementById('subcontractor_id');
+    const list = selectedType === 'subcontractor' ? modalSubcontractors : modalSuppliers;
+    const label = getBeneficiaryLabel(selectedType);
+
+    beneficiaryLabel.innerHTML = `${label} <span class="text-danger">*</span>`;
+    beneficiarySelect.innerHTML = `<option value="">Select ${label}</option>`;
+
+    list.forEach(item => {
+        const selected = String(selectedId) === String(item.id) ? 'selected' : '';
+        beneficiarySelect.innerHTML += `<option value="${item.id}" ${selected}>${item.name}</option>`;
+    });
+
+    if (selectedType === 'subcontractor') {
+        supplierIdInput.value = '';
+        subcontractorIdInput.value = selectedId || '';
+    } else {
+        supplierIdInput.value = selectedId || '';
+        subcontractorIdInput.value = '';
+    }
+}
+
+function bindBeneficiaryInputs() {
+    const beneficiaryTypeSelect = document.getElementById('beneficiary_type');
+    const beneficiarySelect = document.getElementById('beneficiary_id');
+    const supplierIdInput = document.getElementById('supplier_id');
+    const subcontractorIdInput = document.getElementById('subcontractor_id');
+
+    beneficiaryTypeSelect.onchange = function() {
+        updateBeneficiaryDropdown(this.value, '');
+    };
+
+    beneficiarySelect.onchange = function() {
+        if (beneficiaryTypeSelect.value === 'subcontractor') {
+            supplierIdInput.value = '';
+            subcontractorIdInput.value = this.value || '';
+        } else {
+            supplierIdInput.value = this.value || '';
+            subcontractorIdInput.value = '';
+        }
+    };
+}
 
 // Modal functions
 function openCreateAdvancePaymentModal() {
@@ -376,6 +453,9 @@ function openCreateAdvancePaymentModal() {
     })
     .then(response => response.json())
     .then(data => {
+        modalSuppliers = data.suppliers || [];
+        modalSubcontractors = data.subcontractors || [];
+
         // Populate payment types
         const paymentTypeSelect = document.getElementById('payment_type');
         paymentTypeSelect.innerHTML = '<option value="">Select Payment Type</option>';
@@ -391,13 +471,6 @@ function openCreateAdvancePaymentModal() {
             projectSelect.innerHTML += `<option value="${project.id}">${project.name}</option>`;
         });
         
-        // Populate suppliers
-        const supplierSelect = document.getElementById('supplier_id');
-        supplierSelect.innerHTML = '<option value="">Select Supplier</option>';
-        data.suppliers.forEach(supplier => {
-            supplierSelect.innerHTML += `<option value="${supplier.id}">${supplier.name}</option>`;
-        });
-        
         // Populate bank accounts
         const bankAccountSelect = document.getElementById('bank_account_id');
         bankAccountSelect.innerHTML = '<option value="">None</option>';
@@ -407,6 +480,9 @@ function openCreateAdvancePaymentModal() {
         
         // Set default date
         document.getElementById('payment_date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('beneficiary_type').value = 'supplier';
+        updateBeneficiaryDropdown('supplier', '');
+        bindBeneficiaryInputs();
         
         modal.classList.remove('hidden');
     })
@@ -454,6 +530,10 @@ function openEditAdvancePaymentModal(id) {
     ])
     .then(([paymentData, formData]) => {
         const payment = paymentData.advancePayment;
+        modalSuppliers = formData.suppliers || [];
+        modalSubcontractors = formData.subcontractors || [];
+        const beneficiaryType = payment.beneficiary_type || (payment.subcontractor_id ? 'subcontractor' : 'supplier');
+        const selectedBeneficiaryId = beneficiaryType === 'subcontractor' ? payment.subcontractor_id : payment.supplier_id;
         
         // Populate payment types
         const paymentTypeSelect = document.getElementById('payment_type');
@@ -472,14 +552,6 @@ function openEditAdvancePaymentModal(id) {
             projectSelect.innerHTML += `<option value="${project.id}" ${selected}>${project.name}</option>`;
         });
         
-        // Populate suppliers
-        const supplierSelect = document.getElementById('supplier_id');
-        supplierSelect.innerHTML = '<option value="">Select Supplier</option>';
-        formData.suppliers.forEach(supplier => {
-            const selected = payment.supplier_id == supplier.id ? 'selected' : '';
-            supplierSelect.innerHTML += `<option value="${supplier.id}" ${selected}>${supplier.name}</option>`;
-        });
-        
         // Populate bank accounts
         const bankAccountSelect = document.getElementById('bank_account_id');
         bankAccountSelect.innerHTML = '<option value="">None</option>';
@@ -494,6 +566,9 @@ function openEditAdvancePaymentModal(id) {
         document.getElementById('payment_method').value = payment.payment_method || '';
         document.getElementById('transaction_reference').value = payment.transaction_reference || '';
         document.getElementById('notes').value = payment.notes || '';
+        document.getElementById('beneficiary_type').value = beneficiaryType;
+        updateBeneficiaryDropdown(beneficiaryType, selectedBeneficiaryId);
+        bindBeneficiaryInputs();
         
         modal.classList.remove('hidden');
     })
@@ -506,6 +581,8 @@ function openEditAdvancePaymentModal(id) {
 function closeAdvancePaymentModal() {
     document.getElementById('advancePaymentModal').classList.add('hidden');
     document.getElementById('advancePaymentForm').reset();
+    document.getElementById('supplier_id').value = '';
+    document.getElementById('subcontractor_id').value = '';
 }
 
 function openViewAdvancePaymentModal(id) {
@@ -546,8 +623,8 @@ function openViewAdvancePaymentModal(id) {
                                     <td>${p.project}</td>
                                 </tr>
                                 <tr>
-                                    <th>Supplier:</th>
-                                    <td><strong>${p.supplier}</strong></td>
+                                    <th>Beneficiary:</th>
+                                    <td><strong>${p.beneficiary_type === 'subcontractor' ? p.subcontractor : p.supplier}</strong>${p.beneficiary_type === 'subcontractor' ? ' <span class="badge bg-secondary ms-1">Sub-contractor</span>' : ''}</td>
                                 </tr>
                                 <tr>
                                     <th>Payment Amount:</th>
@@ -676,11 +753,36 @@ document.getElementById('advancePaymentForm').addEventListener('submit', functio
     e.preventDefault();
     
     const form = this;
+    const beneficiaryType = document.getElementById('beneficiary_type').value;
+    const beneficiaryId = document.getElementById('beneficiary_id').value;
+    const supplierIdInput = document.getElementById('supplier_id');
+    const subcontractorIdInput = document.getElementById('subcontractor_id');
+
+    // Always sync hidden ids just before submit (do not rely only on onchange handlers).
+    if (beneficiaryType === 'subcontractor') {
+        supplierIdInput.value = '';
+        subcontractorIdInput.value = beneficiaryId || '';
+    } else {
+        supplierIdInput.value = beneficiaryId || '';
+        subcontractorIdInput.value = '';
+    }
+
     const formData = new FormData(form);
     const submitBtn = document.getElementById('advancePaymentSubmitBtn');
     const originalText = submitBtn.textContent;
     const method = document.getElementById('advancePaymentFormMethod').value;
     const paymentId = document.getElementById('advancePaymentId').value;
+
+    if (!beneficiaryId) {
+        const beneficiaryField = beneficiaryType === 'subcontractor' ? 'subcontractor_id' : 'supplier_id';
+        const errorEl = document.querySelector(`.field-error[data-field="${beneficiaryField}"]`);
+        if (errorEl) {
+            errorEl.textContent = `Please select ${beneficiaryType === 'subcontractor' ? 'sub-contractor' : 'supplier'}.`;
+            errorEl.style.display = 'block';
+        }
+        showNotification(`Please select ${beneficiaryType === 'subcontractor' ? 'sub-contractor' : 'supplier'}.`, 'error');
+        return;
+    }
     
     submitBtn.disabled = true;
     submitBtn.textContent = 'Saving...';
@@ -754,13 +856,22 @@ function addAdvancePaymentRow(payment) {
     const paymentType = payment.payment_type ? ucfirst(payment.payment_type.replace(/_/g, ' ')) : 'N/A';
     const paymentMethod = payment.payment_method ? ucfirst(payment.payment_method.replace(/_/g, ' ')) : 'N/A';
     
+    const beneficiaryType = payment.beneficiary_type || (payment.subcontractor_id ? 'subcontractor' : 'supplier');
+    const beneficiaryName = beneficiaryType === 'subcontractor'
+        ? (payment.subcontractor ? payment.subcontractor.name : 'N/A')
+        : (payment.supplier ? payment.supplier.name : 'N/A');
+    const beneficiaryBadge = beneficiaryType === 'subcontractor'
+        ? ' <span class="badge bg-secondary ms-1">Sub-contractor</span>'
+        : '';
+    const escapedBeneficiaryName = (beneficiaryName || 'N/A').replace(/'/g, "\\'");
+
     row.innerHTML = `
         <td>1</td>
         <td>${new Date(payment.payment_date).toISOString().split('T')[0]}</td>
         <td><span class="badge bg-info">${paymentType}</span></td>
         <td>N/A</td>
         <td>${payment.project ? payment.project.name : 'N/A'}</td>
-        <td>${payment.supplier ? payment.supplier.name : 'N/A'}</td>
+        <td>${beneficiaryName}${beneficiaryBadge}</td>
         <td><strong>Rs. ${parseFloat(payment.amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</strong></td>
         <td>${paymentMethod}</td>
         <td>
@@ -771,7 +882,7 @@ function addAdvancePaymentRow(payment) {
                 <button onclick="openEditAdvancePaymentModal(${payment.id})" class="btn btn-sm btn-outline-warning" title="Edit">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button onclick="showDeleteAdvancePaymentConfirmation(${payment.id}, '${(payment.supplier ? payment.supplier.name : 'N/A').replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-danger" title="Delete">
+                <button onclick="showDeleteAdvancePaymentConfirmation(${payment.id}, '${escapedBeneficiaryName}')" class="btn btn-sm btn-outline-danger" title="Delete">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -798,13 +909,22 @@ function updateAdvancePaymentRow(payment) {
     const paymentMethod = payment.payment_method ? ucfirst(payment.payment_method.replace(/_/g, ' ')) : 'N/A';
     
     const serial = Array.from(document.querySelectorAll('#advancePaymentsTableBody tr[data-advance-payment-id]')).findIndex(r => r.getAttribute('data-advance-payment-id') == payment.id) + 1;
+    const beneficiaryType = payment.beneficiary_type || (payment.subcontractor_id ? 'subcontractor' : 'supplier');
+    const beneficiaryName = beneficiaryType === 'subcontractor'
+        ? (payment.subcontractor ? payment.subcontractor.name : 'N/A')
+        : (payment.supplier ? payment.supplier.name : 'N/A');
+    const beneficiaryBadge = beneficiaryType === 'subcontractor'
+        ? ' <span class="badge bg-secondary ms-1">Sub-contractor</span>'
+        : '';
+    const escapedBeneficiaryName = (beneficiaryName || 'N/A').replace(/'/g, "\\'");
+
     row.innerHTML = `
         <td>${serial || 1}</td>
         <td>${new Date(payment.payment_date).toISOString().split('T')[0]}</td>
         <td><span class="badge bg-info">${paymentType}</span></td>
         <td>N/A</td>
         <td>${payment.project ? payment.project.name : 'N/A'}</td>
-        <td>${payment.supplier ? payment.supplier.name : 'N/A'}</td>
+        <td>${beneficiaryName}${beneficiaryBadge}</td>
         <td><strong>Rs. ${parseFloat(payment.amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</strong></td>
         <td>${paymentMethod}</td>
         <td>
@@ -815,7 +935,7 @@ function updateAdvancePaymentRow(payment) {
                 <button onclick="openEditAdvancePaymentModal(${payment.id})" class="btn btn-sm btn-outline-warning" title="Edit">
                     <i class="bi bi-pencil"></i>
                 </button>
-                <button onclick="showDeleteAdvancePaymentConfirmation(${payment.id}, '${(payment.supplier ? payment.supplier.name : 'N/A').replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-danger" title="Delete">
+                <button onclick="showDeleteAdvancePaymentConfirmation(${payment.id}, '${escapedBeneficiaryName}')" class="btn btn-sm btn-outline-danger" title="Delete">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -949,8 +1069,11 @@ function updateAdvancePaymentsTable(advancePayments, data) {
     
     const startSn = (data && data.currentPage) ? (data.currentPage - 1) * (data.perPage || 15) : 0;
     tbody.innerHTML = advancePayments.map((payment, idx) => {
-        const supplierName = payment.supplier_name || 'N/A';
-        const escapedSupplierName = supplierName.replace(/'/g, "\\'");
+        const beneficiaryName = payment.beneficiary_name || payment.supplier_name || 'N/A';
+        const escapedBeneficiaryName = beneficiaryName.replace(/'/g, "\\'");
+        const beneficiaryBadge = payment.beneficiary_type === 'subcontractor'
+            ? ' <span class="badge bg-secondary ms-1">Sub-contractor</span>'
+            : '';
         const sn = startSn + idx + 1;
         return `
             <tr data-advance-payment-id="${payment.id}">
@@ -961,7 +1084,7 @@ function updateAdvancePaymentsTable(advancePayments, data) {
                 </td>
                 <td>${payment.reference}</td>
                 <td>${payment.project_name}</td>
-                <td>${payment.supplier_name}</td>
+                <td>${beneficiaryName}${beneficiaryBadge}</td>
                 <td><strong>Rs. ${payment.amount}</strong></td>
                 <td>${payment.payment_method}</td>
                 <td>
@@ -972,7 +1095,7 @@ function updateAdvancePaymentsTable(advancePayments, data) {
                         <button onclick="openEditAdvancePaymentModal(${payment.id})" class="btn btn-sm btn-outline-warning" title="Edit">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button onclick="showDeleteAdvancePaymentConfirmation(${payment.id}, '${escapedSupplierName}')" class="btn btn-sm btn-outline-danger" title="Delete">
+                        <button onclick="showDeleteAdvancePaymentConfirmation(${payment.id}, '${escapedBeneficiaryName}')" class="btn btn-sm btn-outline-danger" title="Delete">
                             <i class="bi bi-trash"></i>
                         </button>
                     </div>

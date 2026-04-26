@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Models\AdvancePayment;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Models\Supplier;
+use App\Models\Subcontractor;
 use App\Models\Project;
 use App\Models\BankAccount;
 use App\Models\Expense;
@@ -16,10 +17,13 @@ use App\Models\Category;
 use App\Support\CompanyContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class AdvancePaymentController extends Controller
 {
     use ValidatesForms, HasProjectAccess;
+
+    private ?bool $hasBeneficiaryTypeColumn = null;
     
     public function __construct()
     {
@@ -34,7 +38,9 @@ class AdvancePaymentController extends Controller
         $rules = [
             'project_id' => 'nullable|exists:projects,id',
             'payment_type' => 'required|string',
-            'supplier_id' => 'required|exists:suppliers,id',
+            'beneficiary_type' => 'required|in:supplier,subcontractor',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'subcontractor_id' => 'nullable|exists:subcontractors,id',
             'amount' => 'required|numeric|min:0.01',
             'payment_date' => 'required|date',
             'bank_account_id' => 'nullable|exists:bank_accounts,id',
@@ -82,6 +88,32 @@ class AdvancePaymentController extends Controller
         };
     }
 
+    private function resolveBeneficiary(AdvancePayment $advancePayment): array
+    {
+        $type = $advancePayment->beneficiary_type ?: ($advancePayment->subcontractor_id ? 'subcontractor' : 'supplier');
+        if ($type === 'subcontractor') {
+            return [
+                'type' => 'subcontractor',
+                'name' => $advancePayment->subcontractor?->name ?? 'N/A',
+            ];
+        }
+
+        return [
+            'type' => 'supplier',
+            'name' => $advancePayment->supplier?->name ?? 'N/A',
+        ];
+    }
+
+    private function supportsBeneficiaryTypeColumn(): bool
+    {
+        if ($this->hasBeneficiaryTypeColumn !== null) {
+            return $this->hasBeneficiaryTypeColumn;
+        }
+
+        $this->hasBeneficiaryTypeColumn = Schema::hasColumn('advance_payments', 'beneficiary_type');
+        return $this->hasBeneficiaryTypeColumn;
+    }
+
     /**
      * Create expense entry for advance payment.
      */
@@ -93,17 +125,19 @@ class AdvancePaymentController extends Controller
             $category = $this->getOrCreateAdvancePaymentCategory($companyId);
 
             $paymentTypeLabel = $this->advancePaymentTypeLabel($advancePayment);
-
-            $supplierName = $advancePayment->supplier ? $advancePayment->supplier->name : 'N/A';
+            $beneficiary = $this->resolveBeneficiary($advancePayment);
+            $beneficiaryName = $beneficiary['name'];
+            $beneficiaryTypeLabel = $beneficiary['type'] === 'subcontractor' ? 'Sub-contractor' : 'Supplier';
 
             Expense::create([
                 'company_id' => $companyId,
                 'project_id' => $advancePayment->project_id,
                 'advance_payment_id' => $advancePayment->id,
+                'subcontractor_id' => $advancePayment->subcontractor_id,
                 'category_id' => $category->id,
                 'expense_type' => 'purchase',
                 'item_name' => "Advance Payment - {$paymentTypeLabel}",
-                'description' => "Advance payment for {$paymentTypeLabel} - Supplier: {$supplierName}",
+                'description' => "Advance payment for {$paymentTypeLabel} - {$beneficiaryTypeLabel}: {$beneficiaryName}",
                 'amount' => $advancePayment->amount,
                 'date' => $advancePayment->payment_date,
                 'payment_method' => $advancePayment->payment_method,
@@ -121,7 +155,7 @@ class AdvancePaymentController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
         
         $query = AdvancePayment::where('company_id', $companyId)
-            ->with(['project', 'supplier', 'bankAccount', 'creator']);
+            ->with(['project', 'supplier', 'subcontractor', 'bankAccount', 'creator']);
         
         // Filter by accessible projects
         $this->filterByAccessibleProjects($query, 'project_id');
@@ -168,6 +202,10 @@ class AdvancePaymentController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
+        $subcontractors = Subcontractor::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         
         // Calculate totals (need to recalculate after pagination)
         $totalAmountQuery = AdvancePayment::where('company_id', $companyId);
@@ -197,12 +235,15 @@ class AdvancePaymentController extends Controller
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
             $advancePaymentsData = $advancePayments->map(function($payment) {
+                $beneficiary = $this->resolveBeneficiary($payment);
                 return [
                     'id' => $payment->id,
                     'payment_date' => $payment->payment_date->format('Y-m-d'),
                     'payment_type' => ucfirst(str_replace('_', ' ', $payment->payment_type)),
                     'reference' => 'N/A',
                     'project_name' => $payment->project ? $payment->project->name : 'N/A',
+                    'beneficiary_type' => $beneficiary['type'],
+                    'beneficiary_name' => $beneficiary['name'],
                     'supplier_name' => $payment->supplier ? $payment->supplier->name : 'N/A',
                     'amount' => number_format($payment->amount, 2),
                     'payment_method' => ucfirst(str_replace('_', ' ', $payment->payment_method ?? 'N/A')),
@@ -231,6 +272,7 @@ class AdvancePaymentController extends Controller
             'advancePayments',
             'projects',
             'suppliers',
+            'subcontractors',
             'totalAmount',
             'sortColumn',
             'sortDir'
@@ -320,6 +362,10 @@ class AdvancePaymentController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
+        $subcontractors = Subcontractor::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         
         $bankAccounts = BankAccount::where('company_id', $companyId)
             ->where('is_active', true)
@@ -333,6 +379,7 @@ class AdvancePaymentController extends Controller
             return response()->json([
                 'projects' => $projects,
                 'suppliers' => $suppliers,
+                'subcontractors' => $subcontractors,
                 'bankAccounts' => $bankAccounts,
                 'paymentTypes' => $paymentTypes
             ]);
@@ -351,7 +398,9 @@ class AdvancePaymentController extends Controller
         $validated = $request->validate([
             'project_id' => 'nullable|exists:projects,id',
             'payment_type' => 'required|string',
-            'supplier_id' => 'required|exists:suppliers,id',
+            'beneficiary_type' => 'required|in:supplier,subcontractor',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'subcontractor_id' => 'nullable|exists:subcontractors,id',
             'amount' => 'required|numeric|min:0.01',
             'payment_date' => 'required|date',
             'bank_account_id' => 'nullable|exists:bank_accounts,id',
@@ -367,6 +416,22 @@ class AdvancePaymentController extends Controller
                 $validated['payment_type'] = $paymentType->code ?? strtolower(str_replace(' ', '_', $paymentType->name));
             }
         }
+
+        if ($validated['beneficiary_type'] === 'supplier') {
+            if (empty($validated['supplier_id'])) {
+                return response()->json(['success' => false, 'errors' => ['supplier_id' => ['Please select supplier.']]], 422);
+            }
+            $validated['subcontractor_id'] = null;
+        } else {
+            if (empty($validated['subcontractor_id'])) {
+                return response()->json(['success' => false, 'errors' => ['subcontractor_id' => ['Please select sub-contractor.']]], 422);
+            }
+            $validated['supplier_id'] = null;
+        }
+
+        if (! $this->supportsBeneficiaryTypeColumn()) {
+            unset($validated['beneficiary_type']);
+        }
         
         $validated['company_id'] = $companyId;
         $validated['created_by'] = auth()->id();
@@ -377,7 +442,7 @@ class AdvancePaymentController extends Controller
         $this->createExpenseFromAdvancePayment($advancePayment);
         
         // Load relations for JSON response
-        $advancePayment->load(['project', 'supplier', 'bankAccount']);
+        $advancePayment->load(['project', 'supplier', 'subcontractor', 'bankAccount']);
         
         // Return JSON for AJAX requests
         if ($request->ajax()) {
@@ -397,7 +462,7 @@ class AdvancePaymentController extends Controller
      */
     public function show(AdvancePayment $advancePayment)
     {
-        $advancePayment->load(['project', 'supplier', 'bankAccount', 'creator', 'updater', 'expense']);
+        $advancePayment->load(['project', 'supplier', 'subcontractor', 'bankAccount', 'creator', 'updater', 'expense']);
         
         // Return JSON for AJAX requests
         if (request()->ajax()) {
@@ -407,8 +472,10 @@ class AdvancePaymentController extends Controller
                     'payment_date' => $advancePayment->payment_date->format('F d, Y'),
                     'payment_type' => ucfirst(str_replace('_', ' ', $advancePayment->payment_type)),
                     'payment_type_raw' => $advancePayment->payment_type,
+                    'beneficiary_type' => $advancePayment->beneficiary_type ?: ($advancePayment->subcontractor_id ? 'subcontractor' : 'supplier'),
                     'project' => $advancePayment->project ? $advancePayment->project->name : 'N/A',
                     'supplier' => $advancePayment->supplier ? $advancePayment->supplier->name : 'N/A',
+                    'subcontractor' => $advancePayment->subcontractor ? $advancePayment->subcontractor->name : 'N/A',
                     'amount' => number_format($advancePayment->amount, 2),
                     'payment_method' => ucfirst(str_replace('_', ' ', $advancePayment->payment_method ?? 'N/A')),
                     'bank_account' => $advancePayment->bankAccount ? $advancePayment->bankAccount->account_name : 'N/A',
@@ -443,6 +510,10 @@ class AdvancePaymentController extends Controller
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
+        $subcontractors = Subcontractor::where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         
         $bankAccounts = BankAccount::where('company_id', $companyId)
             ->where('is_active', true)
@@ -457,6 +528,7 @@ class AdvancePaymentController extends Controller
                 'advancePayment' => $advancePayment,
                 'projects' => $projects,
                 'suppliers' => $suppliers,
+                'subcontractors' => $subcontractors,
                 'bankAccounts' => $bankAccounts,
                 'paymentTypes' => $paymentTypes
             ]);
@@ -473,7 +545,9 @@ class AdvancePaymentController extends Controller
         $validated = $request->validate([
             'project_id' => 'nullable|exists:projects,id',
             'payment_type' => 'required|string',
-            'supplier_id' => 'required|exists:suppliers,id',
+            'beneficiary_type' => 'required|in:supplier,subcontractor',
+            'supplier_id' => 'nullable|exists:suppliers,id',
+            'subcontractor_id' => 'nullable|exists:subcontractors,id',
             'amount' => 'required|numeric|min:0.01',
             'payment_date' => 'required|date',
             'bank_account_id' => 'nullable|exists:bank_accounts,id',
@@ -488,6 +562,22 @@ class AdvancePaymentController extends Controller
             if ($paymentType) {
                 $validated['payment_type'] = $paymentType->code ?? strtolower(str_replace(' ', '_', $paymentType->name));
             }
+        }
+
+        if ($validated['beneficiary_type'] === 'supplier') {
+            if (empty($validated['supplier_id'])) {
+                return response()->json(['success' => false, 'errors' => ['supplier_id' => ['Please select supplier.']]], 422);
+            }
+            $validated['subcontractor_id'] = null;
+        } else {
+            if (empty($validated['subcontractor_id'])) {
+                return response()->json(['success' => false, 'errors' => ['subcontractor_id' => ['Please select sub-contractor.']]], 422);
+            }
+            $validated['supplier_id'] = null;
+        }
+
+        if (! $this->supportsBeneficiaryTypeColumn()) {
+            unset($validated['beneficiary_type']);
         }
         
         $validated['updated_by'] = auth()->id();
@@ -504,21 +594,24 @@ class AdvancePaymentController extends Controller
         if ($advancePayment->expense) {
             $expense = $advancePayment->expense;
             $paymentTypeLabel = $this->advancePaymentTypeLabel($advancePayment);
-            $supplierName = $advancePayment->supplier ? $advancePayment->supplier->name : 'N/A';
+            $beneficiary = $this->resolveBeneficiary($advancePayment);
+            $beneficiaryName = $beneficiary['name'];
+            $beneficiaryTypeLabel = $beneficiary['type'] === 'subcontractor' ? 'Sub-contractor' : 'Supplier';
 
             $expense->update([
+                'subcontractor_id' => $advancePayment->subcontractor_id,
                 'amount' => $advancePayment->amount,
                 'date' => $advancePayment->payment_date,
                 'payment_method' => $advancePayment->payment_method,
                 'item_name' => "Advance Payment - {$paymentTypeLabel}",
-                'description' => "Advance payment for {$paymentTypeLabel} - Supplier: {$supplierName}",
+                'description' => "Advance payment for {$paymentTypeLabel} - {$beneficiaryTypeLabel}: {$beneficiaryName}",
                 'notes' => "Transaction Reference: {$advancePayment->transaction_reference}" . ($advancePayment->notes ? " | Notes: {$advancePayment->notes}" : ''),
                 'updated_by' => auth()->id(),
             ]);
         }
         
         // Load relations for JSON response
-        $advancePayment->load(['project', 'supplier', 'bankAccount']);
+        $advancePayment->load(['project', 'supplier', 'subcontractor', 'bankAccount']);
         
         // Return JSON for AJAX requests
         if ($request->ajax()) {

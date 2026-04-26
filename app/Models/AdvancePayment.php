@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Traits\CompanyScoped;
 use App\Models\Traits\ProjectScoped;
+use App\Models\Subcontractor;
 
 class AdvancePayment extends Model
 {
@@ -15,7 +16,9 @@ class AdvancePayment extends Model
         'company_id',
         'project_id',
         'payment_type',
+        'beneficiary_type',
         'supplier_id',
+        'subcontractor_id',
         'amount',
         'payment_date',
         'bank_account_id',
@@ -53,6 +56,14 @@ class AdvancePayment extends Model
     public function supplier()
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    /**
+     * Get the sub-contractor.
+     */
+    public function subcontractor()
+    {
+        return $this->belongsTo(Subcontractor::class);
     }
 
     /**
