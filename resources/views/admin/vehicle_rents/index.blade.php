@@ -10,7 +10,7 @@
     </div>
     <div class="d-flex gap-2">
         @if($vehicleRents->count() > 0)
-            <a href="{{ route('admin.vehicle-rents.export', request()->all()) }}" class="btn btn-success">
+            <a href="{{ route('admin.vehicle-rents.export', request()->all()) }}" id="vehicleRentsExportLink" class="btn btn-success">
                 <i class="bi bi-file-earmark-excel-fill me-1"></i> Export Excel
             </a>
         @endif
@@ -89,6 +89,15 @@
             <div class="col-md-2">
                 <label class="form-label small mb-1">End Date</label>
                 <input type="date" name="end_date" id="filter_end_date" class="form-control form-control-sm" value="{{ request('end_date') ?: '' }}" onchange="applyFiltersDebounced()">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Per Page</label>
+                <select name="per_page" id="filter_per_page" class="form-select form-select-sm" onchange="applyFiltersDebounced()">
+                    <option value="10" {{ (string) request('per_page', '10') === '10' ? 'selected' : '' }}>10</option>
+                    <option value="25" {{ (string) request('per_page') === '25' ? 'selected' : '' }}>25</option>
+                    <option value="50" {{ (string) request('per_page') === '50' ? 'selected' : '' }}>50</option>
+                    <option value="all" {{ strtolower((string) request('per_page')) === 'all' ? 'selected' : '' }}>All</option>
+                </select>
             </div>
             <div class="col-md-12"></div>
             <div class="col-md-12 mt-2">
@@ -399,6 +408,7 @@
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || {!! json_encode(csrf_token()) !!};
 const vehicleRentsCreateUrl = {!! json_encode(route('admin.vehicle-rents.create')) !!};
 const vehicleRentsIndexUrl = {!! json_encode(route('admin.vehicle-rents.index')) !!};
+const vehicleRentsExportUrl = {!! json_encode(route('admin.vehicle-rents.export')) !!};
 let currentRentId = null;
 let deleteRentId = null;
 
@@ -932,6 +942,7 @@ function applyFilters(page = 1) {
         updateVehicleRentsPagination(data.pagination);
         updateVehicleRentsSummary(data.summary);
         updateVehicleRentsURL(params.toString());
+        updateVehicleRentsExportLink();
         if (data.sort !== undefined && data.sort_dir !== undefined) {
             vehicleSortColumn = data.sort;
             vehicleSortDir = data.sort_dir;
@@ -1154,6 +1165,42 @@ function updateVehicleRentsURL(params) {
     window.history.pushState({path: newURL}, '', newURL);
 }
 
+function updateVehicleRentsExportLink() {
+    const link = document.getElementById('vehicleRentsExportLink');
+    if (!link) return;
+
+    const params = new URLSearchParams();
+    const projectId = document.getElementById('filter_project_id')?.value;
+    const supplierId = document.getElementById('filter_supplier_id')?.value;
+    const vehicleType = document.getElementById('filter_vehicle_type')?.value;
+    const paymentStatus = document.getElementById('filter_payment_status')?.value;
+    const rateType = document.getElementById('filter_rate_type')?.value;
+    const startDate = document.getElementById('filter_start_date')?.value;
+    const endDate = document.getElementById('filter_end_date')?.value;
+    const perPage = document.getElementById('filter_per_page')?.value;
+
+    if (projectId) params.set('project_id', projectId);
+    if (supplierId) params.set('supplier_id', supplierId);
+    if (vehicleType) params.set('vehicle_type', vehicleType);
+    if (paymentStatus) params.set('payment_status', paymentStatus);
+    if (rateType) params.set('rate_type', rateType);
+    if (startDate) params.set('start_date', startDate);
+    if (endDate) params.set('end_date', endDate);
+    if (perPage) params.set('per_page', perPage);
+
+    link.href = vehicleRentsExportUrl + (params.toString() ? '?' + params.toString() : '');
+}
+
+function bindVehicleRentsExportLink() {
+    const link = document.getElementById('vehicleRentsExportLink');
+    if (!link) return;
+
+    link.addEventListener('click', function() {
+        // Recompute filters at click-time to avoid stale href.
+        updateVehicleRentsExportLink();
+    });
+}
+
 function resetFilters() {
     document.getElementById('filter_project_id').value = '';
     document.getElementById('filter_supplier_id').value = '';
@@ -1162,6 +1209,7 @@ function resetFilters() {
     document.getElementById('filter_rate_type').value = '';
     document.getElementById('filter_start_date').value = '';
     document.getElementById('filter_end_date').value = '';
+    document.getElementById('filter_per_page').value = '10';
     const sEl = document.getElementById('vehicle_filter_sort');
     const dEl = document.getElementById('vehicle_filter_sort_dir');
     if (sEl) sEl.value = 'rent_date';
@@ -1209,6 +1257,7 @@ function handlePaginationClick(e) {
         const rateType = document.getElementById('filter_rate_type')?.value;
         const startDate = document.getElementById('filter_start_date')?.value;
         const endDate = document.getElementById('filter_end_date')?.value;
+        const perPage = document.getElementById('filter_per_page')?.value;
         
         if (projectId) params.set('project_id', projectId);
         if (supplierId) params.set('supplier_id', supplierId);
@@ -1217,6 +1266,7 @@ function handlePaginationClick(e) {
         if (rateType) params.set('rate_type', rateType);
         if (startDate) params.set('start_date', startDate);
         if (endDate) params.set('end_date', endDate);
+        if (perPage) params.set('per_page', perPage);
         
         const tbody = document.getElementById('vehicleRentsTableBody');
         const pagination = document.getElementById('vehicleRentsPagination');
@@ -1265,6 +1315,8 @@ function attachPaginationListeners() {
 // Attach pagination listener on page load
 // Load pagination handlers on page load
 document.addEventListener('DOMContentLoaded', function() {
+    updateVehicleRentsExportLink();
+    bindVehicleRentsExportLink();
     // Attach click handlers to existing pagination links
     const paginationContainer = document.getElementById('vehicleRentsPagination');
     if (paginationContainer) {

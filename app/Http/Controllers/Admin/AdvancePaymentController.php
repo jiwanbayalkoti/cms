@@ -193,7 +193,11 @@ class AdvancePaymentController extends Controller
         
         $listQuery = (clone $query);
         [$sortColumn, $sortDir] = $this->applyAdvancePaymentListSorting($listQuery, $request);
-        $advancePayments = $listQuery->paginate(15)->withQueryString();
+        $perPageInput = strtolower((string) $request->get('per_page', '15'));
+        $perPage = $perPageInput === 'all'
+            ? max((clone $listQuery)->count(), 1)
+            : max((int) $request->get('per_page', 15), 1);
+        $advancePayments = $listQuery->paginate($perPage)->withQueryString();
         
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();

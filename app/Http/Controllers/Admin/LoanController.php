@@ -64,7 +64,11 @@ class LoanController extends Controller
 
         $listQuery = (clone $query);
         [$sortColumn, $sortDir] = $this->applyLoanListSorting($listQuery, $request);
-        $loans = $listQuery->paginate(15)->withQueryString();
+        $perPageInput = strtolower((string) $request->get('per_page', '15'));
+        $perPage = $perPageInput === 'all'
+            ? max((clone $listQuery)->count(), 1)
+            : max((int) $request->get('per_page', 15), 1);
+        $loans = $listQuery->paginate($perPage)->withQueryString();
 
         $projects = $this->getAccessibleProjects();
         $suppliers = Supplier::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();

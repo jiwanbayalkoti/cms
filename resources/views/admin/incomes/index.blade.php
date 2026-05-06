@@ -18,7 +18,7 @@
 </div>
 
 <div class="mb-4 bg-white shadow-lg rounded-lg p-4">
-    <form method="GET" action="{{ route('admin.incomes.index') }}" id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+    <form method="GET" action="{{ route('admin.incomes.index') }}" id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
         <input type="hidden" name="sort" id="income_filter_sort" value="{{ $sortColumn ?? request('sort', 'date') }}">
         <input type="hidden" name="direction" id="income_filter_direction" value="{{ $sortDir ?? request('direction', 'desc') }}">
         @if($projects->count() > 0)
@@ -78,6 +78,17 @@
             <label for="keyword" class="block text-sm font-medium text-gray-700 mb-2">Keyword</label>
             <input type="text" name="keyword" id="keyword" value="{{ request('keyword') }}" placeholder="Source, description..."
                    onkeyup="applyFilters()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        
+        <div>
+            <label for="per_page" class="block text-sm font-medium text-gray-700 mb-2">Per Page</label>
+            <select name="per_page" id="per_page" onchange="applyFilters()"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="15" {{ (string) request('per_page', '15') === '15' ? 'selected' : '' }}>15</option>
+                <option value="25" {{ (string) request('per_page') === '25' ? 'selected' : '' }}>25</option>
+                <option value="50" {{ (string) request('per_page') === '50' ? 'selected' : '' }}>50</option>
+                <option value="all" {{ strtolower((string) request('per_page')) === 'all' ? 'selected' : '' }}>All</option>
+            </select>
         </div>
         
         <div class="flex items-end">
@@ -1284,6 +1295,7 @@ function clearFilters() {
     document.getElementById('start_date').value = '';
     document.getElementById('end_date').value = '';
     document.getElementById('keyword').value = '';
+    document.getElementById('per_page').value = '15';
     incomeSortColumn = 'date';
     incomeSortDirection = 'desc';
     const sortEl = document.getElementById('income_filter_sort');

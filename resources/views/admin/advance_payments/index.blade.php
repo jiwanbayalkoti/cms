@@ -65,6 +65,15 @@
                 <label class="form-label small mb-1">End Date</label>
                 <input type="date" name="end_date" id="filter_end_date" class="form-control form-control-sm" value="{{ request('end_date') ?: '' }}" onchange="applyFiltersDebounced()">
             </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Per Page</label>
+                <select name="per_page" id="filter_per_page" class="form-select form-select-sm" onchange="applyFiltersDebounced()">
+                    <option value="15" {{ (string) request('per_page', '15') === '15' ? 'selected' : '' }}>15</option>
+                    <option value="25" {{ (string) request('per_page') === '25' ? 'selected' : '' }}>25</option>
+                    <option value="50" {{ (string) request('per_page') === '50' ? 'selected' : '' }}>50</option>
+                    <option value="all" {{ strtolower((string) request('per_page')) === 'all' ? 'selected' : '' }}>All</option>
+                </select>
+            </div>
             <div class="col-md-12 mt-2">
                 <button type="button" onclick="resetFilters()" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-arrow-clockwise me-1"></i> Reset Filters
@@ -1178,7 +1187,7 @@ function updateAdvancePaymentsExportLink() {
     const form = document.getElementById('filterForm');
     const formData = new FormData(form);
     const params = new URLSearchParams();
-    const exportParams = ['project_id', 'payment_type', 'supplier_id', 'start_date', 'end_date'];
+    const exportParams = ['project_id', 'payment_type', 'supplier_id', 'start_date', 'end_date', 'per_page'];
     for (const key of exportParams) {
         const val = formData.get(key);
         if (val) params.append(key, val);
@@ -1192,6 +1201,7 @@ function resetFilters() {
     document.getElementById('filter_supplier_id').value = '';
     document.getElementById('filter_start_date').value = '';
     document.getElementById('filter_end_date').value = '';
+    document.getElementById('filter_per_page').value = '15';
     const sEl = document.getElementById('advance_filter_sort');
     const dEl = document.getElementById('advance_filter_sort_dir');
     if (sEl) sEl.value = 'payment_date';

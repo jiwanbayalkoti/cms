@@ -89,7 +89,11 @@ class ExpenseController extends Controller
 
         [$sortColumn, $sortDir] = $this->applyExpenseListSorting($query, $request);
 
-        $expenses = $query->paginate(15)->withQueryString();
+        $perPageInput = strtolower((string) $request->get('per_page', '15'));
+        $perPage = $perPageInput === 'all'
+            ? max((clone $query)->count(), 1)
+            : max((int) $request->get('per_page', 15), 1);
+        $expenses = $query->paginate($perPage)->withQueryString();
         
         // Get only accessible projects for dropdown
         $projects = $this->getAccessibleProjects();

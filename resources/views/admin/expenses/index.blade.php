@@ -18,7 +18,7 @@
 </div>
 
 <div class="mb-4 bg-white shadow-lg rounded-lg p-4">
-    <form method="GET" action="{{ route('admin.expenses.index') }}" id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
+    <form method="GET" action="{{ route('admin.expenses.index') }}" id="filterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8 gap-4">
         <div class="hidden">
             <input type="hidden" name="sort" id="expense_filter_sort" value="{{ $sortColumn ?? request('sort', 'date') }}">
             <input type="hidden" name="direction" id="expense_filter_direction" value="{{ $sortDir ?? request('direction', 'desc') }}">
@@ -81,6 +81,17 @@
             <label for="keyword" class="block text-sm font-medium text-gray-700 mb-2">Keyword</label>
             <input type="text" name="keyword" id="keyword" value="{{ request('keyword') }}" placeholder="Item, description..."
                    onkeyup="applyFilters()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        
+        <div>
+            <label for="per_page" class="block text-sm font-medium text-gray-700 mb-2">Per Page</label>
+            <select name="per_page" id="per_page" onchange="applyFilters()"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="15" {{ (string) request('per_page', '15') === '15' ? 'selected' : '' }}>15</option>
+                <option value="25" {{ (string) request('per_page') === '25' ? 'selected' : '' }}>25</option>
+                <option value="50" {{ (string) request('per_page') === '50' ? 'selected' : '' }}>50</option>
+                <option value="all" {{ strtolower((string) request('per_page')) === 'all' ? 'selected' : '' }}>All</option>
+            </select>
         </div>
         
         <div class="flex items-end">
@@ -441,6 +452,7 @@
         document.getElementById('subcategory_id').innerHTML = '<option value="">All Subcategories</option>';
         document.getElementById('subcategory_id').value = '';
         document.getElementById('keyword').value = '';
+        document.getElementById('per_page').value = '15';
         expenseSortColumn = 'date';
         expenseSortDirection = 'desc';
         const sortEl = document.getElementById('expense_filter_sort');
@@ -610,7 +622,7 @@
                             <div class="text-sm text-gray-900">{{ $expense->project ? $expense->project->name : 'N/A' }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ $expense->category->name }}</div>
+                            <div class="text-sm text-gray-900">{{ $expense->category?->name ?? 'N/A' }}</div>
                             @if($expense->subcategory)
                                 <div class="text-xs text-gray-500">{{ $expense->subcategory->name }}</div>
                             @endif

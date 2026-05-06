@@ -66,7 +66,16 @@
                 <option value="repaid" {{ request('direction') === 'repaid' ? 'selected' : '' }}>Given</option>
             </select>
         </div>
-        <div class="col-md-3 d-flex align-items-end">
+        <div class="col-md-2">
+            <label class="form-label small">Per Page</label>
+            <select name="per_page" class="form-select form-select-sm" onchange="applyLoanFilters(null, true)">
+                <option value="15" {{ (string) request('per_page', '15') === '15' ? 'selected' : '' }}>15</option>
+                <option value="25" {{ (string) request('per_page') === '25' ? 'selected' : '' }}>25</option>
+                <option value="50" {{ (string) request('per_page') === '50' ? 'selected' : '' }}>50</option>
+                <option value="all" {{ strtolower((string) request('per_page')) === 'all' ? 'selected' : '' }}>All</option>
+            </select>
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
             <button type="button" onclick="resetLoanFilters()" class="btn btn-outline-secondary btn-sm w-100">
                 <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
             </button>
@@ -734,12 +743,14 @@
         const startDate = form.querySelector('[name="start_date"]');
         const endDate = form.querySelector('[name="end_date"]');
         const direction = form.querySelector('[name="direction"]');
+        const perPage = form.querySelector('[name="per_page"]');
         const sortInp = document.getElementById('loan_filter_sort');
         const sortDirInp = document.getElementById('loan_filter_sort_dir');
         if (project) project.value = '';
         if (startDate) startDate.value = '';
         if (endDate) endDate.value = '';
         if (direction) direction.value = '';
+        if (perPage) perPage.value = '15';
         if (sortInp) sortInp.value = 'loan_date';
         if (sortDirInp) sortDirInp.value = 'desc';
         loanSortColumn = 'loan_date';

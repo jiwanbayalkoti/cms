@@ -104,7 +104,11 @@ class IncomeController extends Controller
 
         [$sortColumn, $sortDir] = $this->applyIncomeListSorting($query, $request);
 
-        $incomes = $query->paginate(15)->withQueryString();
+        $perPageInput = strtolower((string) $request->get('per_page', '15'));
+        $perPage = $perPageInput === 'all'
+            ? max((clone $query)->count(), 1)
+            : max((int) $request->get('per_page', 15), 1);
+        $incomes = $query->paginate($perPage)->withQueryString();
         
         // Get only accessible projects for dropdown
         $projects = $this->getAccessibleProjects();

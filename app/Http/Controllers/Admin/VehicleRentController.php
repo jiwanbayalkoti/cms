@@ -154,7 +154,11 @@ class VehicleRentController extends Controller
         // Paginate with whitelist sorting (summary used unsorted clone above)
         $listQuery = (clone $query);
         [$sortColumn, $sortDir] = $this->applyVehicleRentListSorting($listQuery, $request);
-        $vehicleRents = $listQuery->paginate(10)->withQueryString();
+        $perPageInput = strtolower((string) $request->get('per_page', '10'));
+        $perPage = $perPageInput === 'all'
+            ? max((clone $listQuery)->count(), 1)
+            : max((int) $request->get('per_page', 10), 1);
+        $vehicleRents = $listQuery->paginate($perPage)->withQueryString();
         
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
@@ -302,10 +306,17 @@ class VehicleRentController extends Controller
             ->with(['project', 'supplier', 'bankAccount', 'creator'])
             ->orderBy('rent_date', 'desc')
             ->orderBy('created_at', 'desc');
+
+        // Respect same project access constraints as list view
+        $this->filterByAccessibleProjects($query, 'project_id');
         
         // Apply same filters as index method
         if ($request->filled('project_id')) {
-            $query->where('project_id', $request->project_id);
+            $projectId = (int) $request->project_id;
+            if (! $this->canAccessProject($projectId)) {
+                abort(403, 'You do not have access to this project.');
+            }
+            $query->where('project_id', $projectId);
         }
         
         if ($request->filled('payment_status')) {
@@ -318,6 +329,10 @@ class VehicleRentController extends Controller
         
         if ($request->filled('rate_type')) {
             $query->where('rate_type', $request->rate_type);
+        }
+
+        if ($request->filled('supplier_id')) {
+            $query->where('supplier_id', $request->supplier_id);
         }
         
         if ($request->filled('start_date')) {
