@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Models\BankAccount;
+use App\Models\Category;
+use App\Models\Expense;
 use App\Models\Loan;
 use App\Models\LoanPayment;
 use App\Models\Staff;
@@ -331,6 +333,7 @@ class LoanController extends Controller
         $validated['updated_by'] = auth()->id();
 
         $loan->update($validated);
+        $this->syncExpenseFromLoan($loan->fresh());
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -464,12 +467,114 @@ class LoanController extends Controller
                 ]);
             }
 
+            $this->createExpenseFromLoanPayment($payment, $loan);
+
             DB::commit();
             return redirect()->route('admin.loans.index')->with('success', 'Payment recorded successfully.');
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->with('error', 'Failed to record payment: ' . $e->getMessage());
         }
+    }
+
+    private function getOrCreateLoanRepaymentCategory(int $companyId): Category
+    {
+        $category = Category::where('company_id', $companyId)
+            ->where('type', 'expense')
+            ->where('name', 'Loan Repayment')
+            ->first();
+
+        if (! $category) {
+            $category = Category::create([
+                'company_id' => $companyId,
+                'name' => 'Loan Repayment',
+                'type' => 'expense',
+                'description' => 'Loan given/repaid and repayments against taken loans',
+                'is_active' => true,
+            ]);
+        }
+
+        return $category;
+    }
+
+    private function loanPartyLabel(Loan $loan): string
+    {
+        return $loan->party_source
+            ?? $loan->party_name
+            ?? $loan->source
+            ?? ($loan->supplier?->name)
+            ?? ($loan->staff?->name)
+            ?? 'N/A';
+    }
+
+    /**
+     * Keep expenses in sync: repaid (given) loans and payment installments create expense rows.
+     */
+    private function syncExpenseFromLoan(Loan $loan): void
+    {
+        if ($loan->direction === 'repaid') {
+            $this->createOrUpdateExpenseFromLoanRepaid($loan);
+            return;
+        }
+
+        Expense::where('loan_id', $loan->id)->whereNull('loan_payment_id')->delete();
+    }
+
+    private function createOrUpdateExpenseFromLoanRepaid(Loan $loan): void
+    {
+        $category = $this->getOrCreateLoanRepaymentCategory((int) $loan->company_id);
+        $party = $this->loanPartyLabel($loan);
+
+        $payload = [
+            'company_id' => $loan->company_id,
+            'project_id' => $loan->project_id,
+            'loan_id' => $loan->id,
+            'loan_payment_id' => null,
+            'category_id' => $category->id,
+            'item_name' => 'Loan Repaid (Given)',
+            'description' => "Loan given/repaid — Party: {$party}",
+            'amount' => $loan->amount,
+            'date' => $loan->loan_date,
+            'payment_method' => $loan->payment_method,
+            'notes' => $loan->notes,
+        ];
+
+        $expense = Expense::where('loan_id', $loan->id)->whereNull('loan_payment_id')->first();
+        if ($expense) {
+            $expense->update(array_merge($payload, [
+                'updated_by' => auth()->id(),
+            ]));
+            return;
+        }
+
+        Expense::create(array_merge($payload, [
+            'created_by' => auth()->id(),
+        ]));
+    }
+
+    private function createExpenseFromLoanPayment(LoanPayment $payment, Loan $loan): void
+    {
+        if (Expense::where('loan_payment_id', $payment->id)->exists()) {
+            return;
+        }
+
+        $category = $this->getOrCreateLoanRepaymentCategory((int) $loan->company_id);
+        $party = $this->loanPartyLabel($loan);
+
+        Expense::create([
+            'company_id' => $loan->company_id,
+            'project_id' => $loan->project_id,
+            'loan_id' => $loan->id,
+            'loan_payment_id' => $payment->id,
+            'category_id' => $category->id,
+            'item_name' => 'Loan Repayment (Installment)',
+            'description' => "Repayment against loan taken — Party: {$party}",
+            'amount' => $payment->amount,
+            'date' => $payment->payment_date,
+            'payment_method' => $payment->payment_method,
+            'notes' => $payment->notes,
+            'created_by' => auth()->id(),
+        ]);
     }
 }
 

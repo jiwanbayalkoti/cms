@@ -48,6 +48,16 @@ class Loan extends Model
         return $this->hasMany(LoanPayment::class)->orderBy('payment_date')->orderBy('id');
     }
 
+    public function expense()
+    {
+        return $this->hasOne(Expense::class)->whereNull('loan_payment_id');
+    }
+
+    public function expenses()
+    {
+        return $this->hasMany(Expense::class);
+    }
+
     /**
      * Calculate outstanding principal & interest as of a date.
      * - Interest accrues daily (simple interest) on remaining principal.

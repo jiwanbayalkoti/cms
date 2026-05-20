@@ -243,6 +243,7 @@
                         <div class="text-sm font-medium text-gray-900">${itemName}</div>
                         ${expense.has_construction_material ? '<div class="text-xs text-indigo-600 mt-1"><i class="bi bi-link-45deg"></i> Linked to Material Purchase</div>' : ''}
                         ${expense.has_advance_payment ? '<div class="text-xs text-purple-600 mt-1"><i class="bi bi-link-45deg"></i> Linked to Advance Payment</div>' : ''}
+                        ${expense.has_loan ? '<div class="text-xs text-orange-600 mt-1"><i class="bi bi-link-45deg"></i> Linked to Loan Repayment</div>' : ''}
                         ${expense.has_subcontractor ? '<div class="text-xs text-teal-600 mt-1"><i class="bi bi-link-45deg"></i> Sub-contractor payment</div>' : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -586,6 +587,9 @@
                                 } elseif ($expense->vehicleRent) {
                                     $typeName = 'Vehicle rent';
                                     $typeClass = 'bg-purple-100 text-purple-800';
+                                } elseif ($expense->loan_id) {
+                                    $typeName = 'Loan repayment';
+                                    $typeClass = 'bg-orange-100 text-orange-800';
                                 } elseif ($expense->subcontractor) {
                                     $typeName = 'Sub-contractor';
                                     $typeClass = 'bg-teal-100 text-teal-800';
@@ -610,6 +614,11 @@
                             @if($expense->advancePayment)
                                 <div class="text-xs text-purple-600 mt-1">
                                     <i class="bi bi-link-45deg"></i> Linked to Advance Payment
+                                </div>
+                            @endif
+                            @if($expense->loan_id)
+                                <div class="text-xs text-orange-600 mt-1">
+                                    <i class="bi bi-link-45deg"></i> Linked to Loan Repayment
                                 </div>
                             @endif
                             @if($expense->subcontractor_id)
@@ -1462,6 +1471,7 @@ function addExpenseRow(expense) {
     const typeClass = expense.type_name === 'Purchase' ? 'bg-blue-100 text-blue-800' :
                      expense.type_name === 'Advance' ? 'bg-yellow-100 text-yellow-800' :
                      expense.type_name === 'Vehicle rent' ? 'bg-purple-100 text-purple-800' :
+                     expense.type_name === 'Loan repayment' ? 'bg-orange-100 text-orange-800' :
                      'bg-gray-100 text-gray-800';
     
     const row = document.createElement('tr');
@@ -1518,6 +1528,7 @@ function updateExpenseRow(expense) {
         const typeClass = expense.type_name === 'Purchase' ? 'bg-blue-100 text-blue-800' :
                          expense.type_name === 'Advance' ? 'bg-yellow-100 text-yellow-800' :
                          expense.type_name === 'Vehicle rent' ? 'bg-purple-100 text-purple-800' :
+                         expense.type_name === 'Loan repayment' ? 'bg-orange-100 text-orange-800' :
                          'bg-gray-100 text-gray-800';
         
         row.innerHTML = `

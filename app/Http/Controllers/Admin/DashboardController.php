@@ -51,17 +51,15 @@ class DashboardController extends Controller
         $this->filterByAccessibleProjects($expenseQuery, 'project_id');
         $totalExpenses = $expenseQuery->sum('amount');
 
-        // Loans totals for selected period
-        // - Received: payable = principal + accrued interest till endDate
-        // - Repaid: treated as principal only (no extra interest accrual)
+        // Loans taken (received) add to position; repaid/given amounts are in expenses table.
         $loanQuery = Loan::where('company_id', $companyId)
+            ->where('direction', 'received')
             ->whereBetween('loan_date', [$startDate, $endDate]);
         $this->filterByAccessibleProjects($loanQuery, 'project_id');
-        $loansForTotals = (clone $loanQuery)->get(['direction', 'amount', 'interest_rate', 'loan_date']);
+        $loansForTotals = (clone $loanQuery)->get(['amount', 'interest_rate', 'loan_date']);
 
         $endCarbon = Carbon::parse($endDate)->endOfDay();
         $totalLoanReceived = 0.0;
-        $totalLoanRepaid = 0.0;
 
         foreach ($loansForTotals as $l) {
             $principal = (float) ($l->amount ?? 0);
@@ -70,17 +68,11 @@ class DashboardController extends Controller
             $days = $loanDate ? max(0, $loanDate->diffInDays($endCarbon)) : 0;
 
             $accruedInterest = $principal * $rate / 100 * ($days / 365);
-            $payable = $principal + $accruedInterest;
-
-            if ($l->direction === 'repaid') {
-                $totalLoanRepaid += $principal;
-            } else {
-                $totalLoanReceived += $payable;
-            }
+            $totalLoanReceived += $principal + $accruedInterest;
         }
 
-        $loanNetBalance = $totalLoanReceived - $totalLoanRepaid;
-        $balance = ($totalIncome + $loanNetBalance) - $totalExpenses;
+        $loanNetBalance = $totalLoanReceived;
+        $balance = ($totalIncome + $totalLoanReceived) - $totalExpenses;
         
         // Total counts (not affected by period)
         $totalStaff = Staff::where('company_id', $companyId)
@@ -272,15 +264,15 @@ class DashboardController extends Controller
             $expense = $expenseQuery->sum('amount');
             $expenseData[] = (float) $expense;
 
-            // Monthly loan net (received payable - repaid principal)
+            // Monthly loan taken (received payable); repaid is included in expense series
             $loanQuery = Loan::where('company_id', $companyId)
+                ->where('direction', 'received')
                 ->whereBetween('loan_date', [$monthStart, $monthEnd]);
             $this->filterByAccessibleProjects($loanQuery, 'project_id');
-            $monthlyLoans = $loanQuery->get(['direction', 'amount', 'interest_rate', 'loan_date']);
+            $monthlyLoans = $loanQuery->get(['amount', 'interest_rate', 'loan_date']);
 
             $monthEndCarbon = Carbon::parse($monthEnd)->endOfDay();
             $monthlyLoanReceived = 0.0;
-            $monthlyLoanRepaid = 0.0;
 
             foreach ($monthlyLoans as $l) {
                 $principal = (float) ($l->amount ?? 0);
@@ -289,16 +281,10 @@ class DashboardController extends Controller
                 $days = $loanDate ? max(0, $loanDate->diffInDays($monthEndCarbon)) : 0;
 
                 $accruedInterest = $principal * $rate / 100 * ($days / 365);
-                $payable = $principal + $accruedInterest;
-
-                if ($l->direction === 'repaid') {
-                    $monthlyLoanRepaid += $principal;
-                } else {
-                    $monthlyLoanReceived += $payable;
-                }
+                $monthlyLoanReceived += $principal + $accruedInterest;
             }
 
-            $loanData[] = (float) ($monthlyLoanReceived - $monthlyLoanRepaid);
+            $loanData[] = (float) $monthlyLoanReceived;
         }
         
         return [

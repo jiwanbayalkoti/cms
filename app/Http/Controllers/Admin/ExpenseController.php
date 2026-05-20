@@ -39,7 +39,7 @@ class ExpenseController extends Controller
     public function index(Request $request)
     {
         $companyId = CompanyContext::getActiveCompanyId();
-        $query = Expense::with(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType'])
+        $query = Expense::with(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'loan', 'loanPayment', 'expenseType'])
             ->where('company_id', $companyId);
         
         // Filter by accessible projects
@@ -125,6 +125,9 @@ class ExpenseController extends Controller
                 } elseif ($expense->vehicleRent) {
                     $typeName = 'Vehicle rent';
                     $typeClass = 'bg-purple-100 text-purple-800';
+                } elseif ($expense->loan_id) {
+                    $typeName = 'Loan repayment';
+                    $typeClass = 'bg-orange-100 text-orange-800';
                 } elseif ($expense->subcontractor) {
                     $typeName = 'Sub-contractor';
                     $typeClass = 'bg-teal-100 text-teal-800';
@@ -142,7 +145,7 @@ class ExpenseController extends Controller
                     'type_class' => $typeClass,
                     'item_name' => $expense->item_name ?? ($expense->description ? Str::limit($expense->description, 30) : 'N/A'),
                     'project_name' => $expense->project ? $expense->project->name : 'N/A',
-                    'category_name' => $expense->category->name,
+                    'category_name' => $expense->category?->name ?? 'N/A',
                     'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
                     'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
                     'subcontractor_name' => $expense->subcontractor ? $expense->subcontractor->name : 'N/A',
@@ -150,6 +153,7 @@ class ExpenseController extends Controller
                     'amount' => number_format($expense->amount, 2),
                     'has_construction_material' => $expense->constructionMaterial ? true : false,
                     'has_advance_payment' => $expense->advancePayment ? true : false,
+                    'has_loan' => $expense->loan_id ? true : false,
                 ];
             });
             
@@ -407,6 +411,8 @@ class ExpenseController extends Controller
                 $typeName = 'Advance';
             } elseif ($expense->vehicleRent) {
                 $typeName = 'Vehicle rent';
+            } elseif ($expense->loan_id) {
+                $typeName = 'Loan repayment';
             } elseif ($expense->expenseType) {
                 $typeName = $expense->expenseType->name;
             } else {
@@ -424,7 +430,7 @@ class ExpenseController extends Controller
                     'description' => $expense->description,
                     'amount' => number_format($expense->amount, 2),
                     'project_name' => $expense->project ? $expense->project->name : 'N/A',
-                    'category_name' => $expense->category->name,
+                    'category_name' => $expense->category?->name ?? 'N/A',
                     'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
                     'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
                 ],
@@ -449,7 +455,7 @@ class ExpenseController extends Controller
             $this->authorizeProjectAccess($expense->project_id);
         }
         
-        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType']);
+        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'loan', 'loanPayment', 'expenseType']);
         
         // Return JSON only when AJAX and expects JSON (view modal); normal browser visit gets HTML
         if (request()->ajax() && request()->wantsJson()) {
@@ -460,6 +466,8 @@ class ExpenseController extends Controller
                 $typeName = 'Advance';
             } elseif ($expense->vehicleRent) {
                 $typeName = 'Vehicle rent';
+            } elseif ($expense->loan_id) {
+                $typeName = 'Loan repayment';
             } elseif ($expense->expenseType) {
                 $typeName = $expense->expenseType->name;
             } else {
@@ -487,7 +495,7 @@ class ExpenseController extends Controller
                     'project_id' => $expense->project_id,
                     'project_name' => $expense->project ? $expense->project->name : 'N/A',
                     'category_id' => $expense->category_id,
-                    'category_name' => $expense->category->name,
+                    'category_name' => $expense->category?->name ?? 'N/A',
                     'subcategory_id' => $expense->subcategory_id,
                     'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
                     'staff_id' => $expense->staff_id,
@@ -657,7 +665,7 @@ class ExpenseController extends Controller
 
         $validated['updated_by'] = auth()->id();
         $expense->update($validated);
-        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'expenseType', 'constructionMaterial', 'advancePayment', 'vehicleRent']);
+        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'expenseType', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'loan', 'loanPayment']);
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
@@ -668,6 +676,8 @@ class ExpenseController extends Controller
                 $typeName = 'Advance';
             } elseif ($expense->vehicleRent) {
                 $typeName = 'Vehicle rent';
+            } elseif ($expense->loan_id) {
+                $typeName = 'Loan repayment';
             } elseif ($expense->expenseType) {
                 $typeName = $expense->expenseType->name;
             } else {
@@ -685,7 +695,7 @@ class ExpenseController extends Controller
                     'description' => $expense->description,
                     'amount' => number_format($expense->amount, 2),
                     'project_name' => $expense->project ? $expense->project->name : 'N/A',
-                    'category_name' => $expense->category->name,
+                    'category_name' => $expense->category?->name ?? 'N/A',
                     'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
                     'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
                 ],
@@ -741,6 +751,8 @@ class ExpenseController extends Controller
         $newExpense->construction_material_id = null;
         $newExpense->advance_payment_id = null;
         $newExpense->vehicle_rent_id = null;
+        $newExpense->loan_id = null;
+        $newExpense->loan_payment_id = null;
         $newExpense->created_by = auth()->id();
         $newExpense->updated_by = null;
         $newExpense->created_at = now();
@@ -765,7 +777,7 @@ class ExpenseController extends Controller
         }
         
         $newExpense->save();
-        $newExpense->load(['category', 'subcategory', 'staff', 'project', 'expenseType', 'constructionMaterial', 'advancePayment', 'vehicleRent']);
+        $newExpense->load(['category', 'subcategory', 'staff', 'project', 'expenseType', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'loan', 'loanPayment']);
 
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
@@ -776,6 +788,8 @@ class ExpenseController extends Controller
                 $typeName = 'Advance';
             } elseif ($newExpense->vehicleRent) {
                 $typeName = 'Vehicle rent';
+            } elseif ($newExpense->loan_id) {
+                $typeName = 'Loan repayment';
             } elseif ($newExpense->expenseType) {
                 $typeName = $newExpense->expenseType->name;
             } else {
