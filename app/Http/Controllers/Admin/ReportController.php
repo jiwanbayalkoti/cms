@@ -11,7 +11,9 @@ use App\Models\Expense;
 use App\Models\Category;
 use App\Models\Staff;
 use App\Models\Loan;
+use App\Models\LoanPayment;
 use App\Models\MaterialName;
+use Carbon\Carbon;
 use App\Models\Project;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
@@ -811,32 +813,29 @@ class ReportController extends Controller
 
     /**
      * Loans Report (received vs repaid) - separate from Income.
+     * Repaid/given amounts are counted from linked expense rows (same as dashboard).
      */
     public function loansReport(Request $request)
     {
-        $currentYear = date('Y');
-        // Calculate from selected `start_date` to *today*.
-        // If `start_date` is not provided, auto-pick the earliest loan date (so it doesn't default to whole year).
-        $endDate = date('Y-m-d');
-        $projectId = $request->get('project_id');
         $companyId = CompanyContext::getActiveCompanyId();
+        $projectId = $request->filled('project_id') ? (int) $request->project_id : null;
+        $endDate = $request->get('end_date') ?: date('Y-m-d');
+        $endCarbon = Carbon::parse($endDate)->endOfDay();
 
-        $requestedStart = $request->get('start_date');
-
-        $query = Loan::with(['project', 'supplier', 'staff', 'bankAccount'])
+        $query = Loan::with(['project', 'supplier', 'staff', 'bankAccount', 'payments'])
             ->where('loans.company_id', $companyId)
             ->whereDate('loans.loan_date', '<=', $endDate);
 
         $this->filterByAccessibleProjectsForLoans($query, 'loans.project_id');
 
         if ($projectId) {
-            $projectId = (int) $projectId;
-            if (!$this->canAccessProject($projectId)) {
+            if (! $this->canAccessProject($projectId)) {
                 abort(403, 'You do not have access to this project.');
             }
             $query->where('loans.project_id', $projectId);
         }
 
+        $requestedStart = $request->get('start_date');
         if ($requestedStart) {
             $startDate = $requestedStart;
             $query->whereDate('loans.loan_date', '>=', $startDate);
@@ -845,14 +844,15 @@ class ReportController extends Controller
             $query->whereDate('loans.loan_date', '>=', $startDate);
         }
 
-        $loans = $query->orderBy('loan_date', 'desc')
+        $loanRecords = $query->orderBy('loan_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Legacy: loans were previously saved as Income records with categories.name containing "loan".
+        // Legacy: loans previously stored as Income with "loan" category.
         $legacyIncomeQuery = Income::with(['project', 'category'])
             ->where('incomes.company_id', $companyId)
             ->whereDate('incomes.date', '<=', $endDate)
+            ->whereDate('incomes.date', '>=', $startDate)
             ->whereHas('category', function ($q) {
                 $q->whereRaw('LOWER(name) LIKE ?', ['%loan%']);
             });
@@ -863,11 +863,7 @@ class ReportController extends Controller
             $legacyIncomeQuery->where('incomes.project_id', $projectId);
         }
 
-        $legacyIncomeQuery->whereDate('incomes.date', '>=', $startDate);
-
-        $legacyIncomes = $legacyIncomeQuery->orderBy('date', 'desc')->get();
-        $legacyRows = $legacyIncomes->map(function ($i) {
-            // Best-effort: infer direction from legacy category name / text.
+        $legacyRows = $legacyIncomeQuery->orderBy('date', 'desc')->get()->map(function ($i) {
             $catNameLower = strtolower($i->category->name ?? '');
             $textLower = strtolower(($i->source ?? '') . ' ' . ($i->description ?? '') . ' ' . ($i->notes ?? ''));
 
@@ -877,10 +873,12 @@ class ReportController extends Controller
                 || str_contains($textLower, 'repay');
 
             return (object) [
+                'row_type' => 'legacy',
                 'loan_date' => $i->date,
                 'direction' => $isRepaid ? 'repaid' : 'received',
                 'amount' => $i->amount,
                 'interest_rate' => 0,
+                'payable_amount' => (float) $i->amount,
                 'party_source' => $i->source ?? ($i->description ?? null),
                 'party_name' => null,
                 'source' => null,
@@ -889,43 +887,97 @@ class ReportController extends Controller
                 'project' => $i->project,
                 'supplier' => null,
                 'staff' => null,
+                'in_expenses' => false,
             ];
         });
 
-        $receivedPayableLoans = $loans->where('direction', 'received')->sum(function ($l) {
-            $principal = (float) ($l->amount ?? 0);
-            $rate = (float) ($l->interest_rate ?? 0);
-            return $principal + ($principal * $rate / 100);
-        });
-        $repaidPayableLoans = $loans->where('direction', 'repaid')->sum(function ($l) {
-            $principal = (float) ($l->amount ?? 0);
-            $rate = (float) ($l->interest_rate ?? 0);
-            return $principal + ($principal * $rate / 100);
+        $loanRows = $loanRecords->map(function ($loan) use ($endCarbon) {
+            $payable = $loan->direction === 'received'
+                ? $this->loanReceivedPayableAsOf($loan, $endCarbon)
+                : (float) ($loan->amount ?? 0);
+
+            return (object) [
+                'row_type' => 'loan',
+                'loan_date' => $loan->loan_date,
+                'direction' => $loan->direction,
+                'amount' => $loan->amount,
+                'interest_rate' => $loan->interest_rate ?? 0,
+                'payable_amount' => $payable,
+                'party_source' => $loan->party_source ?? $loan->party_name ?? $loan->source,
+                'party_name' => $loan->party_name,
+                'source' => $loan->source,
+                'payment_method' => $loan->payment_method,
+                'bankAccount' => $loan->bankAccount,
+                'project' => $loan->project,
+                'supplier' => $loan->supplier,
+                'staff' => $loan->staff,
+                'in_expenses' => $loan->direction === 'repaid',
+                'loan_id' => $loan->id,
+            ];
         });
 
-        $receivedPayableLegacy = $legacyRows->where('direction', 'received')->sum(function ($l) {
-            $principal = (float) ($l->amount ?? 0);
-            $rate = (float) ($l->interest_rate ?? 0);
-            return $principal + ($principal * $rate / 100);
-        });
-        $repaidPayableLegacy = $legacyRows->where('direction', 'repaid')->sum(function ($l) {
-            $principal = (float) ($l->amount ?? 0);
-            $rate = (float) ($l->interest_rate ?? 0);
-            return $principal + ($principal * $rate / 100);
+        $paymentsQuery = LoanPayment::with(['loan.project', 'loan.supplier', 'loan.staff', 'bankAccount'])
+            ->where('company_id', $companyId)
+            ->whereBetween('payment_date', [$startDate, $endDate])
+            ->whereHas('loan', function ($q) {
+                $q->where('direction', 'received');
+            });
+
+        $this->filterByAccessibleProjectsForLoans($paymentsQuery, 'project_id');
+
+        if ($projectId) {
+            $paymentsQuery->where('project_id', $projectId);
+        }
+
+        $paymentRows = $paymentsQuery->orderBy('payment_date', 'desc')->get()->map(function ($payment) {
+            $loan = $payment->loan;
+
+            return (object) [
+                'row_type' => 'payment',
+                'loan_date' => $payment->payment_date,
+                'direction' => 'repayment',
+                'amount' => $payment->amount,
+                'interest_rate' => 0,
+                'payable_amount' => (float) $payment->amount,
+                'party_source' => $loan
+                    ? ($loan->party_source ?? $loan->party_name ?? $loan->source)
+                    : null,
+                'party_name' => $loan?->party_name,
+                'source' => $loan?->source,
+                'payment_method' => $payment->payment_method,
+                'bankAccount' => $payment->bankAccount,
+                'project' => $loan?->project,
+                'supplier' => $loan?->supplier,
+                'staff' => $loan?->staff,
+                'in_expenses' => true,
+                'loan_id' => $payment->loan_id,
+            ];
         });
 
-        $totalReceived = $receivedPayableLoans + $receivedPayableLegacy;
-        $totalRepaid = $repaidPayableLoans + $repaidPayableLegacy;
+        $totalReceived = (float) $loanRecords->where('direction', 'received')->sum(
+            fn ($loan) => $this->loanReceivedPayableAsOf($loan, $endCarbon)
+        );
+        $totalReceived += (float) $legacyRows->where('direction', 'received')->sum('payable_amount');
+
+        $expenseRepaidQuery = Expense::query()
+            ->where('company_id', $companyId)
+            ->whereNotNull('loan_id')
+            ->whereBetween('date', [$startDate, $endDate]);
+
+        $this->filterByAccessibleProjects($expenseRepaidQuery, 'project_id');
+
+        if ($projectId) {
+            $expenseRepaidQuery->where('project_id', $projectId);
+        }
+
+        $totalRepaid = (float) $expenseRepaidQuery->sum('amount');
         $netBalance = $totalReceived - $totalRepaid;
 
-        $mergedRows = collect($loans)->concat($legacyRows)
-            ->sortByDesc(function ($r) {
-                return $r->loan_date ? $r->loan_date->getTimestamp() : 0;
-            })
+        $loans = $loanRows
+            ->concat($paymentRows)
+            ->concat($legacyRows)
+            ->sortByDesc(fn ($r) => $r->loan_date ? $r->loan_date->getTimestamp() : 0)
             ->values();
-
-        // Reuse `$loans` variable name in view.
-        $loans = $mergedRows;
 
         $projects = $this->getAccessibleProjects();
 
@@ -939,5 +991,19 @@ class ReportController extends Controller
             'totalRepaid',
             'netBalance'
         ));
+    }
+
+    /**
+     * Received loan payable = principal + simple interest accrued till as-of date.
+     */
+    private function loanReceivedPayableAsOf(Loan $loan, Carbon $asOf): float
+    {
+        $principal = (float) ($loan->amount ?? 0);
+        $rate = (float) ($loan->interest_rate ?? 0);
+        $loanDate = $loan->loan_date ? Carbon::parse($loan->loan_date)->startOfDay() : null;
+        $days = $loanDate ? max(0, $loanDate->diffInDays($asOf)) : 0;
+        $accruedInterest = $principal * $rate / 100 * ($days / 365);
+
+        return $principal + $accruedInterest;
     }
 }
