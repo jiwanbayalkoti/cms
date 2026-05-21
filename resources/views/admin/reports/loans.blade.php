@@ -6,7 +6,7 @@
 <div class="mb-6 flex justify-between items-center gap-3">
     <div>
         <h1 class="text-3xl font-bold text-gray-900">Loans Report</h1>
-        <p class="mt-2 text-gray-600">Loan taken (received) vs repayments. Repaid/given amounts are synced to <a href="{{ route('admin.expenses.index') }}" class="text-indigo-600 hover:underline">Expenses</a> (same as dashboard).</p>
+        <p class="mt-2 text-gray-600">Loan taken (received) vs repayments. <strong>Given</strong> loans appear in <a href="{{ route('admin.expenses.index') }}" class="text-indigo-600 hover:underline">Expenses</a> only after <strong>approval</strong>.</p>
     </div>
     <a href="{{ route('admin.reports.index') }}" class="btn btn-outline-secondary">
         Back to Reports
@@ -124,6 +124,8 @@
                         <td>
                             @if(!empty($loan->in_expenses))
                                 <span class="badge bg-orange-100 text-orange-800">Yes</span>
+                            @elseif(($loan->direction ?? '') === 'repaid' && empty($loan->is_approved ?? true))
+                                <span class="badge bg-secondary">After approval</span>
                             @else
                                 <span class="text-muted">—</span>
                             @endif

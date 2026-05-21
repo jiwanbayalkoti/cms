@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\Traits\HasProjectAccess;
 use App\Models\BankAccount;
 use App\Models\Category;
 use App\Models\Expense;
+use App\Models\Income;
 use App\Models\Loan;
 use App\Models\LoanPayment;
 use App\Models\Staff;
@@ -18,6 +19,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class LoanController extends Controller
 {
@@ -31,6 +33,9 @@ class LoanController extends Controller
     public function index(Request $request)
     {
         $companyId = CompanyContext::getActiveCompanyId();
+
+        $this->cleanupUnapprovedLoanExpenses($companyId);
+        $this->syncMissingRepaidLoanExpenses($companyId);
 
         // Base query (NO pagination/order here) - used for totals to avoid ONLY_FULL_GROUP_BY errors
         $query = Loan::with(['project', 'supplier', 'staff', 'bankAccount', 'payments', 'payments.bankAccount', 'approvedBy'])
@@ -82,40 +87,43 @@ class LoanController extends Controller
         $allForTotals = (clone $query)->get(['direction', 'amount', 'interest_rate', 'loan_date']);
 
         $totalReceived = 0.0;
-        $totalRepaid = 0.0;
 
-        foreach ($allForTotals as $l) {
+        foreach ($allForTotals->where('direction', 'received')->filter(fn ($l) => $l->isApproved()) as $l) {
             $principal = (float) ($l->amount ?? 0);
             $rate = (float) ($l->interest_rate ?? 0);
             $loanDate = $l->loan_date ? Carbon::parse($l->loan_date)->startOfDay() : null;
             $days = $loanDate ? max(0, $loanDate->diffInDays($endCarbon)) : 0;
 
-            // Received: payable = principal + accrued interest till date
             $accruedInterest = $principal * $rate / 100 * ($days / 365);
-            $payable = $principal + $accruedInterest;
-
-            if ($l->direction === 'repaid') {
-                // Repaid is money out; treat as actual paid amount (no extra accrual)
-                $totalRepaid += $principal;
-            } else {
-                $totalReceived += $payable;
-            }
+            $totalReceived += $principal + $accruedInterest;
         }
 
-        // Pay button payments (loan_payments) — money paid back against taken loans
-        if (!$request->filled('direction') || $request->direction === 'received') {
-            $paymentsQuery = LoanPayment::query()
-                ->where('company_id', $companyId)
-                ->whereBetween('payment_date', [$startDate, $endDate])
-                ->whereHas('loan', function ($q) {
-                    $q->where('direction', 'received');
-                });
-            $this->filterByAccessibleProjectsForLoans($paymentsQuery, 'project_id');
-            if ($request->filled('project_id')) {
-                $paymentsQuery->where('project_id', (int) $request->project_id);
-            }
-            $totalRepaid += (float) $paymentsQuery->sum('amount');
+        // Repaid/given + installment repayments — from linked expenses (matches dashboard & reports).
+        $expenseRepaidQuery = Expense::query()
+            ->where('company_id', $companyId)
+            ->whereNotNull('loan_id')
+            ->whereBetween('date', [$startDate, $endDate])
+            ->whereHas('loan', function ($q) {
+                $q->whereNotNull('approved_at');
+            });
+
+        $this->filterByAccessibleProjects($expenseRepaidQuery, 'project_id');
+
+        if ($request->filled('project_id')) {
+            $expenseRepaidQuery->where('project_id', (int) $request->project_id);
         }
+
+        if ($request->filled('direction') && $request->direction === 'repaid') {
+            $expenseRepaidQuery->whereHas('loan', function ($q) {
+                $q->where('direction', 'repaid');
+            });
+        } elseif ($request->filled('direction') && $request->direction === 'received') {
+            $expenseRepaidQuery->whereHas('loan', function ($q) {
+                $q->where('direction', 'received');
+            });
+        }
+
+        $totalRepaid = (float) $expenseRepaidQuery->sum('amount');
 
         $netBalance = $totalReceived - $totalRepaid;
 
@@ -363,7 +371,15 @@ class LoanController extends Controller
             'updated_by' => auth()->id(),
         ]);
 
-        return redirect()->back()->with('success', 'Loan approved.');
+        $loan = $loan->fresh();
+        $this->syncExpenseFromLoan($loan);
+
+        $message = 'Loan approved.';
+        if ($loan->direction === 'repaid') {
+            $message .= ' Given amount is now included in Expenses and dashboard totals.';
+        }
+
+        return redirect()->back()->with('success', $message);
     }
 
     public function destroy(Loan $loan)
@@ -407,8 +423,11 @@ class LoanController extends Controller
         if ($loan->company_id !== CompanyContext::getActiveCompanyId()) {
             abort(403);
         }
-        if ($loan->direction !== 'received') {
-            return back()->with('error', 'Payments can only be recorded for received loans.');
+        if (! in_array($loan->direction, ['received', 'repaid'], true)) {
+            return back()->with('error', 'Invalid loan direction.');
+        }
+        if (! $loan->isApproved()) {
+            return back()->with('error', 'Loan must be approved before recording payments or returns.');
         }
 
         $validated = $request->validate([
@@ -438,6 +457,13 @@ class LoanController extends Controller
             $outBefore = $loan->outstandingAsOf($payDate);
 
             $amount = (float) $validated['amount'];
+            $totalDue = (float) ($outBefore['total_due'] ?? 0);
+            if ($totalDue > 0 && $amount > $totalDue + 0.01) {
+                return back()->withErrors([
+                    'amount' => 'Amount cannot exceed outstanding due ($' . number_format($totalDue, 2) . ').',
+                ]);
+            }
+
             $interestPay = min((float) $outBefore['interest_due'], $amount);
             $amountAfterInterest = $amount - $interestPay;
             $principalPay = min((float) $outBefore['principal_outstanding'], $amountAfterInterest);
@@ -467,10 +493,19 @@ class LoanController extends Controller
                 ]);
             }
 
-            $this->createExpenseFromLoanPayment($payment, $loan);
+            if ($loan->direction === 'received') {
+                $this->createExpenseFromLoanPayment($payment, $loan);
+            } else {
+                $this->createIncomeFromLoanReturn($payment, $loan);
+            }
 
             DB::commit();
-            return redirect()->route('admin.loans.index')->with('success', 'Payment recorded successfully.');
+
+            $message = $loan->direction === 'repaid'
+                ? 'Loan return recorded successfully. It is now listed in Income.'
+                : 'Payment recorded successfully.';
+
+            return redirect()->route('admin.loans.index')->with('success', $message);
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->with('error', 'Failed to record payment: ' . $e->getMessage());
@@ -508,12 +543,63 @@ class LoanController extends Controller
     }
 
     /**
-     * Keep expenses in sync: repaid (given) loans and payment installments create expense rows.
+     * Remove expense rows linked to loans that are not approved yet.
+     */
+    private function cleanupUnapprovedLoanExpenses(int $companyId): void
+    {
+        if (! Schema::hasColumn('expenses', 'loan_id')) {
+            return;
+        }
+
+        Expense::query()
+            ->where('company_id', $companyId)
+            ->whereNotNull('loan_id')
+            ->whereHas('loan', function ($q) {
+                $q->whereNull('approved_at');
+            })
+            ->delete();
+    }
+
+    /**
+     * Backfill expense rows for approved "Given" (repaid) loans missing an expense entry.
+     */
+    private function syncMissingRepaidLoanExpenses(int $companyId): void
+    {
+        if (! Schema::hasColumn('expenses', 'loan_id')) {
+            return;
+        }
+
+        Loan::query()
+            ->where('company_id', $companyId)
+            ->where('direction', 'repaid')
+            ->whereNotNull('approved_at')
+            ->whereDoesntHave('expense')
+            ->orderBy('id')
+            ->chunkById(50, function ($loans) {
+                foreach ($loans as $loan) {
+                    $this->syncExpenseFromLoan($loan);
+                }
+            });
+    }
+
+    /**
+     * Sync expenses only after loan approval (Given → expense; Taken → payment expenses only).
      */
     private function syncExpenseFromLoan(Loan $loan): void
     {
+        if (! Schema::hasColumn('expenses', 'loan_id')) {
+            return;
+        }
+
+        if (! $loan->isApproved()) {
+            Expense::where('loan_id', $loan->id)->delete();
+
+            return;
+        }
+
         if ($loan->direction === 'repaid') {
             $this->createOrUpdateExpenseFromLoanRepaid($loan);
+
             return;
         }
 
@@ -554,6 +640,10 @@ class LoanController extends Controller
 
     private function createExpenseFromLoanPayment(LoanPayment $payment, Loan $loan): void
     {
+        if (! $loan->isApproved() || $loan->direction !== 'received') {
+            return;
+        }
+
         if (Expense::where('loan_payment_id', $payment->id)->exists()) {
             return;
         }
@@ -569,6 +659,59 @@ class LoanController extends Controller
             'category_id' => $category->id,
             'item_name' => 'Loan Repayment (Installment)',
             'description' => "Repayment against loan taken — Party: {$party}",
+            'amount' => $payment->amount,
+            'date' => $payment->payment_date,
+            'payment_method' => $payment->payment_method,
+            'notes' => $payment->notes,
+            'created_by' => auth()->id(),
+        ]);
+    }
+
+    private function getOrCreateLoanReturnCategory(int $companyId): Category
+    {
+        $category = Category::where('company_id', $companyId)
+            ->where('type', 'income')
+            ->where('name', 'Loan Return')
+            ->first();
+
+        if (! $category) {
+            $category = Category::create([
+                'company_id' => $companyId,
+                'name' => 'Loan Return',
+                'type' => 'income',
+                'description' => 'Money returned against loans given',
+                'is_active' => true,
+            ]);
+        }
+
+        return $category;
+    }
+
+    private function createIncomeFromLoanReturn(LoanPayment $payment, Loan $loan): void
+    {
+        if (! $loan->isApproved() || $loan->direction !== 'repaid') {
+            return;
+        }
+
+        if (! Schema::hasColumn('incomes', 'loan_id')) {
+            return;
+        }
+
+        if (Income::where('loan_payment_id', $payment->id)->exists()) {
+            return;
+        }
+
+        $category = $this->getOrCreateLoanReturnCategory((int) $loan->company_id);
+        $party = $this->loanPartyLabel($loan);
+
+        Income::create([
+            'company_id' => $loan->company_id,
+            'project_id' => $loan->project_id,
+            'loan_id' => $loan->id,
+            'loan_payment_id' => $payment->id,
+            'category_id' => $category->id,
+            'source' => 'Loan Return (Given)',
+            'description' => "Return against loan given — Party: {$party}",
             'amount' => $payment->amount,
             'date' => $payment->payment_date,
             'payment_method' => $payment->payment_method,

@@ -43,6 +43,11 @@ class LoanPayment extends Model
         return $this->hasOne(Expense::class);
     }
 
+    public function income()
+    {
+        return $this->hasOne(Income::class);
+    }
+
     public function bankAccount()
     {
         return $this->belongsTo(BankAccount::class, 'bank_account_id');

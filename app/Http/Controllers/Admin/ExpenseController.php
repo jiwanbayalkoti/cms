@@ -112,32 +112,11 @@ class ExpenseController extends Controller
         
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
-            $expensesData = $expenses->map(function($expense) {
-                $typeName = '';
-                $typeClass = 'bg-gray-100 text-gray-800';
-                
-                if ($expense->constructionMaterial) {
-                    $typeName = 'Purchase';
-                    $typeClass = 'bg-blue-100 text-blue-800';
-                } elseif ($expense->advancePayment) {
-                    $typeName = 'Advance';
-                    $typeClass = 'bg-yellow-100 text-yellow-800';
-                } elseif ($expense->vehicleRent) {
-                    $typeName = 'Vehicle rent';
-                    $typeClass = 'bg-purple-100 text-purple-800';
-                } elseif ($expense->loan_id) {
-                    $typeName = 'Loan repayment';
-                    $typeClass = 'bg-orange-100 text-orange-800';
-                } elseif ($expense->subcontractor) {
-                    $typeName = 'Sub-contractor';
-                    $typeClass = 'bg-teal-100 text-teal-800';
-                } elseif ($expense->expenseType) {
-                    $typeName = $expense->expenseType->name;
-                    $typeClass = 'bg-gray-100 text-gray-800';
-                } else {
-                    $typeName = 'N/A';
-                }
-                
+            $expensesData = $expenses->map(function ($expense) {
+                $badge = $expense->listTypeBadge();
+                $typeName = $badge['name'];
+                $typeClass = $badge['class'];
+
                 return [
                     'id' => $expense->id,
                     'date' => $expense->date->format('M d, Y'),
@@ -154,6 +133,10 @@ class ExpenseController extends Controller
                     'has_construction_material' => $expense->constructionMaterial ? true : false,
                     'has_advance_payment' => $expense->advancePayment ? true : false,
                     'has_loan' => $expense->loan_id ? true : false,
+                    'has_loan_given' => $expense->isLoanGivenExpense(),
+                    'loan_link_label' => $expense->loan_id
+                        ? ($expense->isLoanGivenExpense() ? 'Linked to Loan Given' : 'Linked to Loan Repayment')
+                        : null,
                 ];
             });
             
@@ -404,28 +387,16 @@ class ExpenseController extends Controller
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
-            $typeName = '';
-            if ($expense->constructionMaterial) {
-                $typeName = 'Purchase';
-            } elseif ($expense->advancePayment) {
-                $typeName = 'Advance';
-            } elseif ($expense->vehicleRent) {
-                $typeName = 'Vehicle rent';
-            } elseif ($expense->loan_id) {
-                $typeName = 'Loan repayment';
-            } elseif ($expense->expenseType) {
-                $typeName = $expense->expenseType->name;
-            } else {
-                $typeName = 'N/A';
-            }
-            
+            $badge = $expense->listTypeBadge();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Expense record created successfully.',
                 'expense' => [
                     'id' => $expense->id,
                     'date' => $expense->date->format('M d, Y'),
-                    'type_name' => $typeName,
+                    'type_name' => $badge['name'],
+                    'type_class' => $badge['class'],
                     'item_name' => $expense->item_name,
                     'description' => $expense->description,
                     'amount' => number_format($expense->amount, 2),
@@ -459,21 +430,8 @@ class ExpenseController extends Controller
         
         // Return JSON only when AJAX and expects JSON (view modal); normal browser visit gets HTML
         if (request()->ajax() && request()->wantsJson()) {
-            $typeName = '';
-            if ($expense->constructionMaterial) {
-                $typeName = 'Purchase';
-            } elseif ($expense->advancePayment) {
-                $typeName = 'Advance';
-            } elseif ($expense->vehicleRent) {
-                $typeName = 'Vehicle rent';
-            } elseif ($expense->loan_id) {
-                $typeName = 'Loan repayment';
-            } elseif ($expense->expenseType) {
-                $typeName = $expense->expenseType->name;
-            } else {
-                $typeName = 'N/A';
-            }
-            
+            $typeName = $expense->listTypeBadge()['name'];
+
             $imageUrls = [];
             if ($expense->images) {
                 foreach ($expense->images as $image) {
@@ -669,28 +627,16 @@ class ExpenseController extends Controller
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
-            $typeName = '';
-            if ($expense->constructionMaterial) {
-                $typeName = 'Purchase';
-            } elseif ($expense->advancePayment) {
-                $typeName = 'Advance';
-            } elseif ($expense->vehicleRent) {
-                $typeName = 'Vehicle rent';
-            } elseif ($expense->loan_id) {
-                $typeName = 'Loan repayment';
-            } elseif ($expense->expenseType) {
-                $typeName = $expense->expenseType->name;
-            } else {
-                $typeName = 'N/A';
-            }
-            
+            $badge = $expense->listTypeBadge();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Expense record updated successfully.',
                 'expense' => [
                     'id' => $expense->id,
                     'date' => $expense->date->format('M d, Y'),
-                    'type_name' => $typeName,
+                    'type_name' => $badge['name'],
+                    'type_class' => $badge['class'],
                     'item_name' => $expense->item_name,
                     'description' => $expense->description,
                     'amount' => number_format($expense->amount, 2),
@@ -781,28 +727,16 @@ class ExpenseController extends Controller
 
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
-            $typeName = '';
-            if ($newExpense->constructionMaterial) {
-                $typeName = 'Purchase';
-            } elseif ($newExpense->advancePayment) {
-                $typeName = 'Advance';
-            } elseif ($newExpense->vehicleRent) {
-                $typeName = 'Vehicle rent';
-            } elseif ($newExpense->loan_id) {
-                $typeName = 'Loan repayment';
-            } elseif ($newExpense->expenseType) {
-                $typeName = $newExpense->expenseType->name;
-            } else {
-                $typeName = 'N/A';
-            }
-            
+            $badge = $newExpense->listTypeBadge();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Expense record duplicated successfully.',
                 'expense' => [
                     'id' => $newExpense->id,
                     'date' => $newExpense->date->format('M d, Y'),
-                    'type_name' => $typeName,
+                    'type_name' => $badge['name'],
+                    'type_class' => $badge['class'],
                     'item_name' => $newExpense->item_name,
                     'description' => $newExpense->description,
                     'amount' => number_format($newExpense->amount, 2),

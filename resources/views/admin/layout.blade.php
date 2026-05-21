@@ -1895,11 +1895,20 @@
                     scriptsToExecute.push(newScript);
                 });
                 
-                // Also extract modals that might be outside #page-content
+                // Also extract modals from modals stack / body (outside #page-content)
+                const modalIdsToReplace = [
+                    'loanCrudModal', 'loanPaymentModal', 'loanDeleteConfirmModal'
+                ];
+                modalIdsToReplace.forEach(function(id) {
+                    const existing = document.getElementById(id);
+                    if (existing) {
+                        existing.remove();
+                    }
+                });
+
                 const modals = doc.querySelectorAll('[id$="Modal"], [id$="ConfirmationModal"]');
                 let modalsHtml = '';
                 modals.forEach(modal => {
-                    // Check if modal doesn't already exist in the document
                     if (!document.getElementById(modal.id)) {
                         modalsHtml += modal.outerHTML;
                     }
@@ -2301,8 +2310,9 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.20.0/dist/jquery.validate.min.js"></script>
-    @stack('scripts')
+    @stack('modals')
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    @stack('scripts')
     <script src="{{ asset('js/form-validation.js') }}"></script>
 </body>
 </html>

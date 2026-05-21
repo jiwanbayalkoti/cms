@@ -108,6 +108,18 @@
     let expenseSortColumn = @json($sortColumn ?? request('sort', 'date'));
     let expenseSortDirection = @json($sortDir ?? request('direction', 'desc'));
 
+    function expenseTypeBadgeClass(typeName) {
+        const map = {
+            'Purchase': 'bg-blue-100 text-blue-800',
+            'Advance': 'bg-yellow-100 text-yellow-800',
+            'Vehicle rent': 'bg-purple-100 text-purple-800',
+            'Loan Given': 'bg-red-100 text-red-800',
+            'Loan repayment': 'bg-orange-100 text-orange-800',
+            'Sub-contractor': 'bg-teal-100 text-teal-800',
+        };
+        return map[typeName] || 'bg-gray-100 text-gray-800';
+    }
+
     function sortExpenses(column) {
         if (expenseSortColumn === column) {
             expenseSortDirection = expenseSortDirection === 'asc' ? 'desc' : 'asc';
@@ -243,7 +255,7 @@
                         <div class="text-sm font-medium text-gray-900">${itemName}</div>
                         ${expense.has_construction_material ? '<div class="text-xs text-indigo-600 mt-1"><i class="bi bi-link-45deg"></i> Linked to Material Purchase</div>' : ''}
                         ${expense.has_advance_payment ? '<div class="text-xs text-purple-600 mt-1"><i class="bi bi-link-45deg"></i> Linked to Advance Payment</div>' : ''}
-                        ${expense.has_loan ? '<div class="text-xs text-orange-600 mt-1"><i class="bi bi-link-45deg"></i> Linked to Loan Repayment</div>' : ''}
+                        ${expense.has_loan ? `<div class="text-xs ${expense.has_loan_given ? 'text-red-600' : 'text-orange-600'} mt-1"><i class="bi bi-link-45deg"></i> ${expense.loan_link_label || 'Linked to Loan'}</div>` : ''}
                         ${expense.has_subcontractor ? '<div class="text-xs text-teal-600 mt-1"><i class="bi bi-link-45deg"></i> Sub-contractor payment</div>' : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -574,34 +586,9 @@
                             <div class="text-sm text-gray-900">{{ $expense->date->format('M d, Y') }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            @php
-                                $typeName = '';
-                                $typeClass = 'bg-gray-100 text-gray-800';
-                                
-                                if ($expense->constructionMaterial) {
-                                    $typeName = 'Purchase';
-                                    $typeClass = 'bg-blue-100 text-blue-800';
-                                } elseif ($expense->advancePayment) {
-                                    $typeName = 'Advance';
-                                    $typeClass = 'bg-yellow-100 text-yellow-800';
-                                } elseif ($expense->vehicleRent) {
-                                    $typeName = 'Vehicle rent';
-                                    $typeClass = 'bg-purple-100 text-purple-800';
-                                } elseif ($expense->loan_id) {
-                                    $typeName = 'Loan repayment';
-                                    $typeClass = 'bg-orange-100 text-orange-800';
-                                } elseif ($expense->subcontractor) {
-                                    $typeName = 'Sub-contractor';
-                                    $typeClass = 'bg-teal-100 text-teal-800';
-                                } elseif ($expense->expenseType) {
-                                    $typeName = $expense->expenseType->name;
-                                    $typeClass = 'bg-gray-100 text-gray-800';
-                                } else {
-                                    $typeName = 'N/A';
-                                }
-                            @endphp
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $typeClass }}">
-                                {{ $typeName }}
+                            @php $typeBadge = $expense->listTypeBadge(); @endphp
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $typeBadge['class'] }}">
+                                {{ $typeBadge['name'] }}
                             </span>
                         </td>
                         <td class="px-6 py-4">
@@ -1468,12 +1455,8 @@ function addExpenseRow(expense) {
         emptyRow.closest('tr').remove();
     }
     
-    const typeClass = expense.type_name === 'Purchase' ? 'bg-blue-100 text-blue-800' :
-                     expense.type_name === 'Advance' ? 'bg-yellow-100 text-yellow-800' :
-                     expense.type_name === 'Vehicle rent' ? 'bg-purple-100 text-purple-800' :
-                     expense.type_name === 'Loan repayment' ? 'bg-orange-100 text-orange-800' :
-                     'bg-gray-100 text-gray-800';
-    
+    const typeClass = expense.type_class || expenseTypeBadgeClass(expense.type_name);
+
     const row = document.createElement('tr');
     row.setAttribute('data-expense-id', expense.id);
     row.innerHTML = `
@@ -1525,12 +1508,8 @@ function addExpenseRow(expense) {
 function updateExpenseRow(expense) {
     const row = document.querySelector(`tr[data-expense-id="${expense.id}"]`);
     if (row) {
-        const typeClass = expense.type_name === 'Purchase' ? 'bg-blue-100 text-blue-800' :
-                         expense.type_name === 'Advance' ? 'bg-yellow-100 text-yellow-800' :
-                         expense.type_name === 'Vehicle rent' ? 'bg-purple-100 text-purple-800' :
-                         expense.type_name === 'Loan repayment' ? 'bg-orange-100 text-orange-800' :
-                         'bg-gray-100 text-gray-800';
-        
+        const typeClass = expense.type_class || expenseTypeBadgeClass(expense.type_name);
+
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm text-gray-900">${expense.date}</div>

@@ -911,7 +911,8 @@ class ReportController extends Controller
                 'project' => $loan->project,
                 'supplier' => $loan->supplier,
                 'staff' => $loan->staff,
-                'in_expenses' => $loan->direction === 'repaid',
+                'in_expenses' => $loan->direction === 'repaid' && $loan->isApproved(),
+                'is_approved' => $loan->isApproved(),
                 'loan_id' => $loan->id,
             ];
         });
@@ -920,7 +921,7 @@ class ReportController extends Controller
             ->where('company_id', $companyId)
             ->whereBetween('payment_date', [$startDate, $endDate])
             ->whereHas('loan', function ($q) {
-                $q->where('direction', 'received');
+                $q->where('direction', 'received')->whereNotNull('approved_at');
             });
 
         $this->filterByAccessibleProjectsForLoans($paymentsQuery, 'project_id');
@@ -949,20 +950,25 @@ class ReportController extends Controller
                 'project' => $loan?->project,
                 'supplier' => $loan?->supplier,
                 'staff' => $loan?->staff,
-                'in_expenses' => true,
+                'in_expenses' => $loan && $loan->isApproved(),
+                'is_approved' => $loan ? $loan->isApproved() : false,
                 'loan_id' => $payment->loan_id,
             ];
         });
 
-        $totalReceived = (float) $loanRecords->where('direction', 'received')->sum(
-            fn ($loan) => $this->loanReceivedPayableAsOf($loan, $endCarbon)
-        );
+        $totalReceived = (float) $loanRecords
+            ->where('direction', 'received')
+            ->filter(fn ($loan) => $loan->isApproved())
+            ->sum(fn ($loan) => $this->loanReceivedPayableAsOf($loan, $endCarbon));
         $totalReceived += (float) $legacyRows->where('direction', 'received')->sum('payable_amount');
 
         $expenseRepaidQuery = Expense::query()
             ->where('company_id', $companyId)
             ->whereNotNull('loan_id')
-            ->whereBetween('date', [$startDate, $endDate]);
+            ->whereBetween('date', [$startDate, $endDate])
+            ->whereHas('loan', function ($q) {
+                $q->whereNotNull('approved_at');
+            });
 
         $this->filterByAccessibleProjects($expenseRepaidQuery, 'project_id');
 

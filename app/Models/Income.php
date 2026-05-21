@@ -14,6 +14,8 @@ class Income extends Model
     protected $fillable = [
         'company_id',
         'project_id',
+        'loan_id',
+        'loan_payment_id',
         'category_id',
         'subcategory_id',
         'source',
@@ -45,6 +47,16 @@ class Income extends Model
     public function subcategory()
     {
         return $this->belongsTo(Subcategory::class);
+    }
+
+    public function loan()
+    {
+        return $this->belongsTo(Loan::class);
+    }
+
+    public function loanPayment()
+    {
+        return $this->belongsTo(LoanPayment::class);
     }
 
     public function company()

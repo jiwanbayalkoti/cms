@@ -89,7 +89,8 @@
         <div class="text-2xl font-bold text-green-600">${{ number_format($totalReceived ?? 0, 2) }}</div>
     </div>
     <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Total Repaid</div>
+        <div class="text-sm text-muted">Total Repaid (Expenses)</div>
+        <div class="text-xs text-muted">Approved given loans + repayments</div>
         <div class="text-2xl font-bold text-red-600">${{ number_format($totalRepaid ?? 0, 2) }}</div>
     </div>
     <div class="bg-white border rounded-lg p-4">
@@ -171,13 +172,15 @@
                         $rate = (float) ($loan->interest_rate ?? 0);
                         $loanDate = $loan->loan_date ? \Carbon\Carbon::parse($loan->loan_date)->startOfDay() : null;
                         $endDateForCalc = isset($endDate) && $endDate ? \Carbon\Carbon::parse($endDate)->endOfDay() : now();
-                        $outstanding = $loan->direction === 'received'
+                        $isApproved = $loan->isApproved();
+                        $outstanding = ($loan->direction === 'received' || ($loan->direction === 'repaid' && $isApproved))
                             ? $loan->outstandingAsOf($endDateForCalc)
                             : null;
-                        $interestAmount = $loan->direction === 'received' ? (float) ($outstanding['interest_due'] ?? 0) : 0.0;
-                        $payableAmount = $loan->direction === 'received' ? (float) ($outstanding['total_due'] ?? 0) : $principal;
+                        $interestAmount = $outstanding ? (float) ($outstanding['interest_due'] ?? 0) : 0.0;
+                        $payableAmount = $outstanding
+                            ? (float) ($outstanding['total_due'] ?? 0)
+                            : ($loan->direction === 'received' ? $principal : 0.0);
                         $isClosed = (bool) ($loan->is_closed ?? false) || (bool) ($outstanding['is_closed'] ?? false);
-                        $isApproved = $loan->isApproved();
                         $partyLabel =
                             $loan->party_source
                                 ?? $loan->party_name
@@ -216,6 +219,9 @@
                                 @endif
                             @else
                                 <span class="badge bg-danger">Given</span>
+                                @if($isClosed)
+                                    <span class="badge bg-secondary ms-1">Closed</span>
+                                @endif
                             @endif
                         </td>
                         <td>
@@ -231,7 +237,7 @@
                         </td>
                         <td class="text-end">{{ number_format($rate, 2) }}%</td>
                         <td class="text-end">
-                            @if($loan->direction === 'received')
+                            @if($outstanding)
                                 ${{ number_format($interestAmount, 2) }}
                             @else
                                 ${{ number_format(0, 2) }}
@@ -240,6 +246,9 @@
                         <td class="text-end">
                             @if($loan->direction === 'received')
                                 <span class="text-success fw-bold">${{ number_format($payableAmount, 2) }}</span>
+                            @elseif($isApproved && $outstanding)
+                                <span class="text-danger fw-bold">${{ number_format((float) ($outstanding['principal_outstanding'] ?? 0), 2) }}</span>
+                                <div class="text-muted small">Outstanding</div>
                             @else
                                 <span class="text-danger fw-bold">${{ number_format($principal, 2) }}</span>
                             @endif
@@ -267,10 +276,20 @@
                                     <button type="button"
                                             class="btn btn-sm btn-primary loan-pay-btn"
                                             data-loan-id="{{ $loan->id }}"
-                                            data-party-label="{{ $partyLabel }}"
-                                            onclick="openLoanPaymentModal({{ $loan->id }}, @js($partyLabel), event)"
-                                            title="Pay">
+                                            data-party-label="{{ e($partyLabel) }}"
+                                            data-payment-mode="payment"
+                                            title="Record payment">
                                         <i class="bi bi-cash-coin"></i>
+                                    </button>
+                                @endif
+                                @if($loan->direction === 'repaid' && !$isClosed && $isApproved)
+                                    <button type="button"
+                                            class="btn btn-sm btn-success loan-return-btn"
+                                            data-loan-id="{{ $loan->id }}"
+                                            data-party-label="{{ e($partyLabel) }}"
+                                            data-payment-mode="return"
+                                            title="Record return">
+                                        <i class="bi bi-arrow-return-left"></i>
                                     </button>
                                 @endif
                                 @if(!$isApproved)
@@ -294,46 +313,70 @@
                     <tr class="bg-light loan-payments-row">
                         <td colspan="12" class="p-0">
                             <div id="{{ $paymentCollapseId }}" class="loan-payments-collapse d-none p-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="fw-bold">Payments</div>
+                                @php
+                                    $payments = $loan->payments ?? collect();
+                                    $paymentsTotal = (float) $payments->sum('amount');
+                                    $isGivenLoan = $loan->direction === 'repaid';
+                                    $historyTitle = $isGivenLoan ? 'Return history' : 'Payment history';
+                                    $amountColLabel = $isGivenLoan ? 'Return amount' : 'Paid amount';
+                                @endphp
+                                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                    <div>
+                                        <div class="fw-bold">{{ $historyTitle }}</div>
+                                        @if($isGivenLoan && $isApproved)
+                                            <div class="text-muted small">Given: ${{ number_format($principal, 2) }}
+                                                @if($payments->isNotEmpty())
+                                                    · Returned: ${{ number_format($paymentsTotal, 2) }}
+                                                    @if($outstanding)
+                                                        · Still due: ${{ number_format((float) ($outstanding['total_due'] ?? 0), 2) }}
+                                                    @endif
+                                                @endif
+                                            </div>
+                                        @elseif(!$isGivenLoan && $payments->isNotEmpty())
+                                            <div class="text-muted small">Total paid: ${{ number_format($paymentsTotal, 2) }}</div>
+                                        @endif
+                                    </div>
                                     <div class="text-muted small">Click row again to hide</div>
                                 </div>
 
-                                @if($loan->direction !== 'received')
-                                    <div class="text-muted">Payments history is only for received loans.</div>
+                                @if($isGivenLoan && !$isApproved)
+                                    <div class="text-muted">Approve this given loan to record and view returns here.</div>
+                                @elseif($payments->isEmpty())
+                                    <div class="text-muted">{{ $isGivenLoan ? 'No returns recorded yet.' : 'No payments recorded yet.' }}</div>
                                 @else
-                                    @php
-                                        $payments = $loan->payments ?? collect();
-                                    @endphp
-
-                                    @if($payments->isEmpty())
-                                        <div class="text-muted">No payments recorded yet.</div>
-                                    @else
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-bordered mb-0">
-                                                <thead class="table-secondary">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered mb-0">
+                                            <thead class="table-secondary">
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th class="text-end">{{ $amountColLabel }}</th>
+                                                    <th class="text-end">Interest</th>
+                                                    <th class="text-end">Principal</th>
+                                                    <th>Method</th>
+                                                    <th>Notes</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($payments as $p)
                                                     <tr>
-                                                        <th>Date</th>
-                                                        <th class="text-end">Paid Amount</th>
-                                                        <th class="text-end">Interest Paid</th>
-                                                        <th class="text-end">Principal Paid</th>
-                                                        <th>Notes</th>
+                                                        <td>{{ $p->payment_date ? \Carbon\Carbon::parse($p->payment_date)->format('M d, Y') : '—' }}</td>
+                                                        <td class="text-end fw-semibold {{ $isGivenLoan ? 'text-success' : '' }}">${{ number_format((float) $p->amount, 2) }}</td>
+                                                        <td class="text-end">${{ number_format((float) ($p->interest_paid ?? 0), 2) }}</td>
+                                                        <td class="text-end">${{ number_format((float) ($p->principal_paid ?? 0), 2) }}</td>
+                                                        <td>{{ $p->payment_method ? ucfirst(str_replace('_', ' ', $p->payment_method)) : '—' }}</td>
+                                                        <td>{{ $p->notes ?? '—' }}</td>
                                                     </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @foreach($payments as $p)
-                                                        <tr>
-                                                            <td>{{ $p->payment_date ? \Carbon\Carbon::parse($p->payment_date)->format('M d, Y') : '—' }}</td>
-                                                            <td class="text-end">${{ number_format((float) $p->amount, 2) }}</td>
-                                                            <td class="text-end">${{ number_format((float) ($p->interest_paid ?? 0), 2) }}</td>
-                                                            <td class="text-end">${{ number_format((float) ($p->principal_paid ?? 0), 2) }}</td>
-                                                            <td>{{ $p->notes ?? '—' }}</td>
-                                                        </tr>
-                                                    @endforeach
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    @endif
+                                                @endforeach
+                                            </tbody>
+                                            <tfoot class="table-light">
+                                                <tr>
+                                                    <th>Total</th>
+                                                    <th class="text-end">${{ number_format($paymentsTotal, 2) }}</th>
+                                                    <th colspan="4"></th>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
                                 @endif
                             </div>
                         </td>
@@ -350,7 +393,9 @@
         <x-pagination :paginator="$loans" wrapper-class="mt-0" />
     </div>
 </div>
+@endsection
 
+@push('modals')
 <!-- Add/Edit Loan Modal -->
 <div class="modal fade" id="loanCrudModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -437,7 +482,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Record Loan Payment</h5>
+                <h5 class="modal-title" id="loanPaymentModalTitle">Record Loan Payment</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -448,10 +493,10 @@
                         <div class="col-md-4"><strong>Interest Due:</strong> $<span id="loanOutstandingInterest">0.00</span></div>
                         <div class="col-md-4"><strong>Total Due:</strong> $<span id="loanOutstandingTotal">0.00</span></div>
                     </div>
-                    <div class="text-muted small mt-2">Payment allocation: Interest first, then Principal. If fully paid, loan will be closed.</div>
+                    <div class="text-muted small mt-2" id="loanPaymentModalHelp">Payment allocation: Interest first, then Principal. If fully paid, loan will be closed.</div>
                 </div>
 
-                <form method="POST" id="loanPaymentForm">
+                <form method="POST" id="loanPaymentForm" action="#">
                     @csrf
                     <div class="row g-3">
                         <div class="col-md-4">
@@ -491,7 +536,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="submitLoanPayment()">Save Payment</button>
+                <button type="button" class="btn btn-primary" id="loanPaymentModalSubmitBtn" onclick="submitLoanPayment()">Save Payment</button>
             </div>
         </div>
     </div>
@@ -517,6 +562,7 @@
         </div>
     </div>
 </div>
+@endpush
 
 @push('scripts')
 <script>
@@ -548,7 +594,14 @@
         loanPaymentModalEl = document.getElementById('loanPaymentModal');
         loanPaymentPartyEl = document.getElementById('loanPaymentParty');
         loanPaymentFormEl = document.getElementById('loanPaymentForm');
-        return !!(loanPaymentModalEl && loanPaymentPartyEl && loanPaymentFormEl);
+        return !!(loanPaymentModalEl && loanPaymentFormEl);
+    }
+
+    function ensureLoanPaymentModalInBody() {
+        const modal = document.getElementById('loanPaymentModal');
+        if (modal && modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
     }
 
     function resolveLoanCrudElements() {
@@ -589,6 +642,10 @@
         if (evt) {
             evt.preventDefault();
             evt.stopPropagation();
+        }
+        const crudModal = document.getElementById('loanCrudModal');
+        if (crudModal && crudModal.parentElement !== document.body) {
+            document.body.appendChild(crudModal);
         }
         const { modalEl, formEl, errorsEl, titleEl, saveBtn } = resolveLoanCrudElements();
         if (!modalEl || !formEl) return;
@@ -758,19 +815,62 @@
         applyLoanFilters(null, true);
     }
 
-    function openLoanPaymentModal(loanId, partyLabel, evt) {
+    let loanPaymentMode = 'payment';
+    const loanPaymentStoreUrlBase = @json(url('/admin/loans'));
+
+    window.openLoanPaymentModal = function openLoanPaymentModal(loanId, partyLabel, evt, mode = 'payment') {
         if (evt) {
             evt.preventDefault();
             evt.stopPropagation();
         }
-        // Re-resolve on every open to handle re-rendered DOM states safely.
+
+        ensureLoanPaymentModalInBody();
+
         if (!resolveLoanPaymentElements()) {
+            console.error('Loan payment modal not found in DOM.');
             return;
         }
 
+        const waitForBootstrap = (attempt, cb) => {
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                cb();
+                return;
+            }
+            if (attempt > 40) {
+                console.error('Bootstrap Modal not available.');
+                return;
+            }
+            setTimeout(() => waitForBootstrap(attempt + 1, cb), 50);
+        };
+
+        waitForBootstrap(0, function () {
+        loanPaymentMode = mode === 'return' ? 'return' : 'payment';
         currentLoanId = loanId;
-        loanPaymentPartyEl.textContent = partyLabel || '—';
-        loanPaymentFormEl.action = `/admin/loans/${loanId}/payments`;
+        if (loanPaymentPartyEl) {
+            loanPaymentPartyEl.textContent = partyLabel || '—';
+        }
+        loanPaymentFormEl.action = `${loanPaymentStoreUrlBase}/${loanId}/payments`;
+
+        const titleEl = document.getElementById('loanPaymentModalTitle');
+        const helpEl = document.getElementById('loanPaymentModalHelp');
+        const submitBtn = document.getElementById('loanPaymentModalSubmitBtn');
+        if (loanPaymentMode === 'return') {
+            if (titleEl) titleEl.textContent = 'Record Loan Return';
+            if (helpEl) helpEl.textContent = 'Money returned against a given loan. Interest is applied first, then principal. Full return closes the loan and adds an Income entry.';
+            if (submitBtn) {
+                submitBtn.textContent = 'Save Return';
+                submitBtn.classList.remove('btn-primary');
+                submitBtn.classList.add('btn-success');
+            }
+        } else {
+            if (titleEl) titleEl.textContent = 'Record Loan Payment';
+            if (helpEl) helpEl.textContent = 'Payment allocation: Interest first, then Principal. If fully paid, loan will be closed.';
+            if (submitBtn) {
+                submitBtn.textContent = 'Save Payment';
+                submitBtn.classList.remove('btn-success');
+                submitBtn.classList.add('btn-primary');
+            }
+        }
 
         // Always recreate fresh modal instance to prevent stale transition state
         // after multiple opens.
@@ -792,6 +892,7 @@
         loanPaymentModalInstance.show();
 
         refreshLoanOutstanding();
+        });
     }
 
     function refreshLoanOutstanding() {
@@ -799,7 +900,7 @@
         const dateEl = document.querySelector('#loanPaymentForm input[name="payment_date"]');
         const asOf = dateEl?.value || '{{ date('Y-m-d') }}';
 
-        fetch(`/admin/loans/${currentLoanId}/outstanding?as_of=${encodeURIComponent(asOf)}`, {
+        fetch(`${loanPaymentStoreUrlBase}/${currentLoanId}/outstanding?as_of=${encodeURIComponent(asOf)}`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         })
         .then(r => r.json())
@@ -878,6 +979,24 @@
         }
     }
 
+    if (!window.__loanPaymentActionClickBound) {
+        window.__loanPaymentActionClickBound = true;
+        document.addEventListener('click', function(e) {
+            const actionBtn = e.target.closest('.loan-pay-btn, .loan-return-btn');
+            if (!actionBtn) {
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            const loanId = actionBtn.getAttribute('data-loan-id');
+            const partyLabel = actionBtn.getAttribute('data-party-label') || '';
+            const mode = actionBtn.getAttribute('data-payment-mode') || 'payment';
+            if (loanId) {
+                openLoanPaymentModal(loanId, partyLabel, e, mode);
+            }
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         resolveLoanPaymentElements();
         resolveLoanCrudElements();
@@ -919,5 +1038,4 @@
     });
 </script>
 @endpush
-@endsection
 
