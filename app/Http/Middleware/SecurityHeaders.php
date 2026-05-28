@@ -17,11 +17,13 @@ class SecurityHeaders
     {
         $response = $next($request);
 
+        $allowEmbed = $request->routeIs('admin.tax-invoices.print');
+
         // X-Content-Type-Options: Prevent MIME type sniffing
         $response->headers->set('X-Content-Type-Options', 'nosniff');
 
-        // X-Frame-Options: Prevent clickjacking
-        $response->headers->set('X-Frame-Options', 'DENY');
+        // X-Frame-Options: Prevent clickjacking (allow same-origin embed for tax invoice print preview)
+        $response->headers->set('X-Frame-Options', $allowEmbed ? 'SAMEORIGIN' : 'DENY');
 
         // X-XSS-Protection: Enable XSS filtering
         $response->headers->set('X-XSS-Protection', '1; mode=block');
@@ -51,7 +53,7 @@ class SecurityHeaders
                "font-src 'self' https://fonts.bunny.net https://cdnjs.cloudflare.com data:; " .
                "img-src 'self' data: blob: https: http:; " .
                "connect-src 'self' https://cdn.jsdelivr.net; " .
-               "frame-ancestors 'none';";
+               'frame-ancestors '.($allowEmbed ? "'self'" : "'none'").';';
         
         $response->headers->set('Content-Security-Policy', $csp);
 

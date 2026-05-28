@@ -1,0 +1,79 @@
+* { box-sizing: border-box; }
+body.embed-preview { margin: 0; padding: 0; font-family: Arial, 'Segoe UI', 'Noto Sans Devanagari', sans-serif; font-size: 12px; color: #111; background: #fff; }
+.vat-sheet { max-width: 210mm; margin: 0 auto; background: var(--vat-accent, #f8d7da); padding: 8mm; box-shadow: 0 2px 12px rgba(0,0,0,.15); }
+.vat-bill { background: #fff; border: 2px solid #333; padding: 6mm; }
+.vat-header-np { text-align: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #333; }
+.vat-title { font-size: 20px; font-weight: bold; margin: 0; letter-spacing: 0.5px; }
+.vat-title-sub { font-size: 10px; margin: 2px 0 10px; color: #333; }
+.vat-header-logo { max-height: 52px; max-width: 90px; margin: 4px auto 8px; display: block; }
+.vat-company-name-np { font-size: 17px; font-weight: 800; line-height: 1.35; margin: 0 auto 4px; max-width: 95%; text-align: center; }
+.vat-company-address-np { font-size: 12px; margin: 0 auto 10px; max-width: 95%; line-height: 1.35; }
+.vat-header-meta { width: 100%; max-width: 520px; margin: 8px auto 0; border-collapse: collapse; text-align: center; }
+.vat-header-meta-left, .vat-header-meta-right { width: 50%; vertical-align: top; padding: 4px 8px; text-align: center; }
+.vat-pan-label { font-size: 10px; font-weight: 600; margin-bottom: 4px; text-align: center; }
+.vat-header-meta .pan-boxes { justify-content: center; }
+.vat-date-table { width: 100%; font-size: 11px; border-collapse: collapse; margin: 0 auto; }
+.vat-date-table .label { font-weight: 600; white-space: nowrap; padding: 2px 6px; text-align: right; }
+.vat-date-table .value { padding: 2px 6px; text-align: left; }
+.vat-buyer-table { margin-top: 6px; }
+.vat-meta-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 11px; }
+.vat-meta-table td { padding: 3px 4px; vertical-align: top; border: none; }
+.vat-meta-table .label { white-space: nowrap; font-weight: 600; width: 1%; }
+.pan-boxes { display: inline-flex; gap: 2px; }
+.pan-box { display: inline-block; width: 14px; height: 18px; border: 1px solid #333; text-align: center; line-height: 16px; font-size: 11px; font-weight: bold; }
+.pay-opt { margin-right: 10px; font-size: 10px; }
+.vat-items { width: 100%; border-collapse: collapse; font-size: 11px; }
+.vat-items th, .vat-items td { border: 1px solid #333; padding: 4px; }
+.vat-items thead th { background: #f0f0f0; text-align: center; font-weight: bold; }
+.vat-items tbody > tr > td { height: 120px; vertical-align: top; padding: 10px 6px; }
+.desc-cell { vertical-align: top; }
+.words-cell { vertical-align: top; font-size: 10px; line-height: 1.4; }
+.text-end { text-align: right; }
+.text-center { text-align: center; }
+.fw-bold { font-weight: bold; }
+.vat-signatures { display: flex; justify-content: space-between; margin-top: 24px; padding: 0 8px; font-size: 11px; }
+.vat-sheet.sheet-modern { width: 210mm; max-width: 210mm; min-height: auto; background: #fff; padding: 0; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+.vat-bill-modern { border: 1px solid #222; padding: 5mm 6mm 0; font-size: 10.5px; line-height: 1.35; }
+.vat-modern-top-title { text-align: center; font-size: 14px; font-weight: bold; letter-spacing: 1px; margin-bottom: 6px; }
+.vat-modern-header { display: grid; grid-template-columns: 96px 1fr 96px; align-items: start; gap: 8px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #222; }
+.vat-modern-logo-wrap { text-align: left; }
+.vat-modern-logo { max-height: 58px; max-width: 92px; object-fit: contain; display: block; }
+.vat-modern-company-center { text-align: center; }
+.vat-modern-company-lines > div { text-align: center; }
+.vat-modern-header-spacer { width: 96px; }
+.vat-modern-company-name { font-size: 15px; font-weight: 800; margin-bottom: 3px; line-height: 1.25; }
+.vat-modern-company-lines { font-size: 10.5px; line-height: 1.35; }
+.vat-modern-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 6px; font-size: 10.5px; }
+.vat-modern-kv { width: 100%; border-collapse: collapse; }
+.vat-modern-kv .k { font-weight: 700; width: 32%; padding: 1px 6px 1px 0; vertical-align: top; white-space: nowrap; }
+.vat-modern-kv .v { padding: 1px 0; vertical-align: top; }
+.vat-modern-items { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 10.5px; table-layout: fixed; }
+.vat-modern-items th, .vat-modern-items td { border: 1px solid #222; padding: 4px 5px; }
+.vat-modern-items thead th { background: #f3f3f3; font-weight: 700; text-align: center; }
+.vat-modern-items tbody > tr > td { height: 135px; vertical-align: top; padding: 8px 6px; }
+.vat-modern-items .particulars { text-align: left; word-wrap: break-word; overflow-wrap: break-word; }
+.vat-modern-items .sn { width: 7%; }
+.vat-modern-items .qty, .vat-modern-items .unit { width: 9%; }
+.vat-modern-items .rate, .vat-modern-items .amt { width: 14%; }
+.vat-modern-items tfoot td { background: #fafafa; height: auto; padding: 4px 5px; }
+.vat-modern-summary { display: grid; grid-template-columns: 1fr 260px; gap: 8px; margin-bottom: 6px; align-items: start; }
+.vat-modern-words { border: 1px solid #222; padding: 6px; min-height: 52px; font-size: 9.5px; line-height: 1.35; }
+.vat-modern-totals { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+.vat-modern-totals td { border: 1px solid #222; padding: 3px 6px; }
+.vat-modern-totals td:last-child { text-align: right; white-space: nowrap; }
+.vat-modern-totals .grand-row td { background: #f0f0f0; }
+.vat-modern-note { border: 1px solid #222; padding: 6px; margin-bottom: 6px; font-size: 9.5px; line-height: 1.35; }
+.vat-modern-signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 8px; margin-bottom: 6px; }
+.vat-modern-signatures .sig-line { border-bottom: 1px solid #222; height: 28px; margin-bottom: 3px; }
+.vat-modern-signatures .sig-line-tall { height: 34px; }
+.vat-modern-signatures .sig-label { font-size: 9.5px; text-align: center; font-weight: 600; }
+.vat-modern-signatures .sig-name { font-weight: normal; font-size: 9px; }
+.vat-modern-print-bar { display: flex; justify-content: space-between; margin: 0 -6mm; padding: 5px 6mm; font-size: 9.5px; background: #d9d9d9; border-top: 1px solid #999; }
+@media print {
+    @page { size: A4 portrait; margin: 8mm; }
+    html, body { width: 210mm; margin: 0; padding: 0; background: #fff; }
+    .vat-sheet { box-shadow: none; width: 210mm; max-width: 210mm; padding: 0; margin: 0; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .vat-sheet.sheet-modern { page-break-inside: avoid; }
+    .vat-bill-modern { page-break-inside: avoid; border: 1px solid #222; }
+    .vat-modern-print-bar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

@@ -295,6 +295,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Bill Statement (BoQ) – सबै completed work एउटै
         Route::get('boq-bill-statements', [\App\Http\Controllers\Admin\BoqBillStatementController::class, 'index'])->name('boq-bill-statements.index');
         Route::get('boq-bill-statements/export/excel', [\App\Http\Controllers\Admin\BoqBillStatementController::class, 'exportExcel'])->name('boq-bill-statements.export.excel');
+        // Tax Invoice / कर विजक (VAT bill — company-wise design)
+        Route::match(['get', 'post'], 'tax-invoices/settings', [\App\Http\Controllers\Admin\TaxInvoiceController::class, 'settings'])->name('tax-invoices.settings');
+        Route::get('tax-invoices/{tax_invoice}/print', [\App\Http\Controllers\Admin\TaxInvoiceController::class, 'print'])->name('tax-invoices.print');
+        Route::patch('tax-invoices/{tax_invoice}/status', [\App\Http\Controllers\Admin\TaxInvoiceController::class, 'updateStatus'])->name('tax-invoices.update-status');
+        Route::resource('tax-invoices', \App\Http\Controllers\Admin\TaxInvoiceController::class);
         });
 
         // Material calculator

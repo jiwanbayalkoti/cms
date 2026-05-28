@@ -21,6 +21,7 @@ class Company extends Model
         'letterhead_address_size' => 'float',
         'letterhead_name_letter_spacing' => 'float',
         'letterhead_name_line_height' => 'float',
+        'default_vat_percent' => 'decimal:2',
     ];
 
     protected $fillable = [
@@ -34,6 +35,10 @@ class Company extends Model
         'phone',
         'website',
         'tax_number',
+        'vat_bill_template',
+        'vat_bill_accent_color',
+        'default_vat_percent',
+        'vat_bill_footer_text',
         'city',
         'state',
         'country',
