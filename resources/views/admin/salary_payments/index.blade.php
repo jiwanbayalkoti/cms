@@ -891,7 +891,14 @@ function buildSalaryPaymentView(data, skipInitialFilter = false) {
                 const statusClass = p.status === 'paid' ? 'bg-green-100 text-green-800' :
                                   p.status === 'partial' ? 'bg-blue-100 text-blue-800' :
                                   p.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  p.status === 'advance' ? 'bg-purple-100 text-purple-800' :
                                   'bg-red-100 text-red-800';
+                const statusLabel = p.status === 'advance' ? 'Advance' : (p.status.charAt(0).toUpperCase() + p.status.slice(1));
+                const actionCell = p.type === 'advance'
+                    ? '<span class="text-xs text-gray-400">Advance</span>'
+                    : `<button onclick="closeViewSalaryPaymentModal(); openEditSalaryPaymentModal(${p.id})" class="btn btn-sm btn-outline-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>`;
                 return `
                     <tr class="border-b border-gray-200">
                         <td class="px-4 py-2 text-sm text-gray-600">${p.payment_date}</td>
@@ -901,13 +908,11 @@ function buildSalaryPaymentView(data, skipInitialFilter = false) {
                         <td class="px-4 py-2 text-sm text-right font-medium text-red-600">Rs. ${p.balance_amount}</td>
                         <td class="px-4 py-2 text-sm">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">
-                                ${p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                                ${statusLabel}
                             </span>
                         </td>
                         <td class="px-4 py-2 text-sm text-center">
-                            <button onclick="closeViewSalaryPaymentModal(); openEditSalaryPaymentModal(${p.id})" class="btn btn-sm btn-outline-warning" title="Edit">
-                                <i class="bi bi-pencil"></i>
-                            </button>
+                            ${actionCell}
                         </td>
                     </tr>
                 `;
@@ -1047,7 +1052,14 @@ function updateFilteredPaymentsView(data) {
                 const statusClass = p.status === 'paid' ? 'bg-green-100 text-green-800' :
                                   p.status === 'partial' ? 'bg-blue-100 text-blue-800' :
                                   p.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  p.status === 'advance' ? 'bg-purple-100 text-purple-800' :
                                   'bg-red-100 text-red-800';
+                const statusLabel = p.status === 'advance' ? 'Advance' : (p.status.charAt(0).toUpperCase() + p.status.slice(1));
+                const actionCell = p.type === 'advance'
+                    ? '<span class="text-xs text-gray-400">Advance</span>'
+                    : `<button onclick="closeViewSalaryPaymentModal(); openEditSalaryPaymentModal(${p.id})" class="btn btn-sm btn-outline-warning" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>`;
                 return `
                     <tr class="border-b border-gray-200">
                         <td class="px-4 py-2 text-sm text-gray-600">${p.payment_date}</td>
@@ -1057,13 +1069,11 @@ function updateFilteredPaymentsView(data) {
                         <td class="px-4 py-2 text-sm text-right font-medium text-red-600">Rs. ${p.balance_amount}</td>
                         <td class="px-4 py-2 text-sm">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">
-                                ${p.status.charAt(0).toUpperCase() + p.status.slice(1)}
+                                ${statusLabel}
                             </span>
                         </td>
                         <td class="px-4 py-2 text-sm text-center">
-                            <button onclick="closeViewSalaryPaymentModal(); openEditSalaryPaymentModal(${p.id})" class="btn btn-sm btn-outline-warning" title="Edit">
-                                <i class="bi bi-pencil"></i>
-                            </button>
+                            ${actionCell}
                         </td>
                     </tr>
                 `;

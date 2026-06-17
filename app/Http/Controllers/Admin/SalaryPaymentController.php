@@ -11,6 +11,7 @@ use App\Models\Project;
 use App\Models\Category;
 use App\Models\Expense;
 use App\Models\ExpenseType;
+use App\Models\AdvancePayment;
 use App\Models\BankAccount;
 use App\Models\PaymentMode;
 use Illuminate\Http\Request;
@@ -138,19 +139,28 @@ class SalaryPaymentController extends Controller
             }
             
             $staffPayments = $staffPaymentsQuery->get();
+            $advancePaymentsQuery = $this->staffAdvancePaymentQuery($staffMember->id, $companyId, $request);
+            $advancePayments = $advancePaymentsQuery->get();
             
             // Calculate totals - filter by current year for total paid
             $currentYearPayments = $staffPayments->filter(function($payment) use ($currentYear) {
                 return Carbon::parse($payment->payment_month)->year == $currentYear;
             });
+            $currentYearAdvancePayments = $advancePayments->filter(function($payment) use ($currentYear) {
+                return Carbon::parse($payment->payment_date)->year == $currentYear;
+            });
             
-            $totalPaid = $currentYearPayments->sum('paid_amount');
+            $totalPaid = $currentYearPayments->sum('paid_amount') + $currentYearAdvancePayments->sum('amount');
             $totalRemaining = $staffPayments->sum('balance_amount'); // Total remaining includes all years
             $totalNet = $staffPayments->sum('net_amount');
-            $paymentCount = $staffPayments->count();
+            $paymentCount = $staffPayments->count() + $advancePayments->count();
             
             // Get latest payment for this staff
             $latestPayment = $staffPayments->sortByDesc('payment_month')->first();
+            $latestAdvancePayment = $advancePayments->sortByDesc('payment_date')->first();
+            $latestPaymentDate = $latestPayment?->payment_date;
+            $latestAdvanceDate = $latestAdvancePayment?->payment_date;
+            $latestIsAdvance = $latestAdvanceDate && (!$latestPaymentDate || $latestAdvanceDate->gt($latestPaymentDate));
             
             return [
                 'staff_id' => $staffMember->id,
@@ -161,9 +171,9 @@ class SalaryPaymentController extends Controller
                 'total_paid' => number_format($totalPaid, 2),
                 'total_remaining' => number_format($totalRemaining, 2),
                 'total_net' => number_format($totalNet, 2),
-                'latest_payment_id' => $latestPayment ? $latestPayment->id : null,
-                'latest_payment_month' => $latestPayment ? $latestPayment->payment_month_name : null,
-                'latest_payment_date' => $latestPayment ? $latestPayment->payment_date->format('M d, Y') : null,
+                'latest_payment_id' => $latestIsAdvance ? null : ($latestPayment ? $latestPayment->id : null),
+                'latest_payment_month' => $latestIsAdvance ? 'Advance Payment' : ($latestPayment ? $latestPayment->payment_month_name : null),
+                'latest_payment_date' => $latestIsAdvance ? $latestAdvancePayment->payment_date->format('M d, Y') : ($latestPayment ? $latestPayment->payment_date->format('M d, Y') : null),
             ];
         });
         
@@ -801,41 +811,75 @@ class SalaryPaymentController extends Controller
         }
         
         $allPayments = $allPaymentsQuery->orderBy('payment_month', 'desc')->get();
+        $advancePayments = $this->staffAdvancePaymentQuery($staffId, $companyId, $request)
+            ->with('project')
+            ->orderByDesc('payment_date')
+            ->get();
         
         \Log::info('Filtered payments count', ['count' => $allPayments->count()]);
         
         // Group payments by month and calculate totals
-        $monthlyPayments = $allPayments->groupBy(function($payment) {
-            return $payment->payment_month->format('Y-m');
-        })->map(function($payments, $monthKey) {
-            $firstPayment = $payments->first();
-            $totalPaid = $payments->sum('paid_amount');
-            $totalRemaining = $payments->sum('balance_amount');
-            $totalNet = $payments->sum('net_amount');
-            
+        $salaryRows = $allPayments->map(function($payment) {
             return [
-                'month' => $firstPayment->payment_month->format('F Y'),
-                'month_key' => $monthKey,
-                'payments' => $payments->map(function($payment) {
-                    return [
-                        'id' => $payment->id,
-                        'payment_date' => $payment->payment_date->format('M d, Y'),
-                        'payment_date_raw' => $payment->payment_date->format('Y-m-d'),
-                        'net_amount' => number_format($payment->net_amount, 2),
-                        'paid_amount' => number_format($payment->paid_amount, 2),
-                        'balance_amount' => number_format($payment->balance_amount, 2),
-                        'status' => $payment->status,
-                        'project_name' => $payment->project ? $payment->project->name : null,
-                    ];
-                })->toArray(),
-                'total_paid' => number_format($totalPaid, 2),
-                'total_remaining' => number_format($totalRemaining, 2),
-                'total_net' => number_format($totalNet, 2),
+                'id' => $payment->id,
+                'month_key' => $payment->payment_month->format('Y-m'),
+                'month_date' => $payment->payment_month,
+                'payment_date' => $payment->payment_date->format('M d, Y'),
+                'payment_date_raw' => $payment->payment_date->format('Y-m-d'),
+                'net_amount_raw' => (float) $payment->net_amount,
+                'paid_amount_raw' => (float) $payment->paid_amount,
+                'balance_amount_raw' => (float) $payment->balance_amount,
+                'net_amount' => number_format($payment->net_amount, 2),
+                'paid_amount' => number_format($payment->paid_amount, 2),
+                'balance_amount' => number_format($payment->balance_amount, 2),
+                'status' => $payment->status,
+                'type' => 'salary',
+                'project_name' => $payment->project ? $payment->project->name : null,
             ];
-        })->values();
+        });
+        $advanceRows = $advancePayments->map(function($payment) {
+            return [
+                'id' => 'advance-' . $payment->id,
+                'month_key' => $payment->payment_date->format('Y-m'),
+                'month_date' => $payment->payment_date,
+                'payment_date' => $payment->payment_date->format('M d, Y'),
+                'payment_date_raw' => $payment->payment_date->format('Y-m-d'),
+                'net_amount_raw' => (float) $payment->amount,
+                'paid_amount_raw' => (float) $payment->amount,
+                'balance_amount_raw' => 0,
+                'net_amount' => number_format($payment->amount, 2),
+                'paid_amount' => number_format($payment->amount, 2),
+                'balance_amount' => number_format(0, 2),
+                'status' => 'advance',
+                'type' => 'advance',
+                'project_name' => $payment->project ? $payment->project->name : null,
+            ];
+        });
+
+        $monthlyPayments = $salaryRows->concat($advanceRows)
+            ->groupBy('month_key')
+            ->map(function($payments, $monthKey) {
+                $firstPayment = $payments->sortByDesc('month_date')->first();
+                $totalPaid = $payments->sum('paid_amount_raw');
+                $totalRemaining = $payments->sum('balance_amount_raw');
+                $totalNet = $payments->sum('net_amount_raw');
+                
+                return [
+                    'month' => $firstPayment['month_date']->format('F Y'),
+                    'month_key' => $monthKey,
+                    'payments' => $payments->sortByDesc('payment_date_raw')->map(function($payment) {
+                        return collect($payment)->except(['month_key', 'month_date', 'net_amount_raw', 'paid_amount_raw', 'balance_amount_raw'])->toArray();
+                    })->values()->toArray(),
+                    'total_paid' => number_format($totalPaid, 2),
+                    'total_remaining' => number_format($totalRemaining, 2),
+                    'total_net' => number_format($totalNet, 2),
+                ];
+            })
+            ->sortByDesc('month_key')
+            ->values();
         
         // Calculate overall totals
-        $overallTotalPaid = $allPayments->sum('paid_amount');
+        $overallTotalPaid = $allPayments->sum('paid_amount') + $advancePayments->sum('amount');
         $overallTotalRemaining = $allPayments->sum('balance_amount');
         
         // Get latest payment for edit button
@@ -861,6 +905,32 @@ class SalaryPaymentController extends Controller
         }
         
         return redirect()->route('admin.salary-payments.index');
+    }
+
+    private function staffAdvancePaymentQuery($staffId, $companyId, Request $request)
+    {
+        $query = AdvancePayment::with(['project', 'staff'])
+            ->where('company_id', $companyId)
+            ->where('staff_id', $staffId);
+
+        if ($request->filled('status') && $request->status !== 'paid') {
+            $query->whereRaw('1 = 0');
+        }
+        if ($request->filled('project_id')) {
+            $query->where('project_id', $request->project_id);
+        }
+        if ($request->filled('from_date')) {
+            $query->where('payment_date', '>=', Carbon::parse($request->from_date)->startOfMonth());
+        }
+        if ($request->filled('to_date')) {
+            $query->where('payment_date', '<=', Carbon::parse($request->to_date)->endOfMonth());
+        }
+        if ($request->filled('payment_month')) {
+            $month = Carbon::parse($request->payment_month);
+            $query->whereYear('payment_date', $month->year)->whereMonth('payment_date', $month->month);
+        }
+
+        return $query;
     }
 
     /**

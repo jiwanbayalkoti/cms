@@ -118,12 +118,13 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $payment->date->format('M d, Y') }}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($payment->expenseType && strtolower($payment->expenseType->name) === 'salary') ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800' }}">
-                            {{ $payment->expenseType ? ucfirst($payment->expenseType->name) : 'Salary' }}
+                            {{ $payment->expenseType ? ucfirst($payment->expenseType->name) : ($payment->advancePayment ? 'Advance' : 'Salary') }}
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        @if($payment->staff)
-                            <a href="{{ route('admin.staff.show', $payment->staff) }}" class="text-indigo-600 hover:text-indigo-900">{{ $payment->staff->name }}</a>
+                        @php $paymentStaff = $payment->staff ?? $payment->advancePayment?->staff; @endphp
+                        @if($paymentStaff)
+                            <a href="{{ route('admin.staff.show', $paymentStaff) }}" class="text-indigo-600 hover:text-indigo-900">{{ $paymentStaff->name }}</a>
                         @else
                             N/A
                         @endif

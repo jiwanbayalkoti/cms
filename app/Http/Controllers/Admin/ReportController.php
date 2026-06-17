@@ -582,13 +582,23 @@ class ReportController extends Controller
         $salaryAdvanceTypes = \App\Models\ExpenseType::whereIn('name', ['Salary', 'Advance'])
             ->pluck('id');
 
-        $query = Expense::with(['staff', 'project', 'expenseType'])
-            ->whereIn('expense_type_id', $salaryAdvanceTypes)
+        $query = Expense::with(['staff', 'advancePayment.staff', 'project', 'expenseType'])
             ->where('expenses.company_id', $companyId)
-            ->whereBetween('expenses.date', [$startDate, $endDate]);
+            ->whereBetween('expenses.date', [$startDate, $endDate])
+            ->where(function ($q) use ($salaryAdvanceTypes) {
+                if ($salaryAdvanceTypes->isNotEmpty()) {
+                    $q->whereIn('expense_type_id', $salaryAdvanceTypes);
+                }
+                $q->orWhereNotNull('advance_payment_id');
+            });
 
         if ($staffId) {
-            $query->where('staff_id', $staffId);
+            $query->where(function ($q) use ($staffId) {
+                $q->where('staff_id', $staffId)
+                    ->orWhereHas('advancePayment', function ($advanceQuery) use ($staffId) {
+                        $advanceQuery->where('staff_id', $staffId);
+                    });
+            });
         }
         
         if ($projectId) {
@@ -599,29 +609,54 @@ class ReportController extends Controller
         $totalPayments = $payments->sum('amount');
 
         // Payments by staff
-        $paymentsByStaffQuery = Expense::whereIn('expense_type_id', $salaryAdvanceTypes)
-            ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        $paymentsByStaffQuery = Expense::query()
+            ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])
+            ->where(function ($q) use ($salaryAdvanceTypes) {
+                if ($salaryAdvanceTypes->isNotEmpty()) {
+                    $q->whereIn('expenses.expense_type_id', $salaryAdvanceTypes);
+                }
+                $q->orWhereNotNull('expenses.advance_payment_id');
+            });
         $this->filterByAccessibleProjects($paymentsByStaffQuery, 'expenses.project_id');
         if ($projectId) {
             $paymentsByStaffQuery->where('expenses.project_id', $projectId);
         }
-        $paymentsByStaff = $paymentsByStaffQuery->join('staff', 'expenses.staff_id', '=', 'staff.id')
-            ->join('expense_types', 'expenses.expense_type_id', '=', 'expense_types.id')
-            ->select('staff.name', 'expense_types.name as expense_type', DB::raw('SUM(expenses.amount) as total'))
-            ->groupBy('staff.id', 'staff.name', 'expense_types.id', 'expense_types.name')
+        if ($staffId) {
+            $paymentsByStaffQuery->where(function ($q) use ($staffId) {
+                $q->where('expenses.staff_id', $staffId)
+                    ->orWhere('advance_payments.staff_id', $staffId);
+            });
+        }
+        $paymentsByStaff = $paymentsByStaffQuery
+            ->leftJoin('advance_payments', 'expenses.advance_payment_id', '=', 'advance_payments.id')
+            ->join('staff', DB::raw('COALESCE(expenses.staff_id, advance_payments.staff_id)'), '=', 'staff.id')
+            ->leftJoin('expense_types', 'expenses.expense_type_id', '=', 'expense_types.id')
+            ->select('staff.name', DB::raw("COALESCE(expense_types.name, 'Advance') as expense_type"), DB::raw('SUM(expenses.amount) as total'))
+            ->groupBy('staff.id', 'staff.name', DB::raw("COALESCE(expense_types.name, 'Advance')"))
             ->get();
 
         // Total by staff
-        $totalByStaffQuery = Expense::whereIn('expense_type_id', $salaryAdvanceTypes)
-            ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate]);
+        $totalByStaffQuery = Expense::query()
+            ->where('expenses.company_id', $companyId)->whereBetween('expenses.date', [$startDate, $endDate])
+            ->where(function ($q) use ($salaryAdvanceTypes) {
+                if ($salaryAdvanceTypes->isNotEmpty()) {
+                    $q->whereIn('expenses.expense_type_id', $salaryAdvanceTypes);
+                }
+                $q->orWhereNotNull('expenses.advance_payment_id');
+            });
         $this->filterByAccessibleProjects($totalByStaffQuery, 'expenses.project_id');
         if ($projectId) {
             $totalByStaffQuery->where('expenses.project_id', $projectId);
         }
         if ($staffId) {
-            $totalByStaffQuery->where('expenses.staff_id', $staffId);
+            $totalByStaffQuery->where(function ($q) use ($staffId) {
+                $q->where('expenses.staff_id', $staffId)
+                    ->orWhere('advance_payments.staff_id', $staffId);
+            });
         }
-        $totalByStaff = $totalByStaffQuery->join('staff', 'expenses.staff_id', '=', 'staff.id')
+        $totalByStaff = $totalByStaffQuery
+            ->leftJoin('advance_payments', 'expenses.advance_payment_id', '=', 'advance_payments.id')
+            ->join('staff', DB::raw('COALESCE(expenses.staff_id, advance_payments.staff_id)'), '=', 'staff.id')
             ->select('staff.name', DB::raw('SUM(expenses.amount) as total'))
             ->groupBy('staff.id', 'staff.name')
             ->orderByDesc('total')
@@ -633,13 +668,15 @@ class ReportController extends Controller
 
         if ($request->wantsJson() || $request->ajax()) {
             $paymentsForJson = $payments->map(function ($p) {
+                $staff = $p->staff ?: $p->advancePayment?->staff;
+                $expenseTypeName = $p->expenseType?->name ?: ($p->advancePayment ? 'Advance' : 'Salary');
                 return [
                     'date' => $p->date ? $p->date->format('Y-m-d') : null,
                     'date_formatted' => $p->date ? $p->date->format('M d, Y') : '-',
-                    'expense_type' => $p->expenseType ? strtolower($p->expenseType->name) : 'salary',
-                    'expense_type_label' => $p->expenseType ? ucfirst($p->expenseType->name) : 'Salary',
-                    'staff_name' => $p->staff ? $p->staff->name : 'N/A',
-                    'staff_id' => $p->staff_id,
+                    'expense_type' => strtolower($expenseTypeName),
+                    'expense_type_label' => ucfirst($expenseTypeName),
+                    'staff_name' => $staff ? $staff->name : 'N/A',
+                    'staff_id' => $staff?->id,
                     'description' => $p->description ? \Str::limit($p->description, 40) : '',
                     'amount' => (float) $p->amount,
                 ];

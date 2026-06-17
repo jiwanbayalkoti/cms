@@ -240,6 +240,12 @@
             const itemName = expense.item_name || 'N/A';
             const escapedItemName = itemName.replace(/'/g, "\\'");
             const sn = startSn + idx + 1;
+            const staffSubName = expense.staff_name && expense.staff_name !== 'N/A'
+                ? expense.staff_name
+                : (expense.subcontractor_name && expense.subcontractor_name !== 'N/A' ? expense.subcontractor_name : 'N/A');
+            const staffSubLabel = expense.staff_name && expense.staff_name !== 'N/A'
+                ? ''
+                : (expense.subcontractor_name && expense.subcontractor_name !== 'N/A' ? '<div class="text-xs font-medium text-teal-800">Sub-contractor</div>' : '');
             return `
                 <tr data-expense-id="${expense.id}">
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${sn}</td>
@@ -266,8 +272,8 @@
                         ${expense.subcategory_name ? `<div class="text-xs text-gray-500">${expense.subcategory_name}</div>` : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        ${expense.has_subcontractor && expense.subcontractor_name && expense.subcontractor_name !== 'N/A' ? '<div class="text-xs font-medium text-teal-800">Sub: ' + expense.subcontractor_name.replace(/</g, '&lt;') + '</div>' : ''}
-                        <div class="text-sm text-gray-900">${expense.staff_name}</div>
+                        ${staffSubLabel}
+                        <div class="text-sm text-gray-900">${staffSubName}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm font-semibold text-red-600">$${expense.amount}</div>
@@ -624,8 +630,15 @@
                             @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            @if($expense->staff)
-                                <div class="text-sm text-gray-900">{{ $expense->staff->name }}</div>
+                            @php
+                                $expenseStaff = $expense->staff ?? $expense->advancePayment?->staff;
+                                $expenseSubcontractor = $expense->subcontractor ?? $expense->advancePayment?->subcontractor;
+                            @endphp
+                            @if($expenseStaff)
+                                <div class="text-sm text-gray-900">{{ $expenseStaff->name }}</div>
+                            @elseif($expenseSubcontractor)
+                                <div class="text-xs font-medium text-teal-800">Sub-contractor</div>
+                                <div class="text-sm text-gray-900">{{ $expenseSubcontractor->name }}</div>
                             @else
                                 <div class="text-sm text-gray-400">N/A</div>
                             @endif
@@ -1456,6 +1469,12 @@ function addExpenseRow(expense) {
     }
     
     const typeClass = expense.type_class || expenseTypeBadgeClass(expense.type_name);
+    const staffSubName = expense.staff_name && expense.staff_name !== 'N/A'
+        ? expense.staff_name
+        : (expense.subcontractor_name && expense.subcontractor_name !== 'N/A' ? expense.subcontractor_name : 'N/A');
+    const staffSubLabel = expense.staff_name && expense.staff_name !== 'N/A'
+        ? ''
+        : (expense.subcontractor_name && expense.subcontractor_name !== 'N/A' ? '<div class="text-xs font-medium text-teal-800">Sub-contractor</div>' : '');
 
     const row = document.createElement('tr');
     row.setAttribute('data-expense-id', expense.id);
@@ -1479,7 +1498,8 @@ function addExpenseRow(expense) {
             ${expense.subcategory_name ? `<div class="text-xs text-gray-500">${expense.subcategory_name}</div>` : ''}
         </td>
         <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-900">${expense.staff_name}</div>
+            ${staffSubLabel}
+            <div class="text-sm text-gray-900">${staffSubName}</div>
         </td>
         <td class="px-6 py-4 whitespace-nowrap">
             <div class="text-sm font-semibold text-red-600">$${expense.amount}</div>
@@ -1509,6 +1529,12 @@ function updateExpenseRow(expense) {
     const row = document.querySelector(`tr[data-expense-id="${expense.id}"]`);
     if (row) {
         const typeClass = expense.type_class || expenseTypeBadgeClass(expense.type_name);
+        const staffSubName = expense.staff_name && expense.staff_name !== 'N/A'
+            ? expense.staff_name
+            : (expense.subcontractor_name && expense.subcontractor_name !== 'N/A' ? expense.subcontractor_name : 'N/A');
+        const staffSubLabel = expense.staff_name && expense.staff_name !== 'N/A'
+            ? ''
+            : (expense.subcontractor_name && expense.subcontractor_name !== 'N/A' ? '<div class="text-xs font-medium text-teal-800">Sub-contractor</div>' : '');
 
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap">
@@ -1530,7 +1556,8 @@ function updateExpenseRow(expense) {
                 ${expense.subcategory_name ? `<div class="text-xs text-gray-500">${expense.subcategory_name}</div>` : ''}
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">${expense.staff_name}</div>
+                ${staffSubLabel}
+                <div class="text-sm text-gray-900">${staffSubName}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-semibold text-red-600">$${expense.amount}</div>

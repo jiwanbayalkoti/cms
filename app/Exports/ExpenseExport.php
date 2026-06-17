@@ -25,7 +25,7 @@ class ExpenseExport implements FromCollection, WithHeadings, WithMapping, Should
     {
         if ($this->collection === null) {
             // Ordering comes from ExpenseController (filters + sort).
-            $this->collection = $this->query->with(['category', 'subcategory', 'project', 'staff', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'expenseType'])->get();
+            $this->collection = $this->query->with(['category', 'subcategory', 'project', 'staff', 'constructionMaterial', 'advancePayment.staff', 'vehicleRent', 'expenseType'])->get();
         }
         return $this->collection;
     }
@@ -64,6 +64,7 @@ class ExpenseExport implements FromCollection, WithHeadings, WithMapping, Should
         }
 
         $itemName = $expense->item_name ?? ($expense->description ? \Illuminate\Support\Str::limit($expense->description, 100) : '—');
+        $staff = $expense->staff ?: $expense->advancePayment?->staff;
 
         return [
             $sn,
@@ -73,7 +74,7 @@ class ExpenseExport implements FromCollection, WithHeadings, WithMapping, Should
             $expense->project?->name ?? '—',
             $expense->category?->name ?? '—',
             $expense->subcategory?->name ?? '—',
-            $expense->staff?->name ?? '—',
+            $staff?->name ?? '—',
             (float) $expense->amount,
             $expense->payment_method ?? '—',
             $expense->notes ?? '—',

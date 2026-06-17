@@ -12,6 +12,7 @@ use App\Models\Staff;
 use App\Models\Subcontractor;
 use App\Models\Project;
 use App\Models\ConstructionMaterial;
+use App\Models\ExpenseType;
 use App\Exports\ExpenseExport;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -39,7 +40,7 @@ class ExpenseController extends Controller
     public function index(Request $request)
     {
         $companyId = CompanyContext::getActiveCompanyId();
-        $query = Expense::with(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'loan', 'loanPayment', 'expenseType'])
+        $query = Expense::with(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment.staff', 'advancePayment.subcontractor', 'vehicleRent', 'loan', 'loanPayment', 'expenseType'])
             ->where('company_id', $companyId);
         
         // Filter by accessible projects
@@ -98,7 +99,7 @@ class ExpenseController extends Controller
         // Get only accessible projects for dropdown
         $projects = $this->getAccessibleProjects();
         
-        $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
+        $expenseTypes = ExpenseType::orderBy('name')->get();
         $categories = Category::where('type', 'expense')->where('is_active', true)->orderBy('name')->get();
         
         // Get subcategories for the selected category if category filter is applied
@@ -116,6 +117,8 @@ class ExpenseController extends Controller
                 $badge = $expense->listTypeBadge();
                 $typeName = $badge['name'];
                 $typeClass = $badge['class'];
+                $staff = $this->resolveExpenseStaff($expense);
+                $subcontractor = $this->resolveExpenseSubcontractor($expense);
 
                 return [
                     'id' => $expense->id,
@@ -126,9 +129,9 @@ class ExpenseController extends Controller
                     'project_name' => $expense->project ? $expense->project->name : 'N/A',
                     'category_name' => $expense->category?->name ?? 'N/A',
                     'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
-                    'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
-                    'subcontractor_name' => $expense->subcontractor ? $expense->subcontractor->name : 'N/A',
-                    'has_subcontractor' => $expense->subcontractor_id ? true : false,
+                    'staff_name' => $staff ? $staff->name : 'N/A',
+                    'subcontractor_name' => $subcontractor ? $subcontractor->name : 'N/A',
+                    'has_subcontractor' => $subcontractor ? true : false,
                     'amount' => number_format($expense->amount, 2),
                     'has_construction_material' => $expense->constructionMaterial ? true : false,
                     'has_advance_payment' => $expense->advancePayment ? true : false,
@@ -286,7 +289,7 @@ class ExpenseController extends Controller
         $staff = Staff::where('is_active', true)->orderBy('name')->get();
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
-        $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
+        $expenseTypes = ExpenseType::orderBy('name')->get();
         $subcontractors = Subcontractor::where('company_id', $companyId)
             ->where('is_active', true)
             ->orderBy('name')
@@ -383,11 +386,13 @@ class ExpenseController extends Controller
         $validated['company_id'] = $companyId;
         $validated['created_by'] = auth()->id();
         $expense = Expense::create($validated);
-        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'expenseType']);
+        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'expenseType', 'advancePayment.staff', 'advancePayment.subcontractor']);
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
             $badge = $expense->listTypeBadge();
+            $staff = $this->resolveExpenseStaff($expense);
+            $subcontractor = $this->resolveExpenseSubcontractor($expense);
 
             return response()->json([
                 'success' => true,
@@ -403,7 +408,9 @@ class ExpenseController extends Controller
                     'project_name' => $expense->project ? $expense->project->name : 'N/A',
                     'category_name' => $expense->category?->name ?? 'N/A',
                     'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
-                    'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
+                    'staff_name' => $staff ? $staff->name : 'N/A',
+                    'subcontractor_name' => $subcontractor ? $subcontractor->name : 'N/A',
+                    'has_subcontractor' => $subcontractor ? true : false,
                 ],
             ]);
         }
@@ -426,11 +433,12 @@ class ExpenseController extends Controller
             $this->authorizeProjectAccess($expense->project_id);
         }
         
-        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'loan', 'loanPayment', 'expenseType']);
+        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'creator', 'updater', 'constructionMaterial', 'advancePayment.staff', 'vehicleRent', 'loan', 'loanPayment', 'expenseType']);
         
         // Return JSON only when AJAX and expects JSON (view modal); normal browser visit gets HTML
         if (request()->ajax() && request()->wantsJson()) {
             $typeName = $expense->listTypeBadge()['name'];
+            $staff = $this->resolveExpenseStaff($expense);
 
             $imageUrls = [];
             if ($expense->images) {
@@ -456,8 +464,8 @@ class ExpenseController extends Controller
                     'category_name' => $expense->category?->name ?? 'N/A',
                     'subcategory_id' => $expense->subcategory_id,
                     'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
-                    'staff_id' => $expense->staff_id,
-                    'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
+                    'staff_id' => $staff?->id,
+                    'staff_name' => $staff ? $staff->name : 'N/A',
                     'subcontractor_id' => $expense->subcontractor_id,
                     'subcontractor_name' => $expense->subcontractor ? $expense->subcontractor->name : 'N/A',
                     'subcontractor_url' => $expense->subcontractor_id
@@ -512,7 +520,9 @@ class ExpenseController extends Controller
         $staff = Staff::where('is_active', true)->orderBy('name')->get();
         // Get only accessible projects
         $projects = $this->getAccessibleProjects();
-        $expenseTypes = \App\Models\ExpenseType::orderBy('name')->get();
+        $expense->loadMissing('advancePayment.staff');
+        $advanceExpenseType = $expense->advancePayment ? $this->getOrCreateAdvanceExpenseType() : null;
+        $expenseTypes = ExpenseType::orderBy('name')->get();
         $subcontractors = Subcontractor::where('company_id', $companyId)
             ->where(function ($q) use ($expense) {
                 $q->where('is_active', true);
@@ -526,6 +536,8 @@ class ExpenseController extends Controller
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
             $imageUrls = [];
+            $staff = $this->resolveExpenseStaff($expense);
+            $expenseTypeId = $expense->expense_type_id ?: ($expense->advancePayment ? $advanceExpenseType?->id : null);
             if ($expense->images) {
                 foreach ($expense->images as $image) {
                     $imageUrls[] = Storage::url($image);
@@ -544,9 +556,9 @@ class ExpenseController extends Controller
                     'project_id' => $expense->project_id,
                     'category_id' => $expense->category_id,
                     'subcategory_id' => $expense->subcategory_id,
-                    'staff_id' => $expense->staff_id,
+                    'staff_id' => $staff?->id,
                     'subcontractor_id' => $expense->subcontractor_id,
-                    'expense_type_id' => $expense->expense_type_id,
+                    'expense_type_id' => $expenseTypeId,
                     'images' => $imageUrls,
                     'image_paths' => $expense->images ?? [],
                 ],
@@ -623,11 +635,13 @@ class ExpenseController extends Controller
 
         $validated['updated_by'] = auth()->id();
         $expense->update($validated);
-        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'expenseType', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'loan', 'loanPayment']);
+        $expense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'expenseType', 'constructionMaterial', 'advancePayment.staff', 'vehicleRent', 'loan', 'loanPayment']);
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
             $badge = $expense->listTypeBadge();
+            $staff = $this->resolveExpenseStaff($expense);
+            $subcontractor = $this->resolveExpenseSubcontractor($expense);
 
             return response()->json([
                 'success' => true,
@@ -643,7 +657,9 @@ class ExpenseController extends Controller
                     'project_name' => $expense->project ? $expense->project->name : 'N/A',
                     'category_name' => $expense->category?->name ?? 'N/A',
                     'subcategory_name' => $expense->subcategory ? $expense->subcategory->name : null,
-                    'staff_name' => $expense->staff ? $expense->staff->name : 'N/A',
+                    'staff_name' => $staff ? $staff->name : 'N/A',
+                    'subcontractor_name' => $subcontractor ? $subcontractor->name : 'N/A',
+                    'has_subcontractor' => $subcontractor ? true : false,
                 ],
             ]);
         }
@@ -723,11 +739,13 @@ class ExpenseController extends Controller
         }
         
         $newExpense->save();
-        $newExpense->load(['category', 'subcategory', 'staff', 'project', 'expenseType', 'constructionMaterial', 'advancePayment', 'vehicleRent', 'loan', 'loanPayment']);
+        $newExpense->load(['category', 'subcategory', 'staff', 'subcontractor', 'project', 'expenseType', 'constructionMaterial', 'advancePayment.staff', 'advancePayment.subcontractor', 'vehicleRent', 'loan', 'loanPayment']);
 
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
             $badge = $newExpense->listTypeBadge();
+            $staff = $this->resolveExpenseStaff($newExpense);
+            $subcontractor = $this->resolveExpenseSubcontractor($newExpense);
 
             return response()->json([
                 'success' => true,
@@ -743,13 +761,41 @@ class ExpenseController extends Controller
                     'project_name' => $newExpense->project ? $newExpense->project->name : 'N/A',
                     'category_name' => $newExpense->category->name,
                     'subcategory_name' => $newExpense->subcategory ? $newExpense->subcategory->name : null,
-                    'staff_name' => $newExpense->staff ? $newExpense->staff->name : 'N/A',
+                    'staff_name' => $staff ? $staff->name : 'N/A',
+                    'subcontractor_name' => $subcontractor ? $subcontractor->name : 'N/A',
+                    'has_subcontractor' => $subcontractor ? true : false,
                 ],
             ]);
         }
 
         return redirect()->route('admin.expenses.edit', $newExpense)
             ->with('success', 'Expense record duplicated successfully. You can now edit it.');
+    }
+
+    private function resolveExpenseStaff(Expense $expense): ?Staff
+    {
+        if ($expense->staff) {
+            return $expense->staff;
+        }
+
+        return $expense->advancePayment?->staff;
+    }
+
+    private function resolveExpenseSubcontractor(Expense $expense): ?Subcontractor
+    {
+        if ($expense->subcontractor) {
+            return $expense->subcontractor;
+        }
+
+        return $expense->advancePayment?->subcontractor;
+    }
+
+    private function getOrCreateAdvanceExpenseType(): ExpenseType
+    {
+        return ExpenseType::firstOrCreate(
+            ['name' => 'Advance'],
+            ['name' => 'Advance']
+        );
     }
 
     /**

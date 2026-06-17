@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\Traits\CompanyScoped;
 use App\Models\Traits\ProjectScoped;
 use App\Models\Subcontractor;
+use App\Models\Staff;
 
 class AdvancePayment extends Model
 {
@@ -19,6 +20,7 @@ class AdvancePayment extends Model
         'beneficiary_type',
         'supplier_id',
         'subcontractor_id',
+        'staff_id',
         'amount',
         'payment_date',
         'bank_account_id',
@@ -64,6 +66,14 @@ class AdvancePayment extends Model
     public function subcontractor()
     {
         return $this->belongsTo(Subcontractor::class);
+    }
+
+    /**
+     * Get the staff beneficiary.
+     */
+    public function staff()
+    {
+        return $this->belongsTo(Staff::class);
     }
 
     /**

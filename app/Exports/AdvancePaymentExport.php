@@ -24,7 +24,7 @@ class AdvancePaymentExport implements FromCollection, WithHeadings, WithMapping,
     public function collection()
     {
         if ($this->collection === null) {
-            $this->collection = $this->query->with(['project', 'supplier', 'bankAccount'])
+            $this->collection = $this->query->with(['project', 'supplier', 'subcontractor', 'staff', 'bankAccount'])
                 ->orderBy('payment_date', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -39,7 +39,8 @@ class AdvancePaymentExport implements FromCollection, WithHeadings, WithMapping,
             'Payment Date',
             'Payment Type',
             'Project',
-            'Supplier',
+            'Beneficiary',
+            'Beneficiary Type',
             'Amount',
             'Payment Method',
             'Bank Account',
@@ -58,12 +59,27 @@ class AdvancePaymentExport implements FromCollection, WithHeadings, WithMapping,
             'material_payment' => 'Material Payment',
         ];
 
+        $beneficiaryType = $payment->staff_id
+            ? 'staff'
+            : ($payment->subcontractor_id ? 'subcontractor' : ($payment->beneficiary_type ?: 'supplier'));
+        $beneficiaryName = match ($beneficiaryType) {
+            'subcontractor' => $payment->subcontractor?->name ?? '—',
+            'staff' => $payment->staff?->name ?? '—',
+            default => $payment->supplier?->name ?? '—',
+        };
+        $beneficiaryTypeLabel = match ($beneficiaryType) {
+            'subcontractor' => 'Sub-contractor',
+            'staff' => 'Staff',
+            default => 'Supplier',
+        };
+
         return [
             $sn,
             optional($payment->payment_date)->format('Y-m-d'),
             $paymentTypes[$payment->payment_type] ?? ucfirst(str_replace('_', ' ', $payment->payment_type)),
             $payment->project?->name ?? '—',
-            $payment->supplier?->name ?? '—',
+            $beneficiaryName,
+            $beneficiaryTypeLabel,
             (float) $payment->amount,
             ucfirst(str_replace('_', ' ', $payment->payment_method ?? '—')),
             $payment->bankAccount?->account_name ?? '—',
@@ -83,10 +99,10 @@ class AdvancePaymentExport implements FromCollection, WithHeadings, WithMapping,
                 }
                 $totalRow = $dataCount + 3;
                 $sheet->setCellValue("A{$totalRow}", 'Total');
-                $sheet->mergeCells("A{$totalRow}:E{$totalRow}");
-                $sheet->setCellValue("F{$totalRow}", "=SUM(F2:F" . ($dataCount + 1) . ")");
-                $sheet->getStyle("A{$totalRow}:J{$totalRow}")->getFont()->setBold(true);
-                $sheet->getStyle("F{$totalRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+                $sheet->mergeCells("A{$totalRow}:F{$totalRow}");
+                $sheet->setCellValue("G{$totalRow}", "=SUM(G2:G" . ($dataCount + 1) . ")");
+                $sheet->getStyle("A{$totalRow}:K{$totalRow}")->getFont()->setBold(true);
+                $sheet->getStyle("G{$totalRow}")->getNumberFormat()->setFormatCode('#,##0.00');
             },
         ];
     }
