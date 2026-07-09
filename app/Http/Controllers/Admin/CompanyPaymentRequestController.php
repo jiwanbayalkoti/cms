@@ -35,7 +35,7 @@ class CompanyPaymentRequestController extends Controller
             'payment_method' => ['required', 'string', Rule::in(array_keys($enabledMethods))],
             'transaction_reference' => 'nullable|string|max:255',
             'payment_date' => 'nullable|date',
-            'proof' => 'nullable|file|mimes:jpg,jpeg,png,pdf,webp|max:4096',
+            'proof' => 'required|file|mimes:jpg,jpeg,png,pdf,webp|max:4096',
             'note' => 'nullable|string|max:2000',
         ]);
 

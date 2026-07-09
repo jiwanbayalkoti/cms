@@ -101,7 +101,7 @@
             @if($hasPendingPaymentRequest ?? false)
                 <div class="alert alert-info">A payment request is already pending verification. Please wait for super admin approval before submitting another one.</div>
             @endif
-            <form method="POST" action="{{ route('admin.payment-requests.store') }}" enctype="multipart/form-data">
+            <form id="paymentVerificationForm" method="POST" action="{{ route('admin.payment-requests.store') }}" enctype="multipart/form-data">
                 @csrf
                 <div class="mb-3">
                     <label class="form-label">Payment For</label>
@@ -161,8 +161,8 @@
                     <input type="date" name="payment_date" class="form-control" value="{{ old('payment_date', now()->format('Y-m-d')) }}">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Payment Proof</label>
-                    <input type="file" name="proof" class="form-control" accept="image/*,.pdf">
+                    <label class="form-label">Payment Proof <span class="text-danger">*</span></label>
+                    <input type="file" name="proof" class="form-control" accept="image/*,.pdf" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Note</label>
@@ -241,6 +241,20 @@
         border-color: #16a34a;
         background: #16a34a;
     }
+
+    #paymentVerificationForm label.error {
+        display: block;
+        margin-top: 4px;
+        color: #dc3545;
+        font-size: 0.875rem;
+    }
+
+    #paymentVerificationForm .is-invalid,
+    #paymentVerificationForm input.error,
+    #paymentVerificationForm select.error,
+    #paymentVerificationForm textarea.error {
+        border-color: #dc3545;
+    }
 </style>
 <script>
     function updatePaymentAmount() {
@@ -274,4 +288,77 @@
         updatePaymentMethodDetails();
     });
 </script>
+@push('modals')
+<script>
+    $(function () {
+        if (!$.validator) {
+            return;
+        }
+
+        $.validator.addMethod('proofFileType', function (value, element) {
+            if (!value) {
+                return false;
+            }
+
+            return /\.(jpe?g|png|pdf|webp)$/i.test(value);
+        }, 'Only JPG, PNG, WEBP, or PDF files are allowed.');
+
+        $.validator.addMethod('proofFileSize', function (value, element) {
+            if (!element.files || !element.files.length) {
+                return false;
+            }
+
+            return element.files[0].size <= 4096 * 1024;
+        }, 'Payment proof must be 4MB or smaller.');
+
+        $('#paymentVerificationForm').validate({
+            ignore: [],
+            rules: {
+                paid_for_days: {
+                    required: true
+                },
+                payment_method: {
+                    required: true
+                },
+                proof: {
+                    required: true,
+                    proofFileType: true,
+                    proofFileSize: true
+                },
+                payment_date: {
+                    date: true
+                }
+            },
+            messages: {
+                paid_for_days: {
+                    required: 'Please select payment duration.'
+                },
+                payment_method: {
+                    required: 'Please select a payment method.'
+                },
+                proof: {
+                    required: 'Please upload payment proof.'
+                },
+                payment_date: {
+                    date: 'Please enter a valid payment date.'
+                }
+            },
+            errorPlacement: function (error, element) {
+                if (element.attr('name') === 'payment_method') {
+                    error.insertAfter(element.closest('.payment-method-toggle-grid'));
+                    return;
+                }
+
+                error.insertAfter(element);
+            },
+            highlight: function (element) {
+                $(element).addClass('is-invalid');
+            },
+            unhighlight: function (element) {
+                $(element).removeClass('is-invalid');
+            }
+        });
+    });
+</script>
+@endpush
 @endsection
