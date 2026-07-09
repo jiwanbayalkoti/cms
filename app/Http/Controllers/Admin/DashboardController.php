@@ -33,6 +33,13 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $companyId = CompanyContext::getActiveCompanyId();
+        $dashboardCompany = $companyId
+            ? Company::with(['paymentRequests' => function ($query) {
+                $query->where('status', 'verified')
+                    ->latest('verified_at')
+                    ->latest('id');
+            }])->find($companyId)
+            : null;
         
         // Get period filter (default: all time)
         $period = $request->get('period', 'all_time');
@@ -153,7 +160,8 @@ class DashboardController extends Controller
             'startDate',
             'endDate',
             'startDateFormatted',
-            'endDateFormatted'
+            'endDateFormatted',
+            'dashboardCompany'
         ));
     }
 

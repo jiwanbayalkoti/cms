@@ -27,6 +27,17 @@ class UserController extends Controller
         // Route-level middleware (admin_only) already restricts to admin/super_admin
         $this->middleware('admin');
     }
+
+    private function emailRules(string $uniqueRule): array
+    {
+        $rules = ['required', 'email', 'max:255', $uniqueRule];
+
+        if (!app()->environment('local')) {
+            $rules[] = new ValidEmailDomain();
+        }
+
+        return $rules;
+    }
     
     /**
      * Validate user form data (AJAX endpoint)
@@ -34,8 +45,8 @@ class UserController extends Controller
     public function validateUser(Request $request, User $user = null)
     {
         $emailRule = $user
-            ? ['required', 'email', 'max:255', 'unique:users,email,' . $user->id, new ValidEmailDomain()]
-            : ['required', 'email', 'max:255', 'unique:users,email', new ValidEmailDomain()];
+            ? $this->emailRules('unique:users,email,' . $user->id)
+            : $this->emailRules('unique:users,email');
         
         $passwordRule = $user
             ? ['nullable', 'string', 'min:8', 'confirmed', new StrongPassword()]
@@ -75,14 +86,6 @@ class UserController extends Controller
             
             // Exclude super_admin users for regular admins
             $query->where('role', '!=', 'super_admin');
-        } else {
-            // Super admin can filter by company context if set
-            $companyId = CompanyContext::getActiveCompanyId();
-            if ($companyId && (int) $companyId !== 1) {
-                $query->where(function($q) use ($companyId) {
-                    $q->whereNull('company_id')->orWhere('company_id', $companyId);
-                });
-            }
         }
 
         $users = $query->paginate(20);
@@ -124,7 +127,7 @@ class UserController extends Controller
         
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => ['required', 'email', 'max:255', 'unique:users,email', new ValidEmailDomain()],
+            'email' => $this->emailRules('unique:users,email'),
             'password' => ['required', 'string', 'min:8', 'confirmed', new StrongPassword()],
             'company_id' => 'nullable|exists:companies,id',
             'role' => 'required|in:super_admin,admin,user,site_engineer',
@@ -309,7 +312,7 @@ class UserController extends Controller
             ];
             
             // Email validation - always validate email when updating own profile
-            $rules['email'] = ['required', 'email', 'max:255', 'unique:users,email,' . $user->id, new ValidEmailDomain()];
+            $rules['email'] = $this->emailRules('unique:users,email,' . $user->id);
             
             // Only validate password if it's provided (not empty)
             if ($request->filled('password')) {
@@ -380,7 +383,7 @@ class UserController extends Controller
         ];
         
         // Email validation - always validate email when updating
-        $rules['email'] = ['required', 'email', 'max:255', 'unique:users,email,' . $user->id, new ValidEmailDomain()];
+        $rules['email'] = $this->emailRules('unique:users,email,' . $user->id);
         
         // Only validate password if it's provided (not empty)
         if ($request->filled('password')) {

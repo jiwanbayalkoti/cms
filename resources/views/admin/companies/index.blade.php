@@ -5,18 +5,55 @@
 @section('content')
 <div class="flex justify-between mb-4">
     <h1 class="text-2xl font-bold">Companies</h1>
-    <button onclick="openCreateCompanyModal()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">New Company</button>
+    <div class="flex flex-wrap justify-end gap-2">
+      <button onclick="openTrialPeriodModal('overall', '{{ route('admin.companies.trial-period.update-all') }}', 'Common default', {{ $commonTrialDays }})" class="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700 transition">
+        Common Trial: {{ $commonTrialDays }} days
+      </button>
+      <button onclick="openCreateCompanyModal()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">New Company</button>
+    </div>
   </div>
 
   <div id="companiesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         @forelse($companies as $company)
       <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-6" data-company-id="{{ $company->id }}">
+        @php
+          $isLocked = $company->isLockedForPayment();
+          $isTrialing = $company->isOnTrial();
+          $trialDaysLeft = $company->trialDaysRemaining();
+          $paymentDaysLeft = $company->paymentDaysRemaining();
+        @endphp
         <div class="flex items-start justify-between mb-4">
           <div class="flex-1">
             <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ $company->name }}</h3>
+            <div class="flex flex-wrap gap-2 mb-2">
+              @if($company->trial_days_override)
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-sky-100 text-sky-700">
+                  Custom {{ $company->trial_days_override }} days
+                </span>
+              @endif
+              @if($isLocked)
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                  Locked{{ $company->lock_reason ? ' - ' . str_replace('_', ' ', $company->lock_reason) : '' }}
+                </span>
+              @elseif($isTrialing)
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                  Trial{{ $trialDaysLeft !== null ? ' - ' . max(0, $trialDaysLeft) . ' day(s) left' : '' }}
+                </span>
+              @else
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                  Active{{ $company->paid_until ? ' - ' . max(0, $paymentDaysLeft) . ' day(s) left' : '' }}
+                </span>
+              @endif
+            </div>
             @php($cardLogoUrl = $company->getLogoUrl())
             @if($cardLogoUrl)
               <img src="{{ $cardLogoUrl }}" alt="{{ $company->name }} Logo" class="h-12 w-auto mt-2">
+            @endif
+            @if($isTrialing)
+              @include('admin.partials.trial-timeline', ['company' => $company, 'compact' => true])
+            @endif
+            @if($company->hasPaymentTimeline())
+              @include('admin.partials.payment-timeline', ['company' => $company, 'compact' => true])
             @endif
           </div>
         </div>
@@ -45,6 +82,33 @@
         </div>
         
         <div class="flex items-center justify-end gap-1 pt-4 border-t">
+          @if($isLocked)
+            <form method="POST" action="{{ route('admin.companies.unlock', $company) }}" class="inline">
+              @csrf
+              <button type="submit" class="btn btn-sm btn-outline-success" title="Unlock">
+                <i class="bi bi-unlock"></i>
+              </button>
+            </form>
+          @elseif($isTrialing)
+            <form method="POST" action="{{ route('admin.companies.activate', $company) }}" class="inline" onsubmit="return confirm('Activate this company and end the trial period?')">
+              @csrf
+              <button type="submit" class="btn btn-sm btn-outline-success" title="Activate">
+                <i class="bi bi-check-circle"></i>
+              </button>
+            </form>
+          @else
+            <form method="POST" action="{{ route('admin.companies.lock', $company) }}" class="inline lock-company-form" data-company-name="{{ $company->name }}">
+              @csrf
+              <button type="submit" class="btn btn-sm btn-outline-secondary" title="Lock">
+                <i class="bi bi-lock"></i>
+              </button>
+            </form>
+          @endif
+          @if($company->subscription_status !== 'active')
+            <button type="button" onclick="openTrialPeriodModal('company', '{{ route('admin.companies.trial-period.update', $company) }}', '{{ addslashes($company->name) }}', {{ $company->trial_days_override ?: $company->trialTotalDays() }})" class="btn btn-sm btn-outline-info" title="Update Trial Period">
+              <i class="bi bi-clock-history"></i>
+            </button>
+          @endif
           <button onclick="openViewCompanyModal({{ $company->id }})" class="btn btn-sm btn-outline-primary" title="View">
             <i class="bi bi-eye"></i>
           </button>
@@ -230,9 +294,19 @@
             <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Delete Company</h3>
             
             <!-- Message -->
-            <p class="text-gray-600 text-center mb-6">
-                Are you sure you want to delete <span class="font-semibold text-gray-900" id="delete-company-name"></span>? This action cannot be undone.
-            </p>
+            <div class="text-gray-700 text-sm mb-6 space-y-3">
+                <p class="text-center">
+                    You are about to permanently delete <span class="font-semibold text-gray-900" id="delete-company-name"></span>.
+                </p>
+                <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3">
+                    <p class="font-semibold mb-1">Warning: all company data will be deleted.</p>
+                    <p>This includes users, projects, income, expenses, staff, reports, bills, invoices, loans, settings, and all related records from every table. This action cannot be undone.</p>
+                </div>
+                <label class="flex items-start gap-2">
+                    <input type="checkbox" id="confirm-delete-all-data" name="confirm_delete_all" value="1" form="delete-company-form" class="mt-1 rounded border-red-300 text-red-600 focus:ring-red-500">
+                    <span>I understand that all data linked to this company will be permanently deleted.</span>
+                </label>
+            </div>
             
             <!-- Buttons -->
             <div class="flex space-x-3">
@@ -242,10 +316,72 @@
                 <form id="delete-company-form" method="POST" class="flex-1">
                 @csrf
                 @method('DELETE')
-                    <button type="submit" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+                    <button type="submit" id="delete-company-submit-btn" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         Delete
                     </button>
               </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trial Period Modal -->
+<div id="trialPeriodModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-2xl max-w-md w-full" onclick="event.stopPropagation()">
+        <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-amber-100 rounded-full">
+                <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2" id="trial-period-title">Update Trial Period</h3>
+            <p class="text-gray-600 text-sm text-center mb-4" id="trial-period-description"></p>
+
+            <form id="trial-period-form" method="POST">
+                @csrf
+                <label for="trial-days-input" class="block text-sm font-medium text-gray-700 mb-2">Trial period days</label>
+                <input type="number" name="trial_days" id="trial-days-input" min="1" max="365" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500">
+                <p class="text-xs text-gray-500 mt-2" id="trial-period-help"></p>
+
+                <div class="flex space-x-3 mt-6">
+                    <button type="button" onclick="closeTrialPeriodModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" id="trial-period-submit-btn" class="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium">
+                        Update
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Lock Confirmation Modal -->
+<div id="lockConfirmationModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-2xl max-w-md w-full" onclick="event.stopPropagation()">
+        <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-amber-100 rounded-full">
+                <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11V7a4 4 0 10-8 0v4m-1 0h10a2 2 0 012 2v6a2 2 0 01-2 2H3a2 2 0 01-2-2v-6a2 2 0 012-2z"></path>
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Lock Company</h3>
+            <div class="text-gray-700 text-sm mb-6 space-y-3">
+                <p class="text-center">
+                    Are you sure you want to lock <span class="font-semibold text-gray-900" id="lock-company-name"></span>?
+                </p>
+                <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3">
+                    <p>This company will be blocked until payment is resolved. Users from this company will be redirected to the payment required page.</p>
+                </div>
+            </div>
+            <div class="flex space-x-3">
+                <button type="button" onclick="closeLockConfirmation()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium">
+                    Cancel
+                </button>
+                <button type="button" id="lock-company-confirm-btn" onclick="confirmLockCompany()" class="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium">
+                    Lock Company
+                </button>
             </div>
         </div>
     </div>
@@ -259,10 +395,60 @@ if (typeof window.csrfToken === 'undefined') {
 }
 // Use window.csrfToken directly or create a local reference without const
 var csrfToken = window.csrfToken;
+const commonTrialDays = {{ $commonTrialDays }};
 let currentCompanyId = null;
 let deleteCompanyId = null;
+let pendingLockCompanyForm = null;
 window.editModalStoredLogoUrl = '';
 window.editModalStoredFaviconUrl = '';
+
+function openTrialPeriodModal(scope, actionUrl, companyName, currentDays) {
+    const modal = document.getElementById('trialPeriodModal');
+    const form = document.getElementById('trial-period-form');
+    const title = document.getElementById('trial-period-title');
+    const description = document.getElementById('trial-period-description');
+    const input = document.getElementById('trial-days-input');
+    const help = document.getElementById('trial-period-help');
+    const submitBtn = document.getElementById('trial-period-submit-btn');
+
+    form.action = actionUrl;
+    title.textContent = scope === 'overall' ? 'Update Overall Trial Period' : 'Update Company Trial Period';
+    description.textContent = scope === 'overall'
+        ? 'This becomes the common default for new registered companies and companies without a manual override.'
+        : `This creates/updates a manual trial override only for ${companyName || 'this company'}.`;
+    help.textContent = scope === 'overall'
+        ? 'Companies with manual overrides will keep their own trial period. New registrations will use this common default.'
+        : 'Use this when a specific company requests extra days. Other companies will keep the common default.';
+    input.value = currentDays || commonTrialDays;
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Update';
+    modal.classList.remove('hidden');
+    input.focus();
+}
+
+function closeTrialPeriodModal() {
+    const modal = document.getElementById('trialPeriodModal');
+    const form = document.getElementById('trial-period-form');
+    const submitBtn = document.getElementById('trial-period-submit-btn');
+
+    modal.classList.add('hidden');
+    form.reset();
+    form.action = '';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Update';
+}
+
+document.getElementById('trial-period-form').addEventListener('submit', function() {
+    const submitBtn = document.getElementById('trial-period-submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Updating...';
+});
+
+document.getElementById('trialPeriodModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeTrialPeriodModal();
+    }
+});
 
 function resetCompanyAssetFlags() {
     document.getElementById('clear-logo-flag').value = '0';
@@ -681,11 +867,40 @@ function addCompanyRow(company) {
         <span class="flex-1">${escapeHtml(company.address.length > 50 ? company.address.substring(0, 50) + '...' : company.address)}</span>
       </div>
     ` : '';
+    const isLocked = company.subscription_status === 'locked' || !!company.locked_at;
+    const statusHtml = isLocked
+      ? `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Locked${company.lock_reason ? ' - ' + escapeHtml(String(company.lock_reason).replaceAll('_', ' ')) : ''}</span>`
+      : (company.subscription_status === 'trialing'
+          ? `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Trial - ${commonTrialDays} day(s)</span>`
+          : '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Active</span>');
+    const isActive = company.subscription_status === 'active' && !isLocked;
+    const isTrialing = company.subscription_status === 'trialing';
+    const activateButtonHtml = isTrialing
+      ? `<form method="POST" action="/admin/companies/${company.id}/activate" class="inline" onsubmit="return confirm('Activate this company and end the trial period?')">
+          <input type="hidden" name="_token" value="${escapeHtml(csrfToken)}">
+          <button type="submit" class="btn btn-sm btn-outline-success" title="Activate"><i class="bi bi-check-circle"></i></button>
+        </form>`
+      : '';
+    const lockButtonHtml = isLocked
+      ? `<form method="POST" action="/admin/companies/${company.id}/unlock" class="inline">
+          <input type="hidden" name="_token" value="${escapeHtml(csrfToken)}">
+          <button type="submit" class="btn btn-sm btn-outline-success" title="Unlock"><i class="bi bi-unlock"></i></button>
+        </form>`
+      : (isTrialing ? activateButtonHtml
+      : `<form method="POST" action="/admin/companies/${company.id}/lock" class="inline lock-company-form" data-company-name="${escapeHtml(company.name || '')}">
+          <input type="hidden" name="_token" value="${escapeHtml(csrfToken)}">
+          <button type="submit" class="btn btn-sm btn-outline-secondary" title="Lock"><i class="bi bi-lock"></i></button>
+        </form>`);
+    const trialButtonHtml = isActive ? '' : `
+          <button type="button" onclick="openTrialPeriodModal('company', '/admin/companies/${company.id}/trial-period', '${escapeHtml((company.name || '').replace(/'/g, "\\'"))}', commonTrialDays)" class="btn btn-sm btn-outline-info" title="Update Trial Period">
+            <i class="bi bi-clock-history"></i>
+          </button>`;
     
     card.innerHTML = `
         <div class="flex items-start justify-between mb-4">
           <div class="flex-1">
             <h3 class="text-lg font-semibold text-gray-900 mb-1">${escapeHtml(company.name || '')}</h3>
+            <div class="flex flex-wrap gap-2 mb-2">${statusHtml}</div>
             ${logoHtml}
           </div>
         </div>
@@ -697,6 +912,8 @@ function addCompanyRow(company) {
         </div>
         
         <div class="flex items-center justify-end gap-1 pt-4 border-t">
+          ${lockButtonHtml}
+          ${trialButtonHtml}
           <button onclick="openViewCompanyModal(${company.id})" class="btn btn-sm btn-outline-primary" title="View">
             <i class="bi bi-eye"></i>
           </button>
@@ -1066,12 +1283,59 @@ document.getElementById('viewCompanyModal').addEventListener('click', function(e
     }
 });
 
+// Lock Confirmation Functions
+function showLockConfirmation(form) {
+    pendingLockCompanyForm = form;
+    const companyName = form.getAttribute('data-company-name') || 'this company';
+    document.getElementById('lock-company-name').textContent = companyName;
+    const confirmBtn = document.getElementById('lock-company-confirm-btn');
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Lock Company';
+    document.getElementById('lockConfirmationModal').classList.remove('hidden');
+}
+
+function closeLockConfirmation() {
+    document.getElementById('lockConfirmationModal').classList.add('hidden');
+    pendingLockCompanyForm = null;
+    const confirmBtn = document.getElementById('lock-company-confirm-btn');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Lock Company';
+    }
+}
+
+function confirmLockCompany() {
+    if (!pendingLockCompanyForm) return;
+
+    const confirmBtn = document.getElementById('lock-company-confirm-btn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Locking...';
+    pendingLockCompanyForm.submit();
+}
+
+document.addEventListener('submit', function(e) {
+    const form = e.target;
+    if (form && form.classList && form.classList.contains('lock-company-form')) {
+        e.preventDefault();
+        showLockConfirmation(form);
+    }
+});
+
+document.getElementById('lockConfirmationModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeLockConfirmation();
+    }
+});
+
 // Delete Confirmation Functions
 function resetDeleteSubmitButton() {
-    const form = document.getElementById('delete-company-form');
-    const submitBtn = form?.querySelector('button[type="submit"]');
+    const submitBtn = document.getElementById('delete-company-submit-btn');
+    const confirmCheckbox = document.getElementById('confirm-delete-all-data');
+    if (confirmCheckbox) {
+        confirmCheckbox.checked = false;
+    }
     if (submitBtn) {
-        submitBtn.disabled = false;
+        submitBtn.disabled = true;
         submitBtn.textContent = 'Delete';
     }
 }
@@ -1095,7 +1359,13 @@ document.getElementById('delete-company-form').addEventListener('submit', functi
     e.preventDefault();
     
     const form = this;
-    const submitBtn = form.querySelector('button[type="submit"]');
+    const submitBtn = document.getElementById('delete-company-submit-btn');
+    const confirmCheckbox = document.getElementById('confirm-delete-all-data');
+    if (!confirmCheckbox || !confirmCheckbox.checked) {
+        showNotification('Please confirm that all company data will be permanently deleted.', 'error');
+        return;
+    }
+
     const originalText = submitBtn.textContent;
     
     submitBtn.disabled = true;
@@ -1160,7 +1430,7 @@ document.getElementById('delete-company-form').addEventListener('submit', functi
                 window.location.reload();
             }
             
-            showNotification('Company deleted successfully!', 'success');
+            showNotification(data.message || 'Company and all related data deleted successfully!', 'success');
         } else {
             showNotification(data.message || 'Failed to delete company', 'error');
             submitBtn.disabled = false;
@@ -1175,8 +1445,21 @@ document.getElementById('delete-company-form').addEventListener('submit', functi
     });
 });
 
+document.getElementById('confirm-delete-all-data').addEventListener('change', function() {
+    const submitBtn = document.getElementById('delete-company-submit-btn');
+    if (submitBtn) {
+        submitBtn.disabled = !this.checked;
+    }
+});
+
 // Close delete modal on Escape key
 document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !document.getElementById('trialPeriodModal').classList.contains('hidden')) {
+        closeTrialPeriodModal();
+    }
+    if (e.key === 'Escape' && !document.getElementById('lockConfirmationModal').classList.contains('hidden')) {
+        closeLockConfirmation();
+    }
     if (e.key === 'Escape' && !document.getElementById('deleteConfirmationModal').classList.contains('hidden')) {
         closeDeleteConfirmation();
     }

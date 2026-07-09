@@ -10,6 +10,12 @@
             <p class="mt-2 text-gray-600">Welcome to the admin panel, {{ Auth::user()->name }}!</p>
         </div>
         <div class="flex items-center gap-3">
+            @if(!Auth::user()->isSuperAdmin() && $dashboardCompany)
+                <a href="{{ route('admin.payment-required') }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition">
+                    <i class="bi bi-credit-card me-2"></i>
+                    {{ $dashboardCompany->subscription_status === 'active' ? 'Renew Subscription' : 'Make Payment' }}
+                </a>
+            @endif
             <label for="period_filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">Filter Period:</label>
             <div class="inline-block relative">
                 <select name="period" id="period_filter" 
@@ -28,6 +34,12 @@
         </div>
     </div>
 </div>
+
+@if(!Auth::user()->isSuperAdmin() && $dashboardCompany)
+    @if($dashboardCompany->isOnTrial() || ($dashboardCompany->isLockedForPayment() && $dashboardCompany->lock_reason === 'trial_expired'))
+        @include('admin.partials.trial-timeline', ['company' => $dashboardCompany])
+    @endif
+@endif
 
 <!-- First Row -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">

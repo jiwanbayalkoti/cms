@@ -185,16 +185,26 @@
                         <label for="user-password" class="block text-sm font-medium text-gray-700 mb-2">
                             <span id="user-password-label">Password</span> <span class="text-red-500" id="user-password-required">*</span>
                         </label>
-                        <input type="password" name="password" id="user-password"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <div class="relative">
+                            <input type="password" name="password" id="user-password"
+                                   class="w-full px-3 py-2 pr-16 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button type="button" onclick="togglePasswordVisibility('user-password', this)" class="absolute inset-y-0 right-0 px-3 text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                                Show
+                            </button>
+                        </div>
                         <div class="field-error text-red-600 text-sm mt-1" data-field="password" style="display: none;"></div>
                     </div>
                     <div>
                         <label for="user-password-confirmation" class="block text-sm font-medium text-gray-700 mb-2">
                             <span id="user-password-confirmation-label">Confirm Password</span> <span class="text-red-500" id="user-password-confirmation-required">*</span>
                         </label>
-                        <input type="password" name="password_confirmation" id="user-password-confirmation"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <div class="relative">
+                            <input type="password" name="password_confirmation" id="user-password-confirmation"
+                                   class="w-full px-3 py-2 pr-16 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button type="button" onclick="togglePasswordVisibility('user-password-confirmation', this)" class="absolute inset-y-0 right-0 px-3 text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                                Show
+                            </button>
+                        </div>
                         <div class="field-error text-red-600 text-sm mt-1" data-field="password_confirmation" style="display: none;"></div>
                     </div>
                 </div>
@@ -274,6 +284,28 @@ let selectedProjects = new Set();
 let currentUserIsSuperAdmin = {{ auth()->user()->isSuperAdmin() ? 'true' : 'false' }};
 let currentUserCompanyId = {{ auth()->user()->company_id ?? 'null' }};
 
+function togglePasswordVisibility(inputId, button) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    button.textContent = isPassword ? 'Hide' : 'Show';
+}
+
+function resetUserPasswordVisibility() {
+    ['user-password', 'user-password-confirmation'].forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+
+        input.type = 'password';
+        const button = input.parentElement?.querySelector('button[type="button"]');
+        if (button) {
+            button.textContent = 'Show';
+        }
+    });
+}
+
 function openCreateUserModal() {
     currentUserId = null;
     const modal = document.getElementById('userModal');
@@ -291,6 +323,7 @@ function openCreateUserModal() {
     methodInput.value = 'POST';
     submitBtn.textContent = 'Save';
     form.reset();
+    resetUserPasswordVisibility();
     passwordLabel.textContent = 'Password';
     passwordRequired.style.display = 'inline';
     passwordConfirmationLabel.textContent = 'Confirm Password';
@@ -373,6 +406,7 @@ function openEditUserModal(userId) {
     title.textContent = 'Edit User';
     methodInput.value = 'PUT';
     submitBtn.textContent = 'Update';
+    resetUserPasswordVisibility();
     passwordLabel.textContent = 'New Password';
     passwordRequired.style.display = 'none';
     passwordConfirmationLabel.textContent = 'Confirm New Password';
@@ -575,6 +609,7 @@ function closeUserModal() {
     document.getElementById('userModal').classList.add('hidden');
     currentUserId = null;
     document.getElementById('userForm').reset();
+    resetUserPasswordVisibility();
     selectedProjects.clear();
     document.getElementById('user-project-access-container').style.display = 'none';
 }

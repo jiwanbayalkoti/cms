@@ -69,5 +69,6 @@ class Kernel extends HttpKernel
         'super_admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
         'site_engineer' => \App\Http\Middleware\SiteEngineerMiddleware::class,
         'activity_log' => \App\Http\Middleware\LogUserActivity::class,
+        'company_payment' => \App\Http\Middleware\EnsureCompanyPaymentActive::class,
     ];
 }

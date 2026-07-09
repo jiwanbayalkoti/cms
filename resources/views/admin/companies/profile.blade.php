@@ -11,6 +11,10 @@
         </a>
     </div>
 
+    @if($company->hasPaymentTimeline())
+        @include('admin.partials.payment-timeline', ['company' => $company])
+    @endif
+
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0"><i class="bi bi-building me-2"></i>Company Information</h5>

@@ -120,9 +120,14 @@
                     </div>
                     <div>
                         <label for="password" class="sr-only">Password</label>
-                        <input id="password" name="password" type="password" autocomplete="current-password" required 
-                               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm @error('password') border-red-500 @enderror" 
-                               placeholder="Password">
+                        <div class="relative">
+                            <input id="password" name="password" type="password" autocomplete="current-password" required 
+                                   class="appearance-none rounded-none relative block w-full px-3 py-2 pr-16 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm @error('password') border-red-500 @enderror" 
+                                   placeholder="Password">
+                            <button type="button" onclick="togglePasswordVisibility('password', this)" class="absolute inset-y-0 right-0 z-20 px-3 text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                                Show
+                            </button>
+                        </div>
                         @error('password')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                         @enderror
@@ -145,6 +150,14 @@
                         Sign in
                     </button>
                 </div>
+
+                <div class="text-center border-t pt-4">
+                    <p class="text-sm text-gray-600 mb-3">New here?</p>
+                    <a href="{{ route('admin.register') }}"
+                       class="inline-flex w-full justify-center py-2 px-4 border border-indigo-200 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
+                        Register as Company
+                    </a>
+                </div>
             </form>
         </div>
     </div>
@@ -158,6 +171,15 @@
                     alert.remove();
                 }, 300);
             }
+        }
+
+        function togglePasswordVisibility(inputId, button) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            button.textContent = isPassword ? 'Hide' : 'Show';
         }
         
         // Auto-dismiss alerts after 5 seconds

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Admin\Auth\LoginController;
+use App\Http\Controllers\Admin\Auth\RegisterController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\SubcategoryController;
@@ -20,6 +21,8 @@ use App\Http\Controllers\Admin\ExpenseTypeController;
 use App\Http\Controllers\Admin\PaymentTypeController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\CompanyController;
+use App\Http\Controllers\Admin\CompanyPaymentRequestController;
+use App\Http\Controllers\Admin\SystemSettingsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\UserActivityLogController;
 use App\Http\Controllers\Admin\MaterialCalculatorController;
@@ -55,21 +58,38 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::middleware(['guest', 'throttle:5,1'])->group(function () {
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login']);
+        Route::get('/register', [RegisterController::class, 'showRegisterOptions'])->name('register');
+        Route::get('/register/company', [RegisterController::class, 'showCompanyForm'])->name('register.company');
+        Route::post('/register/company', [RegisterController::class, 'registerCompany'])->name('register.company.store');
     });
     
     // Logout Route (accessible only to authenticated admins)
     Route::match(['get', 'post'], '/logout', [LoginController::class, 'logout'])->name('logout');
+    Route::get('/payment-required', function () {
+        $company = auth()->user()?->company;
+        $paymentRequests = $company
+            ? $company->paymentRequests()->latest()->limit(5)->get()
+            : collect();
+        $hasPendingPaymentRequest = $paymentRequests->contains('status', 'pending');
+
+        return view('admin.payment-required', [
+            'paymentSettings' => CompanyPaymentRequestController::paymentSettings(),
+            'paymentRequests' => $paymentRequests,
+            'hasPendingPaymentRequest' => $hasPendingPaymentRequest,
+        ]);
+    })->middleware(['admin'])->name('payment-required');
+    Route::post('/payment-requests', [CompanyPaymentRequestController::class, 'store'])
+        ->middleware(['admin', 'throttle:forms'])
+        ->name('payment-requests.store');
+    Route::get('/payment-requests/history/pdf', [CompanyPaymentRequestController::class, 'historyPdf'])
+        ->middleware(['admin'])
+        ->name('payment-requests.history.pdf');
     
     // Protected Admin Routes
-    Route::middleware(['admin', 'site_engineer', 'activity_log'])->group(function () {
+    Route::middleware(['admin', 'site_engineer', 'company_payment', 'activity_log'])->group(function () {
         // Dashboard (Admin only - not accessible to regular users)
         Route::middleware(['admin_only'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-        });
-        
-        // Super Admin Dashboard
-        Route::middleware(['super_admin'])->group(function () {
-            Route::get('/super-admin/dashboard', [DashboardController::class, 'superAdminDashboard'])->name('super-admin.dashboard');
         });
         
         // Categories CRUD (with rate limiting for form submissions)
@@ -428,6 +448,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Companies CRUD (super admin only)
         Route::middleware(['super_admin'])->group(function () {
+            Route::get('settings', [SystemSettingsController::class, 'index'])->name('settings.index');
+            Route::post('settings', [SystemSettingsController::class, 'update'])->name('settings.update');
+            Route::post('payment-requests/{paymentRequest}/verify', [SystemSettingsController::class, 'verifyPayment'])->name('payment-requests.verify');
+            Route::post('payment-requests/{paymentRequest}/reject', [SystemSettingsController::class, 'rejectPayment'])->name('payment-requests.reject');
             Route::get('companies', [CompanyController::class, 'index'])->name('companies.index');
             Route::get('companies/create', [CompanyController::class, 'create'])->name('companies.create');
             Route::get('companies/{company}/edit', [CompanyController::class, 'edit'])->name('companies.edit');
@@ -439,6 +463,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
             });
             Route::middleware(['throttle:forms'])->group(function () {
                 Route::delete('companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
+                Route::post('companies/{company}/lock', [CompanyController::class, 'lock'])->name('companies.lock');
+                Route::post('companies/{company}/unlock', [CompanyController::class, 'unlock'])->name('companies.unlock');
+                Route::post('companies/{company}/activate', [CompanyController::class, 'activate'])->name('companies.activate');
+                Route::post('companies/trial-period', [CompanyController::class, 'updateAllTrialPeriods'])->name('companies.trial-period.update-all');
+                Route::post('companies/{company}/trial-period', [CompanyController::class, 'updateTrialPeriod'])->name('companies.trial-period.update');
             });
             Route::post('/companies/switch', [CompanyController::class, 'switch'])->name('companies.switch');
         });

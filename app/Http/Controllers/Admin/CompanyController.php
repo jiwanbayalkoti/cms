@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppSetting;
 use App\Models\Company;
 use App\Models\CompanyLetterheadAsset;
 use App\Models\CompanyLetterheadExport;
 use App\Support\CompanyContext;
+use App\Services\CompanyPaymentLockService;
 use App\Services\FaviconGeneratorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -36,8 +38,14 @@ class CompanyController extends Controller
 
     public function index()
     {
-        $companies = Company::orderBy('name')->paginate(15);
-        return view('admin.companies.index', compact('companies'));
+        $companies = Company::with(['paymentRequests' => function ($query) {
+            $query->where('status', 'verified')
+                ->latest('verified_at')
+                ->latest('id');
+        }])->orderBy('name')->paginate(15);
+        $commonTrialDays = AppSetting::trialDays();
+
+        return view('admin.companies.index', compact('companies', 'commonTrialDays'));
     }
 
     public function create()
@@ -68,6 +76,7 @@ class CompanyController extends Controller
         }
 
         $company = Company::create($validated);
+        $company->startTrial();
 
         // Handle favicon
         $faviconService = app(FaviconGeneratorService::class);
@@ -210,89 +219,332 @@ class CompanyController extends Controller
         return redirect()->route('admin.companies.index')->with('success', 'Company updated successfully.');
     }
 
-    public function destroy(Company $company)
+    public function destroy(Request $request, Company $company)
     {
-        [$references, $totalLinkedRows] = $this->companyReferenceSummary($company->id);
-        if ($totalLinkedRows > 0) {
-            $preview = collect($references)
-                ->take(5)
-                ->map(function (array $ref) {
-                    return $ref['table'] . ' (' . $ref['count'] . ')';
-                })
-                ->implode(', ');
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403, 'Only super admin can delete companies.');
+        }
 
-            $message = 'Cannot delete company: linked data exists in ' . count($references) . ' table(s), total rows ' . $totalLinkedRows . '.';
-            if ($preview !== '') {
-                $message .= ' Example: ' . $preview . '.';
-            }
-            $message .= ' Remove or reassign those records first.';
-
-            if (request()->ajax() || request()->wantsJson()) {
+        if (!$request->boolean('confirm_delete_all')) {
+            $message = 'Please confirm that all company data will be permanently deleted.';
+            if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => $message,
-                    'references' => $references,
                 ], 422);
             }
 
             return redirect()->route('admin.companies.index')->with('error', $message);
         }
 
-        $company->delete();
+        if ((int) auth()->user()->company_id === (int) $company->id) {
+            $message = 'You cannot delete the company attached to your own super admin account.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message,
+                ], 422);
+            }
+
+            return redirect()->route('admin.companies.index')->with('error', $message);
+        }
+
+        $deletedRows = 0;
+
+        DB::transaction(function () use ($company, &$deletedRows) {
+            $deletePlan = $this->companyDeletePlan($company->id);
+            $deletedRows = $this->deleteCompanyRelatedRows($deletePlan);
+            $company->delete();
+        });
+
+        if ((int) session('active_company_id') === (int) $company->id) {
+            session()->forget('active_company_id');
+        }
         
         // Return JSON response for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Company deleted successfully.'
+                'message' => 'Company and all related data deleted successfully.',
+                'deleted_rows' => $deletedRows,
             ]);
         }
         
-        return redirect()->route('admin.companies.index')->with('success', 'Company deleted successfully.');
+        return redirect()->route('admin.companies.index')->with('success', 'Company and all related data deleted successfully.');
     }
 
-    /**
-     * Find every table/column that references companies.id and count matching rows.
-     *
-     * @return array{0: array<int, array{table: string, column: string, count: int}>, 1: int}
-     */
-    protected function companyReferenceSummary(int $companyId): array
+    public function lock(Company $company, CompanyPaymentLockService $paymentLockService)
     {
-        $rows = DB::select(
-            "SELECT TABLE_NAME, COLUMN_NAME
-             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-             WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
-               AND REFERENCED_TABLE_NAME = 'companies'
-               AND REFERENCED_COLUMN_NAME = 'id'"
-        );
+        $company->lockForPayment('manual');
+        $company->refresh();
+        $paymentLockService->sendManualStatusChangedEmail($company, 'locked');
 
-        $references = [];
-        $totalLinkedRows = 0;
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Company locked successfully.',
+                'company' => $company->fresh(),
+            ]);
+        }
 
-        foreach ($rows as $row) {
-            $table = (string) ($row->TABLE_NAME ?? '');
-            $column = (string) ($row->COLUMN_NAME ?? '');
+        return redirect()->route('admin.companies.index')->with('success', 'Company locked successfully.');
+    }
 
-            if ($table === '' || $column === '' || $table === 'companies') {
+    public function unlock(Company $company, CompanyPaymentLockService $paymentLockService)
+    {
+        $company->unlockPaymentAccess();
+        $company->refresh();
+        $paymentLockService->sendManualStatusChangedEmail($company, 'unlocked');
+
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Company unlocked successfully.',
+                'company' => $company->fresh(),
+            ]);
+        }
+
+        return redirect()->route('admin.companies.index')->with('success', 'Company unlocked successfully.');
+    }
+
+    public function activate(Company $company)
+    {
+        $company->unlockPaymentAccess();
+
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Company activated successfully.',
+                'company' => $company->fresh(),
+            ]);
+        }
+
+        return redirect()->route('admin.companies.index')->with('success', 'Company activated successfully.');
+    }
+
+    public function updateTrialPeriod(Request $request, Company $company)
+    {
+        $validated = $request->validate([
+            'trial_days' => 'required|integer|min:1|max:365',
+        ]);
+
+        $company->updateTrialPeriod((int) $validated['trial_days'], true);
+
+        return redirect()
+            ->route('admin.companies.index')
+            ->with('success', 'Trial period override updated for ' . $company->name . '.');
+    }
+
+    public function updateAllTrialPeriods(Request $request)
+    {
+        $validated = $request->validate([
+            'trial_days' => 'required|integer|min:1|max:365',
+        ]);
+
+        $days = (int) $validated['trial_days'];
+        $updatedCount = 0;
+        AppSetting::setTrialDays($days);
+
+        Company::whereNotNull('trial_started_at')
+            ->whereNotNull('trial_ends_at')
+            ->whereNull('trial_days_override')
+            ->orderBy('id')
+            ->chunkById(100, function ($companies) use ($days, &$updatedCount) {
+                foreach ($companies as $company) {
+                    $company->updateTrialPeriod($days, false);
+                    $updatedCount++;
+                }
+            });
+
+        return redirect()
+            ->route('admin.companies.index')
+            ->with('success', "Common trial period set to {$days} days. Applied to {$updatedCount} compan" . ($updatedCount === 1 ? 'y without override.' : 'ies without overrides.'));
+    }
+
+    protected function companyDeletePlan(int $companyId): array
+    {
+        $columns = $this->databaseColumnsByTable();
+        $foreignKeys = $this->databaseForeignKeys();
+        $plan = [];
+        $queue = [];
+
+        foreach ($columns as $table => $tableColumns) {
+            if ($table === 'companies' || !in_array('company_id', $tableColumns, true)) {
                 continue;
             }
 
-            $count = (int) DB::table($table)->where($column, $companyId)->count();
+            $ids = $this->pluckIdsByColumnValues($table, 'company_id', [$companyId], $columns);
+            $count = $ids !== null
+                ? count($ids)
+                : $this->countRowsByColumnValues($table, 'company_id', [$companyId]);
+
             if ($count < 1) {
                 continue;
             }
 
-            $references[] = [
-                'table' => $table,
-                'column' => $column,
-                'count' => $count,
-            ];
-            $totalLinkedRows += $count;
+            $this->addDeletePlanEntry($plan, $table, 'company_id', [$companyId], $ids, 1);
+            if ($ids !== null && $ids !== []) {
+                $queue[] = ['table' => $table, 'ids' => $ids, 'depth' => 1];
+            }
         }
 
-        usort($references, static fn (array $a, array $b) => $b['count'] <=> $a['count']);
+        while ($queue !== []) {
+            $current = array_shift($queue);
+            $parentTable = $current['table'];
+            $parentIds = $current['ids'];
+            $depth = $current['depth'];
 
-        return [$references, $totalLinkedRows];
+            foreach ($foreignKeys as $foreignKey) {
+                if ($foreignKey['parent_table'] !== $parentTable || $foreignKey['child_table'] === 'companies') {
+                    continue;
+                }
+
+                $childTable = $foreignKey['child_table'];
+                $childColumn = $foreignKey['child_column'];
+                $childIds = $this->pluckIdsByColumnValues($childTable, $childColumn, $parentIds, $columns);
+                $count = $childIds !== null
+                    ? count($childIds)
+                    : $this->countRowsByColumnValues($childTable, $childColumn, $parentIds);
+
+                if ($count < 1) {
+                    continue;
+                }
+
+                $newIds = $this->addDeletePlanEntry($plan, $childTable, $childColumn, $parentIds, $childIds, $depth + 1);
+                if ($newIds !== []) {
+                    $queue[] = ['table' => $childTable, 'ids' => $newIds, 'depth' => $depth + 1];
+                }
+            }
+        }
+
+        return $plan;
+    }
+
+    protected function addDeletePlanEntry(array &$plan, string $table, string $column, array $values, ?array $ids, int $depth): array
+    {
+        $plan[$table] ??= [
+            'ids' => [],
+            'criteria' => [],
+            'depth' => 0,
+        ];
+
+        $plan[$table]['depth'] = max($plan[$table]['depth'], $depth);
+        $plan[$table]['criteria'][] = [
+            'column' => $column,
+            'values' => array_values(array_unique($values)),
+        ];
+
+        if ($ids === null) {
+            return [];
+        }
+
+        $newIds = array_values(array_diff($ids, $plan[$table]['ids']));
+        $plan[$table]['ids'] = array_values(array_unique(array_merge($plan[$table]['ids'], $ids)));
+
+        return $newIds;
+    }
+
+    protected function deleteCompanyRelatedRows(array $plan): int
+    {
+        $deletedRows = 0;
+        uasort($plan, static fn (array $a, array $b) => $b['depth'] <=> $a['depth']);
+
+        $this->setForeignKeyChecks(false);
+
+        try {
+            foreach ($plan as $table => $entry) {
+                if (!empty($entry['ids'])) {
+                    foreach (array_chunk($entry['ids'], 500) as $ids) {
+                        $deletedRows += DB::table($table)->whereIn('id', $ids)->delete();
+                    }
+                    continue;
+                }
+
+                foreach ($entry['criteria'] as $criterion) {
+                    foreach (array_chunk($criterion['values'], 500) as $values) {
+                        $deletedRows += DB::table($table)->whereIn($criterion['column'], $values)->delete();
+                    }
+                }
+            }
+        } finally {
+            $this->setForeignKeyChecks(true);
+        }
+
+        return $deletedRows;
+    }
+
+    protected function setForeignKeyChecks(bool $enabled): void
+    {
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=' . ($enabled ? '1' : '0'));
+        }
+    }
+
+    protected function databaseColumnsByTable(): array
+    {
+        $rows = DB::select(
+            "SELECT TABLE_NAME, COLUMN_NAME
+             FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()"
+        );
+
+        $columns = [];
+        foreach ($rows as $row) {
+            $table = (string) ($row->TABLE_NAME ?? '');
+            $column = (string) ($row->COLUMN_NAME ?? '');
+            if ($table === '' || $column === '') {
+                continue;
+            }
+
+            $columns[$table] ??= [];
+            $columns[$table][] = $column;
+        }
+
+        return $columns;
+    }
+
+    protected function databaseForeignKeys(): array
+    {
+        $rows = DB::select(
+            "SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME
+             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND REFERENCED_TABLE_NAME IS NOT NULL"
+        );
+
+        return collect($rows)
+            ->map(fn ($row) => [
+                'child_table' => (string) ($row->TABLE_NAME ?? ''),
+                'child_column' => (string) ($row->COLUMN_NAME ?? ''),
+                'parent_table' => (string) ($row->REFERENCED_TABLE_NAME ?? ''),
+            ])
+            ->filter(fn (array $row) => $row['child_table'] !== '' && $row['child_column'] !== '' && $row['parent_table'] !== '')
+            ->values()
+            ->all();
+    }
+
+    protected function pluckIdsByColumnValues(string $table, string $column, array $values, array $columns): ?array
+    {
+        if (!in_array('id', $columns[$table] ?? [], true)) {
+            return null;
+        }
+
+        $ids = [];
+        foreach (array_chunk(array_values(array_unique($values)), 500) as $chunk) {
+            $ids = array_merge($ids, DB::table($table)->whereIn($column, $chunk)->pluck('id')->all());
+        }
+
+        return array_values(array_unique(array_map('intval', $ids)));
+    }
+
+    protected function countRowsByColumnValues(string $table, string $column, array $values): int
+    {
+        $count = 0;
+        foreach (array_chunk(array_values(array_unique($values)), 500) as $chunk) {
+            $count += DB::table($table)->whereIn($column, $chunk)->count();
+        }
+
+        return $count;
     }
 
     public function switch(Request $request)
@@ -340,7 +592,11 @@ class CompanyController extends Controller
             return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
         }
 
-            $company = Company::find($companyId);
+            $company = Company::with(['paymentRequests' => function ($query) {
+                $query->where('status', 'verified')
+                    ->latest('verified_at')
+                    ->latest('id');
+            }])->find($companyId);
             
             if (!$company) {
                 return redirect()->route('admin.dashboard')->with('error', 'Company not found.');

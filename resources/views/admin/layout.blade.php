@@ -983,6 +983,13 @@
                         </svg>
                         <span class="nav-item-text">Companies</span>
                     </a>
+                    <a href="{{ route('admin.settings.index') }}" data-tooltip="Settings" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.settings.*') || request()->routeIs('admin.payment-requests.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        <span class="nav-item-text">Settings</span>
+                    </a>
                     @endif
                     <button type="button" data-tooltip="Projects" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle" data-target="projects-menu" aria-expanded="{{ $projectsOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
@@ -1351,6 +1358,31 @@
                     <div id="page-content">
                         @yield('content')
                     </div>
+                    @if(Auth::check() && !Auth::user()->isSuperAdmin())
+                        @php
+                            $footerContactPhone = \App\Models\AppSetting::getValue('contact_phone');
+                            $footerContactEmail = \App\Models\AppSetting::getValue('contact_email');
+                            $footerContactAddress = \App\Models\AppSetting::getValue('contact_address');
+                        @endphp
+                        @if($footerContactPhone || $footerContactEmail || $footerContactAddress)
+                            <footer class="mt-8 -mx-4 sm:-mx-6 lg:-mx-8 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-gray-200 shadow-inner">
+                                <div class="px-4 sm:px-6 lg:px-8 py-5">
+                                    <div class="font-semibold text-white mb-2">Contact Support</div>
+                                    <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                                        @if($footerContactPhone)
+                                            <span class="inline-flex items-center"><i class="bi bi-telephone me-2 text-blue-300"></i>{{ $footerContactPhone }}</span>
+                                        @endif
+                                        @if($footerContactEmail)
+                                            <span class="inline-flex items-center"><i class="bi bi-envelope me-2 text-blue-300"></i>{{ $footerContactEmail }}</span>
+                                        @endif
+                                        @if($footerContactAddress)
+                                            <span class="inline-flex items-center"><i class="bi bi-geo-alt me-2 text-blue-300"></i>{{ $footerContactAddress }}</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </footer>
+                        @endif
+                    @endif
                 </div>
             </main>
         </div>

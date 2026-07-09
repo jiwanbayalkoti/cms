@@ -13,6 +13,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('logs:prune-user-activities')->dailyAt('01:00');
+        $schedule->command('companies:lock-expired-trials')->everyFifteenMinutes();
     }
 
     /**

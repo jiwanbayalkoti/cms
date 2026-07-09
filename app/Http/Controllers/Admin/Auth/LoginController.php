@@ -36,6 +36,7 @@ class LoginController extends Controller
         if (Auth::attempt($credentials, $remember)) {
             $user = Auth::user();
             $request->session()->regenerate();
+            $request->session()->forget('active_company_id');
 
             UserActivityLog::create([
                 'user_id' => $user->id,
