@@ -99,6 +99,13 @@ class Company extends Model
         return $this->hasMany(User::class);
     }
 
+    public function adminPermissionRole()
+    {
+        return $this->hasOne(PermissionRole::class)
+            ->withoutGlobalScopes()
+            ->where('type', PermissionRole::TYPE_ADMIN_PACK);
+    }
+
     public function incomes()
     {
         return $this->hasMany(Income::class);

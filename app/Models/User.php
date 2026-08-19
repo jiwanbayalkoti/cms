@@ -24,6 +24,7 @@ class User extends Authenticatable
         'is_admin',
         'company_id',
         'role',
+        'permission_role_id',
     ];
 
     /**
@@ -64,6 +65,44 @@ class User extends Authenticatable
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function permissionRole()
+    {
+        return $this->belongsTo(PermissionRole::class, 'permission_role_id')->withoutGlobalScopes();
+    }
+
+    public function roleLabel(): string
+    {
+        if ($this->role === 'super_admin') {
+            return 'Super Admin';
+        }
+
+        if ($this->relationLoaded('permissionRole') && $this->permissionRole) {
+            return $this->permissionRole->name;
+        }
+
+        if ($this->permissionRole) {
+            return $this->permissionRole->name;
+        }
+
+        return ucfirst(str_replace('_', ' ', (string) $this->role));
+    }
+
+    public function canAccessModule(string $module, string $action = 'view'): bool
+    {
+        return app(\App\Services\ModulePermissionService::class)->userCan($this, $module, $action);
+    }
+
+    public function canAccessRoute(?string $routeName, string $action = 'view'): bool
+    {
+        $service = app(\App\Services\ModulePermissionService::class);
+        $module = $service->moduleForRoute($routeName);
+        if (!$module) {
+            return $this->isAdmin();
+        }
+
+        return $service->userCan($this, $module, $action);
     }
 
     public function projects()

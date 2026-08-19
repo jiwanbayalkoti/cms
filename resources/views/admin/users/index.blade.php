@@ -36,7 +36,7 @@
                 @elseif($user->role === 'admin') bg-blue-100 text-blue-800
                 @else bg-gray-100 text-gray-800
                 @endif">
-                {{ ucfirst(str_replace('_', ' ', $user->role)) }}
+                {{ $user->roleLabel() }}
               </span>
             </td>
             <td class="px-4 py-2 whitespace-nowrap">
@@ -162,7 +162,7 @@
             </button>
         </div>
         <div class="flex-1 overflow-y-auto p-6">
-            <form id="userForm" onsubmit="submitUserForm(event)">
+            <form id="userForm" action="#" method="post" onsubmit="return submitUserForm(event)">
                 @csrf
                 <input type="hidden" name="_method" id="user-method" value="POST">
                 
@@ -227,13 +227,13 @@
                     <div class="field-error text-red-600 text-sm mt-1" data-field="project_ids" style="display: none;"></div>
                 </div>
 
-                <div class="mb-4">
-                    <label for="user-role" class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></label>
-                    <select name="role" id="user-role" required
+                <div class="mb-4" id="user-permission-role-wrap">
+                    <label for="user-permission-role-id" class="block text-sm font-medium text-gray-700 mb-2">Role <span class="text-red-500">*</span></label>
+                    <select name="permission_role_id" id="user-permission-role-id" required
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </select>
-                    <p class="text-gray-500 text-xs mt-1" id="user-role-help"></p>
-                    <div class="field-error text-red-600 text-sm mt-1" data-field="role" style="display: none;"></div>
+                    <p class="text-gray-500 text-xs mt-1" id="user-role-help">This is the access role. Login type is set automatically from it.</p>
+                    <div class="field-error text-red-600 text-sm mt-1" data-field="permission_role_id" style="display: none;"></div>
                 </div>
 
                 <div class="mb-6">
@@ -281,6 +281,7 @@ function closeSwitchConfirmation() {
 }
 let allProjects = [];
 let selectedProjects = new Set();
+let allPermissionRoles = [];
 let currentUserIsSuperAdmin = {{ auth()->user()->isSuperAdmin() ? 'true' : 'false' }};
 let currentUserCompanyId = {{ auth()->user()->company_id ?? 'null' }};
 
@@ -357,32 +358,15 @@ function openCreateUserModal() {
         });
         
         allProjects = data.projects || [];
-        
-        const roleSelect = document.getElementById('user-role');
-        roleSelect.innerHTML = '';
-        const roles = currentUserIsSuperAdmin 
-            ? { 'super_admin': 'Super Admin', 'admin': 'Admin', 'user': 'User', 'site_engineer': 'Site Engineer' }
-            : { 'user': 'User', 'site_engineer': 'Site Engineer' };
-        
-        Object.keys(roles).forEach(role => {
-            const option = document.createElement('option');
-            option.value = role;
-            option.textContent = roles[role];
-            if (role === 'user') option.selected = true;
-            roleSelect.appendChild(option);
-        });
-        
-        document.getElementById('user-role-help').textContent = currentUserIsSuperAdmin 
-            ? '' 
-            : 'You can only create regular users.';
-        
-        // Handle company change
-        companySelect.addEventListener('change', function() {
-            renderProjectOptions(this.value);
-        });
-        
-        // Initial render
+        allPermissionRoles = Array.isArray(data.permission_roles)
+            ? data.permission_roles
+            : Object.values(data.permission_roles || {});
+        document.getElementById('user-role-help').textContent = currentUserIsSuperAdmin
+            ? 'Pick one role. Super Admin has full access; other roles come from Roles & Permissions.'
+            : 'Pick a staff role. Company Admin cannot be assigned from here.';
+        bindRoleSync(companySelect);
         renderProjectOptions(companySelect.value);
+        fillPermissionRoles(companySelect.value, '');
     })
     .catch(error => {
         console.error('Error loading form data:', error);
@@ -413,6 +397,7 @@ function openEditUserModal(userId) {
     passwordConfirmationRequired.style.display = 'none';
     document.getElementById('user-password').required = false;
     document.getElementById('user-password-confirmation').required = false;
+    document.getElementById('user-permission-role-id').disabled = false;
     
     document.querySelectorAll('.field-error').forEach(el => {
         el.style.display = 'none';
@@ -426,7 +411,12 @@ function openEditUserModal(userId) {
             'Accept': 'application/json'
         }
     })
-    .then(response => response.json())
+    .then(function(response) {
+        if (!response.ok) {
+            throw new Error('Failed to load user');
+        }
+        return response.json();
+    })
     .then(data => {
         const companySelect = document.getElementById('user-company-id');
         companySelect.innerHTML = '<option value="">None</option>';
@@ -440,57 +430,116 @@ function openEditUserModal(userId) {
         
         allProjects = data.projects || [];
         selectedProjects = new Set((data.selectedProjectIds || []).map(id => String(id)));
-        
-        // Handle role restrictions
-        const roleSelect = document.getElementById('user-role');
-        roleSelect.innerHTML = '';
-        const isOwnAccount = currentAuthUserId === data.user.id;
-        const userRole = data.user.role;
-        
-        if (isOwnAccount) {
-            // User editing own account - role is readonly
-            roleSelect.innerHTML = `<input type="hidden" name="role" value="${userRole}"><input type="text" value="${userRole.charAt(0).toUpperCase() + userRole.slice(1).replace('_', ' ')}" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" readonly>`;
-            document.getElementById('user-role-help').textContent = 'You cannot change your own role.';
-        } else if (!currentUserIsSuperAdmin && ['admin', 'super_admin'].includes(userRole)) {
-            // Regular admin editing admin/super_admin - role is readonly
-            roleSelect.innerHTML = `<input type="hidden" name="role" value="${userRole}"><input type="text" value="${userRole.charAt(0).toUpperCase() + userRole.slice(1).replace('_', ' ')}" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" readonly>`;
-            document.getElementById('user-role-help').textContent = 'You cannot change the role of admin or super admin users.';
-        } else {
-            // Can change role
-            const roles = currentUserIsSuperAdmin 
-                ? { 'super_admin': 'Super Admin', 'admin': 'Admin', 'user': 'User', 'site_engineer': 'Site Engineer' }
-                : { 'user': 'User', 'site_engineer': 'Site Engineer' };
-            
-            Object.keys(roles).forEach(role => {
-                const option = document.createElement('option');
-                option.value = role;
-                option.textContent = roles[role];
-                option.selected = role === userRole;
-                roleSelect.appendChild(option);
-            });
-            
-            document.getElementById('user-role-help').textContent = currentUserIsSuperAdmin 
-                ? '' 
-                : 'You can assign user or site engineer role.';
-        }
-        
+        allPermissionRoles = Array.isArray(data.permission_roles)
+            ? data.permission_roles
+            : Object.values(data.permission_roles || {});
+
+        const isOwnAccount = Number(currentAuthUserId) === Number(data.user.id);
+        const userRole = data.user.role || 'user';
+        const permSelect = document.getElementById('user-permission-role-id');
+        permSelect.disabled = false;
+        document.getElementById('user-role-help').textContent = currentUserIsSuperAdmin
+            ? 'Pick one role. Login access follows this selection.'
+            : 'Pick a staff role for this user.';
+
         document.getElementById('user-name').value = data.user.name || '';
         document.getElementById('user-email').value = data.user.email || '';
-        document.getElementById('user-company-id').value = data.user.company_id || '';
-        document.getElementById('user-is-admin').checked = data.user.is_admin || false;
-        
-        // Handle company change
-        companySelect.addEventListener('change', function() {
-            renderProjectOptions(this.value);
-        });
-        
-        // Initial render
-        renderProjectOptions(companySelect.value);
+        const companyId = data.user.company_id || '';
+        if (companyId) {
+            companySelect.value = String(companyId);
+        }
+        document.getElementById('user-is-admin').checked = !!data.user.is_admin;
+
+        bindRoleSync(companySelect);
+        renderProjectOptions(companySelect.value || companyId);
+        fillPermissionRoles(
+            companySelect.value || companyId,
+            userRole === 'super_admin' ? 'super_admin' : (data.user.permission_role_id || '')
+        );
     })
     .catch(error => {
         console.error('Error loading user data:', error);
         showNotification('Failed to load user data', 'error');
     });
+}
+
+function bindRoleSync(companySelect) {
+    companySelect.onchange = function() {
+        renderProjectOptions(this.value);
+        fillPermissionRoles(this.value, document.getElementById('user-permission-role-id').value);
+    };
+}
+
+function rolesForCompany(companyId) {
+    const roles = Array.isArray(allPermissionRoles)
+        ? allPermissionRoles
+        : Object.values(allPermissionRoles || {});
+    if (!companyId) {
+        return [];
+    }
+    return roles.filter(function(role) {
+        return String(role.company_id) === String(companyId);
+    });
+}
+
+function fillPermissionRoles(companyId, selectedId) {
+    const select = document.getElementById('user-permission-role-id');
+    if (!select) return;
+
+    select.disabled = false;
+
+    const assignable = currentUserIsSuperAdmin
+        ? rolesForCompany(companyId)
+        : rolesForCompany(companyId).filter(function(role) {
+            return role.type !== 'admin_pack' && role.login_role !== 'admin';
+        });
+
+    select.innerHTML = '';
+
+    if (currentUserIsSuperAdmin) {
+        const superOpt = document.createElement('option');
+        superOpt.value = 'super_admin';
+        superOpt.textContent = 'Super Admin';
+        select.appendChild(superOpt);
+    }
+
+    assignable.forEach(function(role) {
+        const option = document.createElement('option');
+        option.value = String(role.id);
+        option.textContent = role.name;
+        select.appendChild(option);
+    });
+
+    const selected = selectedId != null && selectedId !== '' ? String(selectedId) : '';
+    if (selected && selected !== 'super_admin' && !Array.from(select.options).some(function(opt) { return opt.value === selected; })) {
+        const extra = (Array.isArray(allPermissionRoles) ? allPermissionRoles : []).find(function(role) {
+            return String(role.id) === selected;
+        });
+        const option = document.createElement('option');
+        option.value = selected;
+        option.textContent = extra ? extra.name : ('Role #' + selected);
+        select.appendChild(option);
+    }
+
+    if (!select.options.length) {
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = 'No roles found. Create one under Roles & Permissions.';
+        select.appendChild(emptyOpt);
+        return;
+    }
+
+    if (selected && Array.from(select.options).some(function(opt) { return opt.value === selected; })) {
+        select.value = selected;
+        return;
+    }
+
+    const userDefault = assignable.find(function(role) { return role.login_role === 'user'; });
+    if (userDefault) {
+        select.value = String(userDefault.id);
+    } else if (assignable[0]) {
+        select.value = String(assignable[0].id);
+    }
 }
 
 function renderProjectOptions(companyId) {
@@ -540,57 +589,65 @@ function renderProjectOptions(companyId) {
 
 function submitUserForm(e) {
     e.preventDefault();
-    const form = e.target;
+    e.stopPropagation();
     const submitBtn = document.getElementById('user-submit-btn');
     const originalText = submitBtn.textContent;
-    
+    const editingId = currentUserId;
+    const permSelect = document.getElementById('user-permission-role-id');
+    permSelect.disabled = false;
+
+    const payload = {
+        name: document.getElementById('user-name').value,
+        email: document.getElementById('user-email').value,
+        company_id: document.getElementById('user-company-id').value || null,
+        permission_role_id: permSelect.value || '',
+        project_ids: Array.from(selectedProjects),
+        is_admin: document.getElementById('user-is-admin').checked ? 1 : 0
+    };
+    const password = document.getElementById('user-password').value;
+    if (password) {
+        payload.password = password;
+        payload.password_confirmation = document.getElementById('user-password-confirmation').value;
+    }
+
+    if (!payload.permission_role_id) {
+        showNotification('Please select a role', 'error');
+        return false;
+    }
+
     submitBtn.disabled = true;
     submitBtn.textContent = 'Saving...';
-    
-    const formData = new FormData(form);
-    const url = currentUserId 
-        ? `/admin/users/${currentUserId}`
-        : '/admin/users';
-    
-    if (currentUserId) {
-        formData.append('_method', 'PUT');
-    }
-    
-    // Ensure project_ids_sent is included
-    formData.append('project_ids_sent', '1');
-    
-    fetch(url, {
+
+    fetch(editingId ? `/admin/users/${editingId}/update` : '/admin/users', {
         method: 'POST',
-        body: formData,
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'X-CSRF-TOKEN': csrfToken,
-            'Accept': 'application/json'
-        }
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
     })
     .then(response => {
-        if (!response.ok) {
-            return response.json().then(err => {
-                throw err;
-            });
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            throw { message: response.status === 419 ? 'Session expired. Refresh and try again.' : 'Role could not be saved.' };
         }
-        return response.json();
+        return response.json().then(data => {
+            if (!response.ok || data.success === false) {
+                throw data;
+            }
+            return data;
+        });
     })
     .then(data => {
-        if (data.success) {
-            showNotification(data.message, 'success');
-            closeUserModal();
-            
-            if (currentUserId) {
-                updateUserRow(data.user);
-            } else {
-                addUserRow(data.user);
-            }
-        }
+        showNotification(data.message || 'Saved.', 'success');
+        closeUserModal();
+        window.location.reload();
     })
     .catch(error => {
         console.error('Error:', error);
-        if (error.errors) {
+        if (error && error.errors) {
             Object.keys(error.errors).forEach(field => {
                 const errorEl = document.querySelector(`.field-error[data-field="${field}"]`);
                 if (errorEl) {
@@ -599,52 +656,58 @@ function submitUserForm(e) {
                 }
             });
         }
-        showNotification(error.message || 'Validation failed', 'error');
+        const firstFieldError = error && error.errors ? Object.values(error.errors)[0] : null;
+        showNotification((error && error.message) || (firstFieldError && firstFieldError[0]) || 'Role could not be saved', 'error');
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
     });
+    return false;
 }
 
 function closeUserModal() {
     document.getElementById('userModal').classList.add('hidden');
     currentUserId = null;
     document.getElementById('userForm').reset();
+    const permSelect = document.getElementById('user-permission-role-id');
+    if (permSelect) permSelect.disabled = false;
     resetUserPasswordVisibility();
     selectedProjects.clear();
     document.getElementById('user-project-access-container').style.display = 'none';
 }
 
-function addUserRow(user) {
-    const tbody = document.querySelector('table tbody');
-    const emptyRow = tbody.querySelector('tr td[colspan]');
-    
-    if (emptyRow) {
-        emptyRow.closest('tr').remove();
-    }
-    
+function userRoleLabel(user) {
+    return user.role_label || user.permission_role_name || (user.role === 'super_admin' ? 'Super Admin' : (user.role || ''));
+}
+
+function userRowInnerHtml(user, sn) {
     const roleClass = user.role === 'super_admin' ? 'bg-purple-100 text-purple-800' :
                      user.role === 'admin' ? 'bg-blue-100 text-blue-800' :
                      'bg-gray-100 text-gray-800';
-    
-    const row = document.createElement('tr');
-    row.setAttribute('data-user-id', user.id);
-    row.className = 'border-t';
-    row.innerHTML = `
-        <td class="px-4 py-2">${user.name}</td>
-        <td class="px-4 py-2">${user.email}</td>
+    const safeName = (user.name || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const switchBtn = (currentUserIsSuperAdmin && Number(currentAuthUserId) !== Number(user.id))
+        ? `<button type="button" onclick="showSwitchConfirmation(${user.id}, '${safeName}', '${(user.email || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-primary" title="Switch to this user">
+                <i class="bi bi-person-check me-0"></i> <span class="d-none d-sm-inline">Switch</span>
+           </button>`
+        : '';
+
+    return `
+        <td class="px-4 py-2">${sn}</td>
+        <td class="px-4 py-2">${user.name || ''}</td>
+        <td class="px-4 py-2">${user.email || ''}</td>
         <td class="px-4 py-2">${user.company_name || '-'}</td>
         <td class="px-4 py-2">
             <span class="px-2 py-1 rounded text-xs font-semibold ${roleClass}">
-                ${user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ') : ''}
+                ${userRoleLabel(user)}
             </span>
         </td>
         <td class="px-4 py-2 whitespace-nowrap">
-            <div class="d-flex gap-1 text-nowrap">
+            <div class="d-flex gap-1 text-nowrap flex-wrap align-items-center">
+                ${switchBtn}
                 <button onclick="openEditUserModal(${user.id})" class="btn btn-sm btn-outline-warning" title="Edit">
                     <i class="bi bi-pencil"></i>
                 </button>
-                ${currentAuthUserId !== user.id ? `
-                    <button onclick="showDeleteUserConfirmation(${user.id}, '${(user.name || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-danger" title="Delete">
+                ${Number(currentAuthUserId) !== Number(user.id) ? `
+                    <button onclick="showDeleteUserConfirmation(${user.id}, '${safeName}')" class="btn btn-sm btn-outline-danger" title="Delete">
                         <i class="bi bi-trash"></i>
                     </button>
                 ` : `
@@ -655,44 +718,31 @@ function addUserRow(user) {
             </div>
         </td>
     `;
+}
+
+function addUserRow(user) {
+    const tbody = document.querySelector('table tbody');
+    const emptyRow = tbody.querySelector('tr td[colspan]');
     
+    if (emptyRow) {
+        emptyRow.closest('tr').remove();
+    }
+
+    const row = document.createElement('tr');
+    row.setAttribute('data-user-id', user.id);
+    row.className = 'border-t';
+    row.innerHTML = userRowInnerHtml(user, '—');
     tbody.insertBefore(row, tbody.firstChild);
 }
 
 function updateUserRow(user) {
     const row = document.querySelector(`tr[data-user-id="${user.id}"]`);
-    if (row) {
-        const roleClass = user.role === 'super_admin' ? 'bg-purple-100 text-purple-800' :
-                         user.role === 'admin' ? 'bg-blue-100 text-blue-800' :
-                         'bg-gray-100 text-gray-800';
-        
-        row.innerHTML = `
-            <td class="px-4 py-2">${user.name}</td>
-            <td class="px-4 py-2">${user.email}</td>
-            <td class="px-4 py-2">${user.company_name || '-'}</td>
-            <td class="px-4 py-2">
-                <span class="px-2 py-1 rounded text-xs font-semibold ${roleClass}">
-                    ${user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1).replace('_', ' ') : ''}
-                </span>
-            </td>
-            <td class="px-4 py-2 whitespace-nowrap">
-                <div class="d-flex gap-1 text-nowrap">
-                    <button onclick="openEditUserModal(${user.id})" class="btn btn-sm btn-outline-warning" title="Edit">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    ${currentAuthUserId !== user.id ? `
-                        <button onclick="showDeleteUserConfirmation(${user.id}, '${(user.name || '').replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline-danger" title="Delete">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    ` : `
-                        <button class="btn btn-sm btn-outline-danger" disabled title="Delete">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    `}
-                </div>
-            </td>
-        `;
+    if (!row) {
+        addUserRow(user);
+        return;
     }
+    const sn = row.querySelector('td') ? row.querySelector('td').textContent : '—';
+    row.innerHTML = userRowInnerHtml(user, sn);
 }
 
 function showDeleteUserConfirmation(userId, userName) {

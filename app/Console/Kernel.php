@@ -14,6 +14,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command('logs:prune-user-activities')->dailyAt('01:00');
         $schedule->command('companies:lock-expired-trials')->everyFifteenMinutes();
+        $schedule->command('vehicles:notify-due')->dailyAt('08:00');
     }
 
     /**

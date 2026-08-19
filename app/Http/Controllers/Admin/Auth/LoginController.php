@@ -52,6 +52,10 @@ class LoginController extends Controller
             ]);
             
             // Redirect based on user role
+            if ($user->isSuperAdmin()) {
+                return redirect()->intended(route('admin.companies.index'))->with('success', 'Welcome back, ' . $user->name . '!');
+            }
+
             if ($user->isAdmin()) {
                 return redirect()->intended(route('admin.dashboard'))->with('success', 'Welcome back, ' . $user->name . '!');
             } elseif ($user->role === 'site_engineer') {

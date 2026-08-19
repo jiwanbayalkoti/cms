@@ -10,8 +10,11 @@ use App\Models\CompanyLetterheadExport;
 use App\Support\CompanyContext;
 use App\Services\CompanyPaymentLockService;
 use App\Services\FaviconGeneratorService;
+use App\Services\ModulePermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Mpdf\Config\FontVariables;
@@ -36,16 +39,78 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function index()
+    public function index(ModulePermissionService $permissions)
     {
         $companies = Company::with(['paymentRequests' => function ($query) {
             $query->where('status', 'verified')
                 ->latest('verified_at')
                 ->latest('id');
-        }])->orderBy('name')->paginate(15);
+        }, 'adminPermissionRole.modules'])->orderBy('name')->paginate(15);
+
+        foreach ($companies as $company) {
+            if (!$company->adminPermissionRole || $company->adminPermissionRole->modules->isEmpty()) {
+                $permissions->assignCoreAdminPackIfEmpty($company->id, auth()->id());
+                $company->unsetRelation('adminPermissionRole');
+                $company->load('adminPermissionRole.modules');
+            }
+        }
+
         $commonTrialDays = AppSetting::trialDays();
 
         return view('admin.companies.index', compact('companies', 'commonTrialDays'));
+    }
+
+    public function adminAccess(Company $company, ModulePermissionService $permissions)
+    {
+        $pack = $permissions->assignCoreAdminPackIfEmpty($company->id, auth()->id());
+        $matrix = $permissions->adminPackMatrix($company->id);
+        if ($matrix === []) {
+            $matrix = $permissions->defaultAdminMap();
+        }
+
+        $admins = $company->users()
+            ->where('role', 'admin')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+
+        return response()->json([
+            'company' => [
+                'id' => $company->id,
+                'name' => $company->name,
+            ],
+            'admins' => $admins,
+            'has_pack' => $pack->modules->isNotEmpty() || $matrix !== [],
+            'grouped_modules' => $permissions->groupedModules(),
+            'matrix' => $matrix,
+        ]);
+    }
+
+    public function saveAdminAccess(Request $request, Company $company, ModulePermissionService $permissions)
+    {
+        $validated = $request->validate([
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'array',
+            'permissions.*.view' => 'sometimes|boolean',
+            'permissions.*.create' => 'sometimes|boolean',
+            'permissions.*.update' => 'sometimes|boolean',
+            'permissions.*.delete' => 'sometimes|boolean',
+        ]);
+
+        $pack = $permissions->saveAdminPack(
+            $company->id,
+            $validated['permissions'] ?? [],
+            auth()->id()
+        );
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Company admin modules saved. The company admin can now share only these modules with staff.',
+                'has_pack' => $pack->modules->isNotEmpty(),
+            ]);
+        }
+
+        return redirect()->route('admin.companies.index')->with('success', 'Company admin modules saved.');
     }
 
     public function create()
@@ -77,6 +142,8 @@ class CompanyController extends Controller
 
         $company = Company::create($validated);
         $company->startTrial();
+        app(\App\Services\ModulePermissionService::class)->ensureLoginModuleRoles($company->id);
+        app(\App\Services\ModulePermissionService::class)->assignCoreAdminPack($company->id, auth()->id());
 
         // Handle favicon
         $faviconService = app(FaviconGeneratorService::class);
@@ -226,51 +293,101 @@ class CompanyController extends Controller
         }
 
         if (!$request->boolean('confirm_delete_all')) {
-            $message = 'Please confirm that all company data will be permanently deleted.';
-            if ($request->ajax() || $request->wantsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $message,
-                ], 422);
-            }
-
-            return redirect()->route('admin.companies.index')->with('error', $message);
-        }
-
-        if ((int) auth()->user()->company_id === (int) $company->id) {
-            $message = 'You cannot delete the company attached to your own super admin account.';
-            if ($request->ajax() || $request->wantsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $message,
-                ], 422);
-            }
-
-            return redirect()->route('admin.companies.index')->with('error', $message);
+            return $this->companyDeleteFailure(
+                $request,
+                'Please confirm that all company data will be permanently deleted.'
+            );
         }
 
         $deletedRows = 0;
 
-        DB::transaction(function () use ($company, &$deletedRows) {
-            $deletePlan = $this->companyDeletePlan($company->id);
-            $deletedRows = $this->deleteCompanyRelatedRows($deletePlan);
-            $company->delete();
-        });
+        try {
+            DB::transaction(function () use ($company, &$deletedRows) {
+                $this->detachSuperAdminsFromCompany((int) $company->id);
+
+                $this->setForeignKeyChecks(false);
+                try {
+                    $this->deletePermissionRowsForCompany((int) $company->id);
+                    $deletePlan = $this->companyDeletePlan($company->id);
+                    $deletedRows = $this->deleteCompanyRelatedRows($deletePlan);
+                    $company->delete();
+                } finally {
+                    $this->setForeignKeyChecks(true);
+                }
+            });
+        } catch (\Throwable $e) {
+            Log::error('Company delete failed', [
+                'company_id' => $company->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->companyDeleteFailure(
+                $request,
+                'Could not delete this company. ' . $e->getMessage(),
+                500
+            );
+        }
 
         if ((int) session('active_company_id') === (int) $company->id) {
             session()->forget('active_company_id');
         }
-        
-        // Return JSON response for AJAX requests
-        if (request()->ajax() || request()->wantsJson()) {
+
+        if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
                 'message' => 'Company and all related data deleted successfully.',
                 'deleted_rows' => $deletedRows,
             ]);
         }
-        
+
         return redirect()->route('admin.companies.index')->with('success', 'Company and all related data deleted successfully.');
+    }
+
+    protected function companyDeleteFailure(Request $request, string $message, int $status = 422)
+    {
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+            ], $status);
+        }
+
+        return redirect()->route('admin.companies.index')->with('error', $message);
+    }
+
+    protected function detachSuperAdminsFromCompany(int $companyId): void
+    {
+        $values = ['company_id' => null];
+        if (Schema::hasColumn('users', 'permission_role_id')) {
+            $values['permission_role_id'] = null;
+        }
+
+        DB::table('users')
+            ->where('company_id', $companyId)
+            ->where('role', 'super_admin')
+            ->update($values);
+    }
+
+    protected function deletePermissionRowsForCompany(int $companyId): void
+    {
+        if (!Schema::hasTable('permission_roles')) {
+            return;
+        }
+
+        $roleIds = DB::table('permission_roles')->where('company_id', $companyId)->pluck('id');
+        if ($roleIds->isEmpty()) {
+            return;
+        }
+
+        if (Schema::hasColumn('users', 'permission_role_id')) {
+            DB::table('users')->whereIn('permission_role_id', $roleIds)->update(['permission_role_id' => null]);
+        }
+
+        if (Schema::hasTable('permission_role_modules')) {
+            DB::table('permission_role_modules')->whereIn('permission_role_id', $roleIds)->delete();
+        }
+
+        DB::table('permission_roles')->whereIn('id', $roleIds)->delete();
     }
 
     public function lock(Company $company, CompanyPaymentLockService $paymentLockService)
@@ -449,25 +566,27 @@ class CompanyController extends Controller
         $deletedRows = 0;
         uasort($plan, static fn (array $a, array $b) => $b['depth'] <=> $a['depth']);
 
-        $this->setForeignKeyChecks(false);
-
-        try {
-            foreach ($plan as $table => $entry) {
-                if (!empty($entry['ids'])) {
-                    foreach (array_chunk($entry['ids'], 500) as $ids) {
-                        $deletedRows += DB::table($table)->whereIn('id', $ids)->delete();
+        foreach ($plan as $table => $entry) {
+            if (!empty($entry['ids'])) {
+                foreach (array_chunk($entry['ids'], 500) as $ids) {
+                    $query = DB::table($table)->whereIn('id', $ids);
+                    if ($table === 'users') {
+                        $query->where('role', '!=', 'super_admin');
                     }
-                    continue;
+                    $deletedRows += $query->delete();
                 }
+                continue;
+            }
 
-                foreach ($entry['criteria'] as $criterion) {
-                    foreach (array_chunk($criterion['values'], 500) as $values) {
-                        $deletedRows += DB::table($table)->whereIn($criterion['column'], $values)->delete();
+            foreach ($entry['criteria'] as $criterion) {
+                foreach (array_chunk($criterion['values'], 500) as $values) {
+                    $query = DB::table($table)->whereIn($criterion['column'], $values);
+                    if ($table === 'users') {
+                        $query->where('role', '!=', 'super_admin');
                     }
+                    $deletedRows += $query->delete();
                 }
             }
-        } finally {
-            $this->setForeignKeyChecks(true);
         }
 
         return $deletedRows;
@@ -549,35 +668,51 @@ class CompanyController extends Controller
 
     public function switch(Request $request)
     {
-        // Check if user is super admin
         if (auth()->user()->role !== 'super_admin') {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['error' => 'Only super admin can switch companies.'], 403);
             }
             return back()->with('error', 'Only super admin can switch companies.');
         }
-        
+
+        if (!$request->filled('company_id')) {
+            session()->forget('active_company_id');
+            session()->forget('active_project_id');
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Returned to all companies view.',
+                    'company_id' => null,
+                ]);
+            }
+
+            return redirect()->route('admin.companies.index')->with('success', 'Select a company to manage its data.');
+        }
+
         $request->validate([
             'company_id' => 'required|exists:companies,id',
         ]);
 
         session(['active_company_id' => (int) $request->company_id]);
-        
-        // Return JSON for AJAX requests
+
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
                 'message' => 'Active company switched.',
-                'company_id' => (int) $request->company_id
+                'company_id' => (int) $request->company_id,
             ]);
         }
-        
-        // If redirect parameter is provided, redirect to that route
+
+        if ($request->input('redirect_to') === 'dashboard') {
+            return redirect()->route('admin.dashboard')->with('success', 'Active company switched.');
+        }
+
         if ($request->has('redirect_to') && $request->redirect_to === 'projects') {
             return redirect()->route('admin.projects.index')->with('success', 'Active company switched.');
         }
-        
-        return back()->with('success', 'Active company switched.');
+
+        return redirect()->route('admin.dashboard')->with('success', 'Active company switched.');
     }
 
     /**
@@ -589,6 +724,10 @@ class CompanyController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
         
         if (!$companyId) {
+            if (auth()->user()?->isSuperAdmin()) {
+                return redirect()->route('admin.companies.index')->with('error', 'Select a company first.');
+            }
+
             return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
         }
 
@@ -621,6 +760,10 @@ class CompanyController extends Controller
         $companyId = CompanyContext::getActiveCompanyId();
         
         if (!$companyId) {
+            if (auth()->user()?->isSuperAdmin()) {
+                return redirect()->route('admin.companies.index')->with('error', 'Select a company first.');
+            }
+
             return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
         }
 
@@ -703,6 +846,10 @@ class CompanyController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         if (!$companyId) {
+            if (auth()->user()?->isSuperAdmin()) {
+                return redirect()->route('admin.companies.index')->with('error', 'Select a company first.');
+            }
+
             return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
         }
 
@@ -716,6 +863,10 @@ class CompanyController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         if (!$companyId) {
+            if (auth()->user()?->isSuperAdmin()) {
+                return redirect()->route('admin.companies.index')->with('error', 'Select a company first.');
+            }
+
             return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
         }
 
@@ -732,6 +883,10 @@ class CompanyController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         if (!$companyId) {
+            if (auth()->user()?->isSuperAdmin()) {
+                return redirect()->route('admin.companies.index')->with('error', 'Select a company first.');
+            }
+
             return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
         }
 
@@ -798,6 +953,10 @@ class CompanyController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         if (!$companyId) {
+            if (auth()->user()?->isSuperAdmin()) {
+                return redirect()->route('admin.companies.index')->with('error', 'Select a company first.');
+            }
+
             return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
         }
 
@@ -881,6 +1040,10 @@ class CompanyController extends Controller
     {
         $companyId = CompanyContext::getActiveCompanyId();
         if (!$companyId) {
+            if (auth()->user()?->isSuperAdmin()) {
+                return redirect()->route('admin.companies.index')->with('error', 'Select a company first.');
+            }
+
             return redirect()->route('admin.dashboard')->with('error', 'Company not found.');
         }
 

@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\UserActivityLogController;
 use App\Http\Controllers\Admin\MaterialCalculatorController;
 use App\Http\Controllers\Admin\LoanController;
+use App\Http\Controllers\Admin\VehicleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,12 +43,14 @@ use App\Http\Controllers\Admin\LoanController;
 Route::get('/', function () {
     if (Auth::check()) {
         $user = Auth::user();
-        // Redirect admin/super_admin to dashboard, others to projects
+        if ($user->isSuperAdmin()) {
+            return redirect()->route('admin.companies.index');
+        }
         if ($user->isAdmin()) {
             return redirect()->route('admin.dashboard');
-        } else {
-            return redirect()->route('admin.projects.index');
         }
+
+        return redirect()->route('admin.projects.index');
     }
     return redirect()->route('admin.login');
 });
@@ -55,7 +58,7 @@ Route::get('/', function () {
 // Admin Authentication Routes
 Route::prefix('admin')->name('admin.')->group(function () {
     // Login Routes (accessible only to guests)
-    Route::middleware(['guest', 'throttle:5,1'])->group(function () {
+    Route::middleware(['guest'])->group(function () {
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
         Route::post('/login', [LoginController::class, 'login']);
         Route::get('/register', [RegisterController::class, 'showRegisterOptions'])->name('register');
@@ -79,17 +82,20 @@ Route::prefix('admin')->name('admin.')->group(function () {
         ]);
     })->middleware(['admin'])->name('payment-required');
     Route::post('/payment-requests', [CompanyPaymentRequestController::class, 'store'])
-        ->middleware(['admin', 'throttle:forms'])
+        ->middleware(['admin'])
         ->name('payment-requests.store');
     Route::get('/payment-requests/history/pdf', [CompanyPaymentRequestController::class, 'historyPdf'])
         ->middleware(['admin'])
         ->name('payment-requests.history.pdf');
     
     // Protected Admin Routes
-    Route::middleware(['admin', 'site_engineer', 'company_payment', 'activity_log'])->group(function () {
+    Route::middleware(['admin', 'site_engineer', 'module_access', 'super_admin_company', 'company_payment', 'activity_log'])->group(function () {
         // Dashboard (Admin only - not accessible to regular users)
         Route::middleware(['admin_only'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/super-dashboard', function () {
+            return redirect()->route('admin.companies.index');
+        })->name('super-admin.dashboard');
         });
         
         // Categories CRUD (with rate limiting for form submissions)
@@ -346,6 +352,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('sales-invoices', \App\Http\Controllers\Admin\SalesInvoiceController::class);
         Route::post('sales-invoices/{sales_invoice}/payment', [\App\Http\Controllers\Admin\SalesInvoiceController::class, 'recordPayment'])->name('sales-invoices.payment');
         
+        // Vehicle Management
+        Route::get('vehicles/documents', [VehicleController::class, 'documents'])->name('vehicles.documents');
+        Route::get('vehicles/export/excel', [VehicleController::class, 'export'])->name('vehicles.export');
+        Route::get('vehicles', [VehicleController::class, 'index'])->name('vehicles.index');
+        Route::get('vehicles/create', [VehicleController::class, 'create'])->name('vehicles.create');
+        Route::get('vehicles/{vehicle}', [VehicleController::class, 'show'])->name('vehicles.show');
+        Route::get('vehicles/{vehicle}/edit', [VehicleController::class, 'edit'])->name('vehicles.edit');
+        Route::middleware(['throttle:forms'])->group(function () {
+            Route::post('vehicles', [VehicleController::class, 'store'])->name('vehicles.store');
+            Route::put('vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
+            Route::patch('vehicles/{vehicle}', [VehicleController::class, 'update']);
+            Route::delete('vehicles/{vehicle}', [VehicleController::class, 'destroy'])->name('vehicles.destroy');
+        });
+        Route::post('vehicles/validate', [VehicleController::class, 'validateVehicle'])->name('vehicles.validate');
+        Route::post('vehicles/{vehicle}/validate', [VehicleController::class, 'validateVehicle'])->name('vehicles.validate.edit');
+
         // Vehicle Rent Management
         Route::get('vehicle-rents', [\App\Http\Controllers\Admin\VehicleRentController::class, 'index'])->name('vehicle-rents.index');
         Route::get('vehicle-rents/create', [\App\Http\Controllers\Admin\VehicleRentController::class, 'create'])->name('vehicle-rents.create');
@@ -435,6 +457,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('user-activities/export/excel', [UserActivityLogController::class, 'exportExcel'])->name('user-activities.export.excel');
             Route::middleware(['throttle:forms'])->group(function () {
                 Route::post('users', [UserController::class, 'store'])->name('users.store');
+                Route::post('users/{user}/update', [UserController::class, 'update'])->name('users.update.post');
                 Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
                 Route::patch('users/{user}', [UserController::class, 'update']);
                 Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
@@ -442,6 +465,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('users/validate', [UserController::class, 'validateUser'])->name('users.validate');
             Route::post('users/{user}/validate', [UserController::class, 'validateUser'])->name('users.validate.edit');
             Route::post('users/{user}/switch', [UserController::class, 'switchToUser'])->name('users.switch');
+        });
+
+        Route::middleware(['admin_only'])->group(function () {
+            Route::get('roles', [\App\Http\Controllers\Admin\RolePermissionController::class, 'index'])->name('roles.index');
+            Route::middleware(['throttle:forms'])->group(function () {
+                Route::post('roles', [\App\Http\Controllers\Admin\RolePermissionController::class, 'store'])->name('roles.store');
+            Route::put('roles/{permissionRole}', [\App\Http\Controllers\Admin\RolePermissionController::class, 'update'])->name('roles.update');
+            Route::delete('roles/{permissionRole}', [\App\Http\Controllers\Admin\RolePermissionController::class, 'destroy'])->name('roles.destroy');
+            Route::post('roles/{permissionRole}/permissions', [\App\Http\Controllers\Admin\RolePermissionController::class, 'syncPermissions'])->name('roles.permissions');
+            Route::post('roles/{permissionRole}/assign-users', [\App\Http\Controllers\Admin\RolePermissionController::class, 'assignUsers'])->name('roles.assign-users');
+            });
         });
         // Switch-back: outside admin_only so impersonated user (e.g. site_engineer) can switch back
         Route::post('users/switch-back', [UserController::class, 'switchBack'])->name('users.switch-back');
@@ -454,6 +488,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('payment-requests/{paymentRequest}/reject', [SystemSettingsController::class, 'rejectPayment'])->name('payment-requests.reject');
             Route::get('companies', [CompanyController::class, 'index'])->name('companies.index');
             Route::get('companies/create', [CompanyController::class, 'create'])->name('companies.create');
+            Route::get('companies/{company}/admin-access', [CompanyController::class, 'adminAccess'])->name('companies.admin-access');
+            Route::post('companies/{company}/admin-access', [CompanyController::class, 'saveAdminAccess'])->name('companies.admin-access.save');
             Route::get('companies/{company}/edit', [CompanyController::class, 'edit'])->name('companies.edit');
             Route::get('companies/{company}', [CompanyController::class, 'show'])->name('companies.show');
             Route::middleware(['throttle:uploads'])->group(function () {
@@ -463,6 +499,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             });
             Route::middleware(['throttle:forms'])->group(function () {
                 Route::delete('companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
+                Route::post('companies/{company}/delete', [CompanyController::class, 'destroy'])->name('companies.destroy.post');
                 Route::post('companies/{company}/lock', [CompanyController::class, 'lock'])->name('companies.lock');
                 Route::post('companies/{company}/unlock', [CompanyController::class, 'unlock'])->name('companies.unlock');
                 Route::post('companies/{company}/activate', [CompanyController::class, 'activate'])->name('companies.activate');

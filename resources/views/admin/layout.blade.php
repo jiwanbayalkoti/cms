@@ -679,6 +679,11 @@
             .btn-sm.btn-keep-text {
                 font-size: 0.75rem !important;
                 line-height: 1.25 !important;
+                min-width: auto !important;
+                width: auto !important;
+                height: auto !important;
+                padding: 0.375rem 0.75rem !important;
+                gap: 0.25rem;
             }
             .btn-sm.btn-keep-text svg,
             .btn-sm.btn-keep-text .bi,
@@ -751,6 +756,8 @@
                 .btn-sm.btn-keep-text {
                     min-width: auto !important;
                     width: auto !important;
+                    height: auto !important;
+                    padding: 0.375rem 0.75rem !important;
                 }
                 
                 /* Show icons in buttons */
@@ -876,8 +883,11 @@
         <aside class="sidebar expanded bg-gradient-to-b from-gray-800 via-gray-800 to-gray-900 relative" id="sidebar">
             <div class="p-3 h-full flex flex-col">
                 @php
-                    $activeCompanyId = session('active_company_id') ?: Auth::user()->company_id;
-                    $activeCompany = \App\Models\Company::find($activeCompanyId);
+                    $activeCompanyId = \App\Support\CompanyContext::getActiveCompanyId();
+                    $activeCompany = $activeCompanyId ? \App\Models\Company::find($activeCompanyId) : null;
+                    $sidebarCompanyLabel = Auth::user()->isSuperAdmin()
+                        ? ($activeCompany?->name ?? 'Super Admin')
+                        : ($activeCompany?->name ?? 'Admin Panel');
                 @endphp
 
                 <!-- Sidebar Header with Toggle -->
@@ -941,7 +951,7 @@
                     </button>
   </div>
   <!-- Second row: company name -->
-  <span class="block text-xs sm:text-sm font-semibold text-white text-center truncate w-full mt-0.5">{{ $activeCompany?->name ?? 'Admin Panel' }}</span>
+  <span class="block text-xs sm:text-sm font-semibold text-white text-center truncate w-full mt-0.5">{{ $sidebarCompanyLabel }}</span>
                 </div>
 
                 <nav class="space-y-0.5 flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800" id="sidebar-nav" style="scrollbar-width: thin; scrollbar-color: #4b5563 #1f2937;">
@@ -949,12 +959,13 @@
                         $projectsOpen = $projectsOpen ?? request()->routeIs('admin.projects.*');
                         $materialsOpen = $materialsOpen ?? (request()->routeIs('admin.construction-materials.*') || request()->routeIs('admin.materials-report.*') || request()->routeIs('admin.material-*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.payment-modes.*') || request()->routeIs('admin.purchased-bies.*'));
                         $billingOpen = $billingOpen ?? (request()->routeIs('admin.bill-*') || request()->routeIs('admin.measurement-books.*') || request()->routeIs('admin.running-bills.*') || request()->routeIs('admin.boq.*') || request()->routeIs('admin.completed-work.*') || request()->routeIs('admin.boq-measurement-books.*') || request()->routeIs('admin.boq-bill-statements.*') || request()->routeIs('admin.tax-invoices.*'));
-                        $staffOpen = $staffOpen ?? (request()->routeIs('admin.staff.*') || request()->routeIs('admin.subcontractors.*') || request()->routeIs('admin.positions.*') || request()->routeIs('admin.users.*') || request()->routeIs('admin.user-activities.*'));
+                        $staffOpen = $staffOpen ?? (request()->routeIs('admin.staff.*') || request()->routeIs('admin.subcontractors.*') || request()->routeIs('admin.positions.*') || request()->routeIs('admin.users.*') || request()->routeIs('admin.user-activities.*') || request()->routeIs('admin.roles.*'));
                         $financeOpen = $financeOpen ?? (request()->routeIs('admin.incomes.*') || request()->routeIs('admin.expenses.*') || request()->routeIs('admin.reports.*') || request()->routeIs('admin.categories.*') || request()->routeIs('admin.subcategories.*'));
                         $accountingOpen = $accountingOpen ?? (request()->routeIs('admin.chart-of-accounts.*') || request()->routeIs('admin.journal-entries.*') || request()->routeIs('admin.bank-accounts.*') || request()->routeIs('admin.purchase-invoices.*') || request()->routeIs('admin.sales-invoices.*') || request()->routeIs('admin.customers.*'));
                         $vehicleRentOpen = $vehicleRentOpen ?? request()->routeIs('admin.vehicle-rents.*');
+                        $vehiclesOpen = $vehiclesOpen ?? (request()->routeIs('admin.vehicles.*') || request()->routeIs('admin.vehicle-rents.*'));
                     @endphp
-                    @if(Auth::user()->isAdmin())
+                    @if(can_module('dashboard') && !(Auth::user()->isSuperAdmin() && !$activeCompanyId))
                     <a href="{{ route('admin.dashboard') }}" data-tooltip="Dashboard" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
@@ -962,7 +973,7 @@
                         <span class="nav-item-text">Admin Dashboard</span>
                     </a>
                     @endif
-                    @if(Auth::user()->isAdmin())
+                    @if(Auth::user()->isAdmin() && $activeCompanyId)
                     <a href="{{ route('admin.companies.profile') }}" data-tooltip="Company Profile" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.profile*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
@@ -976,21 +987,43 @@
                         <span class="nav-item-text">Letterhead Design</span>
                     </a>
                     @endif
-                    @if(Auth::user()->role === 'super_admin')
-                    <a href="{{ route('admin.companies.index') }}" data-tooltip="Companies" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.index') || request()->routeIs('admin.companies.create') || request()->routeIs('admin.companies.edit') || request()->routeIs('admin.companies.show') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                    @if(Auth::user()->isSuperAdmin())
+                    <div class="px-3 py-1 text-[10px] uppercase tracking-wide text-amber-300/90 font-semibold">Super Admin</div>
+                    <a href="{{ route('admin.companies.index') }}" data-tooltip="Companies" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"></path>
                         </svg>
                         <span class="nav-item-text">Companies</span>
                     </a>
-                    <a href="{{ route('admin.settings.index') }}" data-tooltip="Settings" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.settings.*') || request()->routeIs('admin.payment-requests.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                    <a href="{{ route('admin.settings.index') }}" data-tooltip="System Settings" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.settings.*') || request()->routeIs('admin.payment-requests.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                         </svg>
-                        <span class="nav-item-text">Settings</span>
+                        <span class="nav-item-text">System Settings</span>
+                    </a>
+                    <a href="{{ route('admin.users.index') }}" data-tooltip="All Users" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.users.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <span class="nav-item-text">All Users</span>
+                    </a>
+                    <a href="{{ route('admin.user-activities.index') }}" data-tooltip="User Activity Logs" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.user-activities.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        <span class="nav-item-text">Activity Logs</span>
+                    </a>
+                    @if($activeCompanyId)
+                    <a href="{{ route('admin.roles.index') }}" data-tooltip="Roles & Permissions" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.roles.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                        <span class="nav-item-text">Roles &amp; Permissions</span>
                     </a>
                     @endif
+                    @endif
+                    @if(!Auth::user()->isSuperAdmin() || $activeCompanyId)
                     <button type="button" data-tooltip="Projects" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle" data-target="projects-menu" aria-expanded="{{ $projectsOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1007,7 +1040,7 @@
                             <span class="text-sm">All Projects</span>
                         </a>
                     </div>
-                    @if(Auth::user()->role !== 'site_engineer')
+                    @if(can_module('materials') || can_module('suppliers'))
                     <button type="button" data-tooltip="Materials & Procurement" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle" data-target="materials-menu" aria-expanded="{{ $materialsOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1050,7 +1083,7 @@
                        
                     </div>
                     @endif
-                    @if(Auth::user()->isAdmin())
+                    @if(can_module('billing'))
                     <button type="button" data-tooltip="Billing & Estimates" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-1" data-target="billing-menu" aria-expanded="{{ $billingOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1087,7 +1120,7 @@
                         </a>
                     </div>
                     @endif
-                    @if(Auth::user()->isAdmin())
+                    @if(can_module('staff') || can_module('positions') || can_module('subcontractors') || can_module('users') || Auth::user()->isAdmin())
                     <button type="button" data-tooltip="Staff & Users" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-1" data-target="staff-menu" aria-expanded="{{ $staffOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1100,24 +1133,37 @@
                         </svg>
                     </button>
                     <div id="staff-menu" class="submenu space-y-0.5 pl-3 ml-3 border-l-2 border-gray-600 {{ $staffOpen ? 'mt-1' : 'mt-1 hidden' }}">
+                        @if(can_module('staff'))
                         <a href="{{ route('admin.staff.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.staff.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Staff</span>
                         </a>
+                        @endif
+                        @if(can_module('positions'))
                         <a href="{{ route('admin.positions.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.positions.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Positions</span>
                         </a>
+                        @endif
+                        @if(can_module('subcontractors'))
                         <a href="{{ route('admin.subcontractors.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.subcontractors.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Sub-contractor</span>
                         </a>
+                        @endif
+                        @if(can_module('users') && !Auth::user()->isSuperAdmin())
                         <a href="{{ route('admin.users.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.users.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Users</span>
                         </a>
                         <a href="{{ route('admin.user-activities.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.user-activities.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">User Activity Logs</span>
                         </a>
+                        @endif
+                        @if(Auth::user()->isAdmin() && !Auth::user()->isSuperAdmin())
+                        <a href="{{ route('admin.roles.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.roles.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Roles &amp; Permissions</span>
+                        </a>
+                        @endif
                     </div>
                     @endif
-                    @if(Auth::user()->role !== 'site_engineer')
+                    @if(can_module('incomes') || can_module('expenses') || can_module('loans') || can_module('reports') || can_module('finance_setup') || can_module('salary_payments'))
                     <button type="button" data-tooltip="Finance & Reports" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-1" data-target="finance-menu" aria-expanded="{{ $financeOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1130,26 +1176,29 @@
                         </svg>
                     </button>
                     <div id="finance-menu" class="submenu space-y-0.5 pl-3 ml-3 border-l-2 border-gray-600 {{ $financeOpen ? 'mt-1' : 'mt-1 hidden' }}">
-                        @if(Auth::user()->isAdmin())
+                        @if(can_module('incomes'))
                         <a href="{{ route('admin.incomes.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.incomes.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Income</span>
                         </a>
                         @endif
 
-                    @if(Auth::user()->isAdmin())
+                    @if(can_module('loans'))
                     <a href="{{ route('admin.loans.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.loans.*') ? 'bg-gray-700 text-white' : '' }}">
                         <span class="text-sm">Loans</span>
                     </a>
                     @endif
 
+                        @if(can_module('expenses'))
                         <a href="{{ route('admin.expenses.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.expenses.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Expenses</span>
                         </a>
-                        @if(Auth::user()->isAdmin())
+                        @endif
+                        @if(can_module('reports'))
                         <a href="{{ route('admin.reports.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.reports.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Reports</span>
                         </a>
                         @endif
+                        @if(can_module('finance_setup'))
                         <a href="{{ route('admin.categories.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.categories.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Categories</span>
                         </a>
@@ -1162,7 +1211,8 @@
 <a href="{{ route('admin.payment-types.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.payment-types.*') ? 'bg-gray-700 text-white' : '' }}">
     <span class="text-sm">Payment Types</span>
 </a>
-                        @if(Auth::user()->isAdmin())
+                        @endif
+                        @if(can_module('salary_payments'))
 <a href="{{ route('admin.salary-payments.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.salary-payments.*') ? 'bg-gray-700 text-white' : '' }}">
     <span class="text-sm">Salary Payments</span>
 </a>
@@ -1200,15 +1250,31 @@
                             <span class="text-sm">Customers</span>
                         </a>
                     </div> -->
-                    @if(Auth::user()->role !== 'site_engineer')
-                    <a href="{{ route('admin.vehicle-rents.index') }}" data-tooltip="Vehicle Rent" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.vehicle-rents.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
-                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                    @if(can_module('vehicles'))
+                    <button type="button" data-tooltip="Vehicle Management" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle" data-target="vehicles-menu" aria-expanded="{{ $vehiclesOpen ? 'true' : 'false' }}">
+                        <span class="flex items-center">
+                            <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                            </svg>
+                            <span class="nav-item-text">Vehicle Management</span>
+                        </span>
+                        <svg class="w-4 h-4 transition-transform flex-shrink-0 sidebar-content {{ $vehiclesOpen ? 'rotate-180' : '' }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" data-icon="chevron">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6"/>
                         </svg>
-                        <span class="nav-item-text">Vehicle Rent</span>
-                    </a>
+                    </button>
+                    <div id="vehicles-menu" class="submenu space-y-0.5 pl-3 ml-3 border-l-2 border-gray-600 {{ $vehiclesOpen ? 'mt-1' : 'mt-1 hidden' }}">
+                        <a href="{{ route('admin.vehicles.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.vehicles.index') || request()->routeIs('admin.vehicles.create') || request()->routeIs('admin.vehicles.edit') || request()->routeIs('admin.vehicles.show') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Vehicles</span>
+                        </a>
+                        <a href="{{ route('admin.vehicles.documents') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.vehicles.documents') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Documents / Expiry</span>
+                        </a>
+                        <a href="{{ route('admin.vehicle-rents.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.vehicle-rents.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Vehicle Rent</span>
+                        </a>
+                    </div>
                     @endif
-                    @if(Auth::user()->isAdmin())
+                    @if(can_module('advance_payments'))
                     <a href="{{ route('admin.advance-payments.index') }}" data-tooltip="Advance Payments" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.advance-payments.*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -1222,6 +1288,7 @@
                         </svg>
                         Material Calculator
                     </a> -->
+                    @endif
                    
                 </nav>
             </div>
@@ -1242,15 +1309,13 @@
                             <h2 class="text-base sm:text-lg font-semibold text-gray-800 truncate">@yield('title', 'Admin Panel')</h2>
                         </div>
                         <div class="flex items-center space-x-1 sm:space-x-4 flex-shrink-0">
-                            @if(Auth::user()->role === 'super_admin' && Auth::user()->company_id == 1)
+                            @if(Auth::user()->isSuperAdmin())
                                 <form method="POST" action="{{ route('admin.companies.switch') }}" class="flex items-center space-x-1 sm:space-x-2">
                                     @csrf
-                                    <select name="company_id" onchange="this.form.submit()" class="border rounded px-1 sm:px-2 py-1 text-xs sm:text-sm max-w-[80px] sm:max-w-none">
-                                        @php
-                                            $activeCompanyId = session('active_company_id') ?: Auth::user()->company_id;
-                                        @endphp
+                                    <select name="company_id" onchange="this.form.submit()" class="border rounded px-1 sm:px-2 py-1 text-xs sm:text-sm max-w-[120px] sm:max-w-none">
+                                        <option value="" {{ empty($activeCompanyId) ? 'selected' : '' }}>All companies</option>
                                         @foreach(\App\Models\Company::orderBy('name')->get() as $company)
-                                            <option value="{{ $company->id }}" {{ $activeCompanyId == $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
+                                            <option value="{{ $company->id }}" {{ (int) $activeCompanyId === (int) $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
                                         @endforeach
                                     </select>
                                 </form>
@@ -1295,6 +1360,33 @@
                                         @endforeach
                                     </select>
                                 </form>
+                            @endif
+                            
+                            @if(Auth::user()->isAdmin())
+                            <div class="relative" id="vehicle-alert-wrap">
+                                <button type="button" id="vehicle-alert-toggle" class="relative p-2 rounded-lg hover:bg-gray-100 text-gray-600" aria-label="Vehicle alerts">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                                    </svg>
+                                    @if(($vehicleAlertCount ?? 0) > 0)
+                                        <span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] leading-[18px] text-center font-semibold">{{ $vehicleAlertCount > 9 ? '9+' : $vehicleAlertCount }}</span>
+                                    @endif
+                                </button>
+                                <div id="vehicle-alert-dropdown" class="hidden absolute right-0 mt-2 w-80 max-w-[90vw] bg-white rounded-lg shadow-xl border z-50">
+                                    <div class="px-3 py-2 border-b text-sm font-semibold text-gray-800">Vehicle alerts</div>
+                                    <div class="max-h-80 overflow-y-auto">
+                                        @forelse(($vehicleAlertItems ?? collect()) as $alert)
+                                            <a href="{{ route('admin.vehicles.documents') }}" class="block px-3 py-2 hover:bg-gray-50 border-b last:border-b-0">
+                                                <div class="text-sm font-medium text-gray-900">{{ $alert['vehicle_number'] }}</div>
+                                                <div class="text-xs {{ $alert['status'] === 'expired' ? 'text-red-600' : 'text-amber-600' }}">{{ $alert['message'] }}</div>
+                                            </a>
+                                        @empty
+                                            <div class="px-3 py-4 text-sm text-gray-500">No service or document alerts.</div>
+                                        @endforelse
+                                    </div>
+                                    <a href="{{ route('admin.vehicles.documents') }}" class="block px-3 py-2 text-xs text-indigo-600 hover:bg-gray-50 rounded-b-lg">View all documents</a>
+                                </div>
+                            </div>
                             @endif
                             
                             <span class="inline text-gray-700 text-xs sm:text-sm truncate max-w-[60px] sm:max-w-[100px]">{{ Auth::user()->name }}</span>
@@ -1356,6 +1448,24 @@
                 @endif
 
                     <div id="page-content">
+                        @if(Auth::user()->isSuperAdmin() && $activeCompanyId)
+                            <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div class="text-sm text-amber-900">
+                                    <span class="font-semibold">Super Admin access is still active.</span>
+                                    You are inside <span class="font-semibold">{{ $activeCompany?->name }}</span>. Platform tools stay available.
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <a href="{{ route('admin.settings.index') }}" class="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded bg-white border border-amber-300 text-amber-900 hover:bg-amber-100">System Settings</a>
+                                    <a href="{{ route('admin.companies.index') }}" class="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded bg-white border border-amber-300 text-amber-900 hover:bg-amber-100">Companies</a>
+                                    <a href="{{ route('admin.roles.index') }}" class="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded bg-white border border-amber-300 text-amber-900 hover:bg-amber-100">Roles</a>
+                                    <form method="POST" action="{{ route('admin.companies.switch') }}" class="inline">
+                                        @csrf
+                                        <input type="hidden" name="company_id" value="">
+                                        <button type="submit" class="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded bg-amber-600 text-white hover:bg-amber-700">Exit company</button>
+                                    </form>
+                                </div>
+                            </div>
+                        @endif
                         @yield('content')
                     </div>
                     @if(Auth::check() && !Auth::user()->isSuperAdmin())
@@ -2349,6 +2459,23 @@
     @stack('modals')
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     @stack('scripts')
+    <script>
+        (function () {
+            const wrap = document.getElementById('vehicle-alert-wrap');
+            const toggle = document.getElementById('vehicle-alert-toggle');
+            const dropdown = document.getElementById('vehicle-alert-dropdown');
+            if (!wrap || !toggle || !dropdown) return;
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                dropdown.classList.toggle('hidden');
+            });
+            document.addEventListener('click', function (e) {
+                if (!wrap.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        })();
+    </script>
     <script src="{{ asset('js/form-validation.js') }}"></script>
 </body>
 </html>

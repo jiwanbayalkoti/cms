@@ -26,3 +26,19 @@ if (!function_exists('storage_url')) {
     }
 }
 
+if (!function_exists('can_module')) {
+    function can_module(string $module, string $action = 'view'): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return $user->canAccessModule($module, $action);
+    }
+}
+

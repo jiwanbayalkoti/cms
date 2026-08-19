@@ -2,18 +2,13 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\ModulePermissionService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class SiteEngineerMiddleware
 {
-    /**
-     * Handle an incoming request.
-     * Restrict site engineers to only access project galleries.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
         if (!auth()->check()) {
@@ -21,43 +16,46 @@ class SiteEngineerMiddleware
         }
 
         $user = auth()->user();
-        
-        // If user is site engineer, only allow access to project galleries
-        if ($user->role === 'site_engineer') {
-            // Get route name (may be null for unnamed routes)
-            $routeName = $request->route() ? $request->route()->getName() : null;
-            
-            // Allow access to project index and gallery routes only (no project details)
-            // Also allow switch-back when super admin is impersonating (session has impersonate_original_user_id)
-            $allowedRoutes = [
-                'admin.projects.index',
-                'admin.projects.gallery',
-                'admin.projects.gallery.album.add',
-                'admin.projects.gallery.album.update',
-                'admin.projects.gallery.album.delete',
-                'admin.projects.gallery.photos.add',
-                'admin.projects.gallery.photo.delete',
-                'admin.projects.gallery.photo.delete.post',
-                'admin.projects.gallery.photo.approve',
-                'admin.projects.gallery.photo.disapprove',
-                'admin.projects.gallery.photos.bulk-approve',
-                'admin.logout',
-                'admin.users.switch-back', // Super admin impersonation: return to super admin from any role
-                null, // Allow routes without names (like root redirect)
-            ];
-            
-            // Handle routes without names - allow them
-            if ($routeName === null) {
-                return $next($request);
-            }
-            
-            // Check if route is in allowed list
-            if (!in_array($routeName, $allowedRoutes)) {
-                return redirect()->route('admin.projects.index')->with('error', 'You only have access to project galleries.');
-            }
+
+        if ($user->role !== 'site_engineer') {
+            return $next($request);
         }
 
-        return $next($request);
+        $routeName = $request->route() ? $request->route()->getName() : null;
+
+        $allowedRoutes = [
+            'admin.projects.index',
+            'admin.projects.gallery',
+            'admin.projects.gallery.album.add',
+            'admin.projects.gallery.album.update',
+            'admin.projects.gallery.album.delete',
+            'admin.projects.gallery.photos.add',
+            'admin.projects.gallery.photo.delete',
+            'admin.projects.gallery.photo.delete.post',
+            'admin.projects.gallery.photo.approve',
+            'admin.projects.gallery.photo.disapprove',
+            'admin.projects.gallery.photos.bulk-approve',
+            'admin.logout',
+            'admin.users.switch-back',
+            null,
+        ];
+
+        if ($routeName === null || in_array($routeName, $allowedRoutes, true)) {
+            return $next($request);
+        }
+
+        $service = app(ModulePermissionService::class);
+        $module = $service->moduleForRoute($routeName);
+        $action = $service->actionFromRequest($request);
+
+        if ($module && $user->canAccessModule($module, $action)) {
+            return $next($request);
+        }
+
+        return $service->denyAccess(
+            $request,
+            $user,
+            'You only have access to project galleries, or modules assigned to your role.'
+        );
     }
 }
-

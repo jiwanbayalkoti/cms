@@ -69,24 +69,22 @@
 
   <div class="mb-4">
     <label class="block text-sm font-medium mb-1">Role</label>
-    <select name="role" class="w-full border rounded px-3 py-2 @error('role') border-red-500 @enderror">
+    <select name="permission_role_id" class="w-full border rounded px-3 py-2 @error('permission_role_id') border-red-500 @enderror" required>
       @php
-        $currentUser = auth()->user();
-        $roles = ['super_admin' => 'Super Admin', 'admin' => 'Admin', 'user' => 'User', 'site_engineer' => 'Site Engineer'];
-        // Regular admin can only create regular users and site engineers
-        if (!$currentUser->isSuperAdmin()) {
-            $roles = ['user' => 'User', 'site_engineer' => 'Site Engineer'];
-        }
+        $formRoles = $permissionRoles ?? collect();
       @endphp
-      @foreach($roles as $value => $label)
-        <option value="{{ $value }}" {{ old('role', 'user') == $value ? 'selected' : '' }}>{{ $label }}</option>
+      @if(auth()->user()->isSuperAdmin())
+        <option value="super_admin" {{ old('permission_role_id') === 'super_admin' ? 'selected' : '' }}>Super Admin</option>
+      @endif
+      @foreach($formRoles as $permRole)
+        @if(auth()->user()->isSuperAdmin() || !$permRole->isAdminPack())
+          <option value="{{ $permRole->id }}" {{ (string) old('permission_role_id') === (string) $permRole->id ? 'selected' : '' }}>{{ $permRole->name }}</option>
+        @endif
       @endforeach
     </select>
-    @if(!auth()->user()->isSuperAdmin())
-      <p class="text-gray-500 text-xs mt-1">You can only create regular users.</p>
-    @endif
-    <div class="field-error text-red-600 text-sm mt-1" data-field="role" style="display: none;"></div>
-    @error('role')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
+    <p class="text-gray-500 text-xs mt-1">Login access is set automatically from this role.</p>
+    <div class="field-error text-red-600 text-sm mt-1" data-field="permission_role_id" style="display: none;"></div>
+    @error('permission_role_id')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
   </div>
 
   <div class="mb-6">

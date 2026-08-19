@@ -62,6 +62,7 @@ class VehicleRentExport implements FromCollection, WithHeadings, WithMapping, Sh
             'per_km' => 'Per KM',
             'per_hour' => 'Per Hour',
             'daywise' => 'Daywise',
+            'monthly' => 'Monthly',
             'per_quintal' => 'Per Quintal',
             'not_fixed' => 'Not Fixed',
         ];

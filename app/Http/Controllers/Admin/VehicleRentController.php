@@ -56,7 +56,7 @@ class VehicleRentController extends Controller
             'rent_end_date' => 'nullable|date|after_or_equal:rent_start_date',
             'quantity_quintal' => 'nullable|numeric|min:0',
             'rate_per_quintal' => 'nullable|numeric|min:0',
-            'rate_type' => 'required|in:per_km,fixed,per_hour,daywise,per_quintal,not_fixed',
+            'rate_type' => 'required|in:per_km,fixed,per_hour,daywise,monthly,per_quintal,not_fixed',
             'total_amount' => $totalAmountRule,
             'paid_amount' => 'nullable|numeric|min:0',
             'bank_account_id' => 'nullable|exists:bank_accounts,id',
@@ -417,7 +417,7 @@ class VehicleRentController extends Controller
             'rent_end_date' => 'nullable|date|after_or_equal:rent_start_date',
             'quantity_quintal' => 'nullable|numeric|min:0',
             'rate_per_quintal' => 'nullable|numeric|min:0',
-            'rate_type' => 'required|in:per_km,fixed,per_hour,daywise,per_quintal,not_fixed',
+            'rate_type' => 'required|in:per_km,fixed,per_hour,daywise,monthly,per_quintal,not_fixed',
             'total_amount' => $totalAmountRule,
             'paid_amount' => 'nullable|numeric|min:0',
             'bank_account_id' => 'nullable|exists:bank_accounts,id',
@@ -467,6 +467,10 @@ class VehicleRentController extends Controller
                 
                 $totalAmount = $numberOfDays * $ratePerDay;
             }
+        } elseif ($validated['rate_type'] === 'monthly') {
+            $numberOfMonths = $validated['number_of_days'] ?? 0;
+            $monthlyRate = $validated['fixed_rate'] ?? 0;
+            $totalAmount = $numberOfMonths * $monthlyRate;
         } elseif ($validated['rate_type'] === 'per_quintal') {
             $quantityQuintal = $validated['quantity_quintal'] ?? 0;
             $ratePerQuintal = $validated['rate_per_quintal'] ?? 0;
@@ -522,6 +526,7 @@ class VehicleRentController extends Controller
             'per_km' => 'Per KM',
             'per_hour' => 'Per Hour',
             'daywise' => 'Daywise',
+            'monthly' => 'Monthly',
             'per_quintal' => 'Per Quintal',
             'not_fixed' => 'Not Fixed',
         ];
@@ -569,6 +574,7 @@ class VehicleRentController extends Controller
                 'per_km' => 'Per KM',
                 'per_hour' => 'Per Hour',
                 'daywise' => 'Daywise',
+                'monthly' => 'Monthly',
                 'per_quintal' => 'Per Quintal',
                 'not_fixed' => 'Not Fixed',
             ];
@@ -717,7 +723,7 @@ class VehicleRentController extends Controller
             'rent_end_date' => 'nullable|date|after_or_equal:rent_start_date',
             'quantity_quintal' => 'nullable|numeric|min:0',
             'rate_per_quintal' => 'nullable|numeric|min:0',
-            'rate_type' => 'required|in:per_km,fixed,per_hour,daywise,per_quintal,not_fixed',
+            'rate_type' => 'required|in:per_km,fixed,per_hour,daywise,monthly,per_quintal,not_fixed',
             'total_amount' => $totalAmountRule,
             'paid_amount' => 'nullable|numeric|min:0',
             'bank_account_id' => 'nullable|exists:bank_accounts,id',
@@ -777,6 +783,12 @@ class VehicleRentController extends Controller
             $totalAmount = $validated['fixed_rate'] ?? $validated['total_amount'] ?? 0;
         }
         
+        if ($validated['rate_type'] === 'monthly') {
+            $numberOfMonths = $validated['number_of_days'] ?? 0;
+            $monthlyRate = $validated['fixed_rate'] ?? 0;
+            $totalAmount = $numberOfMonths * $monthlyRate;
+        }
+
         // For not_fixed, allow 0 total amount (user will enter it)
         if ($validated['rate_type'] === 'not_fixed' && $totalAmount <= 0) {
             $validated['total_amount'] = 0;
@@ -815,6 +827,7 @@ class VehicleRentController extends Controller
                 'per_km' => 'Per KM',
                 'per_hour' => 'Per Hour',
                 'daywise' => 'Daywise',
+                'monthly' => 'Monthly',
                 'per_quintal' => 'Per Quintal',
                 'not_fixed' => 'Not Fixed',
             ];

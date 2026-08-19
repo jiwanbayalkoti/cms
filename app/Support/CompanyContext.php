@@ -14,17 +14,15 @@ class CompanyContext
         }
 
         if ($user->role === 'super_admin') {
-            $active = session('active_company_id');
-            $companyId = $active ?: $user->company_id;
-            
-            // Validate company exists, if not fallback to user's company_id
+            $companyId = session('active_company_id');
+
             if ($companyId && !Company::find($companyId)) {
-                // Clear invalid session value
                 session()->forget('active_company_id');
-                $companyId = $user->company_id;
+
+                return null;
             }
-            
-            return $companyId;
+
+            return $companyId ? (int) $companyId : null;
         }
 
         // Validate user's company exists

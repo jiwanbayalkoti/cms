@@ -1,37 +1,38 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Register - {{ config('app.name', 'Laravel') }}</title>
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="antialiased bg-gradient-to-br from-blue-50 to-indigo-100">
-    <div class="min-h-screen flex items-center justify-center py-12 px-4">
-        <div class="max-w-3xl w-full">
-            <div class="text-center mb-8">
-                <h1 class="text-3xl font-extrabold text-gray-900">Create an Account</h1>
-                <p class="mt-2 text-sm text-gray-600">Register your company and create the first admin account.</p>
-            </div>
+@extends('admin.auth.layout')
 
-            <div class="max-w-md mx-auto">
-                <a href="{{ route('admin.register.company') }}" class="block bg-white rounded-xl shadow-xl p-8 hover:shadow-2xl transition border border-transparent hover:border-indigo-200">
-                    <div class="h-12 w-12 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center mb-4">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"></path>
-                        </svg>
-                    </div>
-                    <h2 class="text-xl font-semibold text-gray-900">Register as Company</h2>
-                    <p class="mt-2 text-sm text-gray-600">Company list maa add huncha, ani first admin account create huncha.</p>
-                </a>
-            </div>
+@section('title', 'Create account')
 
-            <div class="mt-6 text-center">
-                <a href="{{ route('admin.login') }}" class="text-sm font-medium text-indigo-700 hover:text-indigo-900">Already have an account? Sign in</a>
+@section('hero_title', 'Create your company account.')
+@section('hero_subtitle', 'Set up your organization and start managing construction projects with a dedicated admin workspace.')
+
+@section('content')
+    <div class="mb-6 text-center lg:text-left">
+        <h2 class="text-2xl font-bold" style="color: var(--auth-ink);">Get started</h2>
+        <p class="mt-1 text-sm" style="color: var(--auth-muted);">Choose how you want to register.</p>
+    </div>
+
+    <a href="{{ route('admin.register.company') }}"
+       class="group block rounded-2xl p-6 transition"
+       style="border: 1px solid var(--auth-line); background: linear-gradient(180deg, #fffdf9 0%, #f3f7f6 100%);">
+        <div class="flex items-start gap-4">
+            <div class="h-12 w-12 rounded-xl text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform" style="background: var(--auth-mid);">
+                <i class="bi bi-building-add text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold" style="color: var(--auth-ink);">Register as company</h3>
+                <p class="mt-1 text-sm leading-relaxed" style="color: var(--auth-muted);">
+                    Add your company to the system and create the first admin account in one step.
+                </p>
+                <span class="mt-3 inline-flex items-center gap-1 text-sm font-semibold auth-link group-hover:gap-2 transition-all">
+                    Continue <i class="bi bi-arrow-right"></i>
+                </span>
             </div>
         </div>
-    </div>
-</body>
-</html>
+    </a>
+@endsection
+
+@section('footer')
+    <a href="{{ route('admin.login') }}" class="text-sm auth-link">
+        Already have an account? Sign in
+    </a>
+@endsection

@@ -12,6 +12,7 @@ use App\Models\Company;
 use App\Models\Project;
 use App\Models\Loan;
 use App\Models\Supplier;
+use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use App\Support\CompanyContext;
 use Carbon\Carbon;
@@ -32,6 +33,10 @@ class DashboardController extends Controller
      */
     public function index(Request $request)
     {
+        if (auth()->user()?->isSuperAdmin() && !CompanyContext::getActiveCompanyId()) {
+            return redirect()->route('admin.companies.index');
+        }
+
         $companyId = CompanyContext::getActiveCompanyId();
         $dashboardCompany = $companyId
             ? Company::with(['paymentRequests' => function ($query) {
@@ -89,6 +94,9 @@ class DashboardController extends Controller
         $totalSuppliers = Supplier::where('company_id', $companyId)
             ->where('is_active', true)
             ->count();
+
+        $vehicleExpiredCount = Vehicle::where('company_id', $companyId)->withExpiredDocuments()->count();
+        $vehicleExpiringCount = Vehicle::where('company_id', $companyId)->withExpiringDocuments()->count();
         
         // Count only accessible projects
         $projectsQuery = Project::where('company_id', $companyId);
@@ -137,6 +145,7 @@ class DashboardController extends Controller
         // Format dates for display
         $startDateFormatted = Carbon::parse($startDate)->format('M d');
         $endDateFormatted = Carbon::parse($endDate)->format('M d, Y');
+        $hasCompanyAdminPack = app(\App\Services\ModulePermissionService::class)->hasCompanyAdminPack($companyId);
         
         return view('admin.dashboard', compact(
             'totalIncome',
@@ -145,6 +154,8 @@ class DashboardController extends Controller
             'loanNetBalance',
             'totalStaff',
             'totalSuppliers',
+            'vehicleExpiredCount',
+            'vehicleExpiringCount',
             'totalProjects',
             'totalAllProjects',
             'totalCompanies',
@@ -161,7 +172,8 @@ class DashboardController extends Controller
             'endDate',
             'startDateFormatted',
             'endDateFormatted',
-            'dashboardCompany'
+            'dashboardCompany',
+            'hasCompanyAdminPack'
         ));
     }
 
@@ -358,11 +370,32 @@ class DashboardController extends Controller
      */
     public function superAdminDashboard()
     {
-        // Get all companies with their project counts
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403, 'Only super admin can access this page.');
+        }
+
         $companies = Company::withCount('projects')
             ->orderBy('name')
             ->get();
 
-        return view('admin.super_admin.dashboard', compact('companies'));
+        $systemSettings = [
+            'system_name' => \App\Models\AppSetting::getValue('system_name', config('app.name')),
+            'trial_days' => \App\Models\AppSetting::trialDays(),
+            'payment_yearly_rate' => \App\Models\AppSetting::paymentYearlyRate(),
+            'contact_email' => \App\Models\AppSetting::getValue('contact_email'),
+            'contact_phone' => \App\Models\AppSetting::getValue('contact_phone'),
+        ];
+
+        $platformStats = [
+            'companies' => Company::count(),
+            'users' => \App\Models\User::count(),
+            'projects' => Project::count(),
+            'pending_payments' => \App\Models\CompanyPaymentRequest::where('status', 'pending')->count(),
+            'email_api_usage' => \App\Rules\ValidEmailDomain::getApiUsageCount(),
+            'email_api_limit' => \App\Rules\ValidEmailDomain::getApiUsageLimit(),
+            'email_notifications' => \App\Mail\UserAccountCreated::getEmailCount() + \App\Mail\PasswordChanged::getEmailCount(),
+        ];
+
+        return view('admin.super_admin.dashboard', compact('companies', 'systemSettings', 'platformStats'));
     }
 }

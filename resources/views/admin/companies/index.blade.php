@@ -3,7 +3,7 @@
 @section('title', 'Companies')
 
 @section('content')
-<div class="flex justify-between mb-4">
+<div class="flex justify-between mb-2">
     <h1 class="text-2xl font-bold">Companies</h1>
     <div class="flex flex-wrap justify-end gap-2">
       <button onclick="openTrialPeriodModal('overall', '{{ route('admin.companies.trial-period.update-all') }}', 'Common default', {{ $commonTrialDays }})" class="bg-amber-600 text-white px-4 py-2 rounded hover:bg-amber-700 transition">
@@ -12,10 +12,22 @@
       <button onclick="openCreateCompanyModal()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">New Company</button>
     </div>
   </div>
+  <p class="text-sm text-gray-600 mb-4">Click a company card to open its dashboard and ERP modules.</p>
 
   <div id="companiesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         @forelse($companies as $company)
-      <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-6" data-company-id="{{ $company->id }}">
+      @php
+        $isActiveCompany = (int) session('active_company_id') === (int) $company->id;
+      @endphp
+      <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 p-6 company-card group cursor-pointer border-2 {{ $isActiveCompany ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-transparent hover:border-indigo-400' }}"
+           data-company-id="{{ $company->id }}"
+           onclick="handleCompanyCardClick(event, {{ $company->id }})"
+           title="Click to enter {{ $company->name }}">
+        <form id="enter-company-{{ $company->id }}" method="POST" action="{{ route('admin.companies.switch') }}" class="hidden">
+          @csrf
+          <input type="hidden" name="company_id" value="{{ $company->id }}">
+          <input type="hidden" name="redirect_to" value="dashboard">
+        </form>
         @php
           $isLocked = $company->isLockedForPayment();
           $isTrialing = $company->isOnTrial();
@@ -24,11 +36,28 @@
         @endphp
         <div class="flex items-start justify-between mb-4">
           <div class="flex-1">
-            <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ $company->name }}</h3>
+            <div class="flex items-start justify-between gap-2">
+              <h3 class="text-lg font-semibold text-gray-900 mb-1 group-hover:text-indigo-600">{{ $company->name }}</h3>
+              <svg class="h-5 w-5 flex-shrink-0 text-gray-300 group-hover:text-indigo-500 transition-colors company-card-enter-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </div>
+            @if($isActiveCompany)
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 mb-2">Currently active</span>
+            @endif
             <div class="flex flex-wrap gap-2 mb-2">
               @if($company->trial_days_override)
                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-sky-100 text-sky-700">
                   Custom {{ $company->trial_days_override }} days
+                </span>
+              @endif
+              @if($company->adminPermissionRole && $company->adminPermissionRole->modules->isNotEmpty())
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
+                  Admin modules assigned
+                </span>
+              @else
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                  Admin modules pending
                 </span>
               @endif
               @if($isLocked)
@@ -81,7 +110,7 @@
           @endif
         </div>
         
-        <div class="flex items-center justify-end gap-1 pt-4 border-t">
+        <div class="flex items-center justify-end gap-1 pt-4 border-t company-card-actions">
           @if($isLocked)
             <form method="POST" action="{{ route('admin.companies.unlock', $company) }}" class="inline">
               @csrf
@@ -109,6 +138,9 @@
               <i class="bi bi-clock-history"></i>
             </button>
           @endif
+          <button type="button" onclick="openAdminAccessModal({{ $company->id }}, '{{ addslashes($company->name) }}')" class="btn btn-sm btn-outline-indigo" title="Assign company admin modules" style="border-color:#4f46e5;color:#4f46e5;">
+            <i class="bi bi-shield-lock"></i>
+          </button>
           <button onclick="openViewCompanyModal({{ $company->id }})" class="btn btn-sm btn-outline-primary" title="View">
             <i class="bi bi-eye"></i>
           </button>
@@ -133,6 +165,36 @@
   <div class="mt-6">
     <x-pagination :paginator="$companies" wrapper-class="mt-4" />
   </div>
+
+<!-- Assign company admin modules -->
+<div id="adminAccessModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between p-6 border-b">
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900">Company admin modules</h3>
+                <p class="text-sm text-gray-500 mt-1" id="admin-access-company-name"></p>
+            </div>
+            <button type="button" onclick="closeAdminAccessModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <form id="adminAccessForm" class="flex-1 overflow-y-auto p-6" onsubmit="submitAdminAccess(event)">
+            <p class="text-sm text-gray-600 mb-3">Tick modules this company admin can use. They can then give only these modules to their staff/users.</p>
+            <div class="flex flex-wrap gap-2 mb-3">
+                <button type="button" class="px-3 py-1.5 text-sm rounded border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100" onclick="toggleAdminPackAll(true)">Select all modules</button>
+                <button type="button" class="px-3 py-1.5 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50" onclick="toggleAdminPackAll(false)">Clear all</button>
+            </div>
+            <div id="admin-access-admins" class="text-sm text-gray-600 mb-4"></div>
+            <div id="admin-access-matrix"></div>
+        </form>
+        <div class="flex justify-end gap-2 p-4 border-t bg-gray-50">
+            <button type="button" onclick="closeAdminAccessModal()" class="px-4 py-2 rounded border">Cancel</button>
+            <button type="submit" form="adminAccessForm" id="admin-access-save" class="px-4 py-2 rounded bg-indigo-600 text-white">Save modules</button>
+        </div>
+    </div>
+</div>
 
 <!-- Create/Edit Company Modal -->
 <div id="createCompanyModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
@@ -302,25 +364,24 @@
                     <p class="font-semibold mb-1">Warning: all company data will be deleted.</p>
                     <p>This includes users, projects, income, expenses, staff, reports, bills, invoices, loans, settings, and all related records from every table. This action cannot be undone.</p>
                 </div>
-                <label class="flex items-start gap-2">
-                    <input type="checkbox" id="confirm-delete-all-data" name="confirm_delete_all" value="1" form="delete-company-form" class="mt-1 rounded border-red-300 text-red-600 focus:ring-red-500">
-                    <span>I understand that all data linked to this company will be permanently deleted.</span>
-                </label>
             </div>
             
             <!-- Buttons -->
-            <div class="flex space-x-3">
-                <button onclick="closeDeleteConfirmation()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium">
-                    Cancel
-                </button>
-                <form id="delete-company-form" method="POST" class="flex-1">
+            <form id="delete-company-form" method="POST" class="space-y-4">
                 @csrf
-                @method('DELETE')
-                    <button type="submit" id="delete-company-submit-btn" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <label class="flex items-start gap-2">
+                    <input type="checkbox" id="confirm-delete-all-data" name="confirm_delete_all" value="1" class="mt-1 rounded border-red-300 text-red-600 focus:ring-red-500">
+                    <span>I understand that all data linked to this company will be permanently deleted.</span>
+                </label>
+                <div class="flex space-x-3">
+                    <button type="button" onclick="closeDeleteConfirmation()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" id="delete-company-submit-btn" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         Delete
                     </button>
-              </form>
-            </div>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -401,6 +462,16 @@ let deleteCompanyId = null;
 let pendingLockCompanyForm = null;
 window.editModalStoredLogoUrl = '';
 window.editModalStoredFaviconUrl = '';
+
+function handleCompanyCardClick(event, companyId) {
+    if (event.target.closest('.company-card-actions')) {
+        return;
+    }
+    const form = document.getElementById('enter-company-' + companyId);
+    if (form) {
+        form.submit();
+    }
+}
 
 function openTrialPeriodModal(scope, actionUrl, companyName, currentDays) {
     const modal = document.getElementById('trialPeriodModal');
@@ -845,8 +916,17 @@ function addCompanyRow(company) {
     }
     
     const card = document.createElement('div');
-    card.className = 'bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-6';
+    card.className = 'bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 p-6 company-card group cursor-pointer border-2 border-transparent hover:border-indigo-400';
     card.setAttribute('data-company-id', company.id);
+    card.setAttribute('title', 'Click to enter ' + (company.name || ''));
+    card.setAttribute('onclick', 'handleCompanyCardClick(event, ' + company.id + ')');
+    
+    const enterFormHtml = `
+      <form id="enter-company-${company.id}" method="POST" action="{{ route('admin.companies.switch') }}" class="hidden">
+        <input type="hidden" name="_token" value="${escapeHtml(csrfToken)}">
+        <input type="hidden" name="company_id" value="${company.id}">
+        <input type="hidden" name="redirect_to" value="dashboard">
+      </form>`;
     
     const logoHtml = company.logo_url ? `<img src="${escapeHtml(company.logo_url)}" alt="${escapeHtml(company.name || '')} Logo" class="h-12 w-auto mt-2">` : '';
     const emailHtml = company.email ? `
@@ -896,10 +976,15 @@ function addCompanyRow(company) {
             <i class="bi bi-clock-history"></i>
           </button>`;
     
-    card.innerHTML = `
+    card.innerHTML = enterFormHtml + `
         <div class="flex items-start justify-between mb-4">
           <div class="flex-1">
-            <h3 class="text-lg font-semibold text-gray-900 mb-1">${escapeHtml(company.name || '')}</h3>
+            <div class="flex items-start justify-between gap-2">
+              <h3 class="text-lg font-semibold text-gray-900 mb-1">${escapeHtml(company.name || '')}</h3>
+              <svg class="h-5 w-5 flex-shrink-0 text-gray-300 group-hover:text-indigo-500 transition-colors company-card-enter-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+            </div>
             <div class="flex flex-wrap gap-2 mb-2">${statusHtml}</div>
             ${logoHtml}
           </div>
@@ -911,7 +996,7 @@ function addCompanyRow(company) {
           ${addressHtml}
         </div>
         
-        <div class="flex items-center justify-end gap-1 pt-4 border-t">
+        <div class="flex items-center justify-end gap-1 pt-4 border-t company-card-actions">
           ${lockButtonHtml}
           ${trialButtonHtml}
           <button onclick="openViewCompanyModal(${company.id})" class="btn btn-sm btn-outline-primary" title="View">
@@ -1344,7 +1429,7 @@ function showDeleteConfirmation(companyId, companyName) {
     resetDeleteSubmitButton();
     deleteCompanyId = companyId;
     document.getElementById('delete-company-name').textContent = companyName;
-    document.getElementById('delete-company-form').action = `/admin/companies/${companyId}`;
+    document.getElementById('delete-company-form').action = `/admin/companies/${companyId}/delete`;
     document.getElementById('deleteConfirmationModal').classList.remove('hidden');
 }
 
@@ -1372,6 +1457,8 @@ document.getElementById('delete-company-form').addEventListener('submit', functi
     submitBtn.textContent = 'Deleting...';
     
     const companyIdToDelete = deleteCompanyId;
+    const formData = new FormData(form);
+    formData.set('confirm_delete_all', '1');
     
     fetch(form.action, {
         method: 'POST',
@@ -1380,22 +1467,22 @@ document.getElementById('delete-company-form').addEventListener('submit', functi
             'X-CSRF-TOKEN': csrfToken,
             'Accept': 'application/json'
         },
-        body: new FormData(form)
+        body: formData
     })
     .then(response => {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-            return response.json();
-        } else {
-            // If not JSON, check if it's a successful response
-            if (response.ok) {
-                return { success: true };
-            } else {
-                return response.text().then(html => {
-                    throw new Error('Server returned HTML instead of JSON');
-                });
-            }
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            return response.json().then(data => {
+                if (!response.ok && !data.message) {
+                    throw new Error('Failed to delete company (' + response.status + ')');
+                }
+                return data;
+            });
         }
+        if (response.ok) {
+            return { success: true };
+        }
+        throw new Error('Server returned HTML instead of JSON');
     })
     .then(data => {
         if (data.success) {
@@ -1470,6 +1557,135 @@ document.getElementById('deleteConfirmationModal').addEventListener('click', fun
     if (e.target === this) {
         closeDeleteConfirmation();
     }
+});
+
+let adminAccessCompanyId = null;
+
+function closeAdminAccessModal() {
+    document.getElementById('adminAccessModal').classList.add('hidden');
+    adminAccessCompanyId = null;
+}
+
+function openAdminAccessModal(companyId, companyName) {
+    adminAccessCompanyId = companyId;
+    document.getElementById('admin-access-company-name').textContent = companyName || '';
+    document.getElementById('admin-access-matrix').innerHTML = '<p class="text-sm text-gray-500">Loading...</p>';
+    document.getElementById('admin-access-admins').textContent = '';
+    document.getElementById('adminAccessModal').classList.remove('hidden');
+
+    fetch(`/admin/companies/${companyId}/admin-access`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        const admins = (data.admins || []);
+        document.getElementById('admin-access-admins').textContent = admins.length
+            ? 'Company admin: ' + admins.map(a => a.name + ' (' + a.email + ')').join(', ')
+            : 'No company admin user yet. Create an Admin user after saving these modules.';
+        renderAdminAccessMatrix(data.grouped_modules || {}, data.matrix || {});
+    })
+    .catch(() => {
+        document.getElementById('admin-access-matrix').innerHTML = '<p class="text-sm text-red-600">Failed to load modules.</p>';
+    });
+}
+
+function renderAdminAccessMatrix(groups, matrix) {
+    let html = '';
+    Object.keys(groups).forEach(groupKey => {
+        const group = groups[groupKey];
+        html += `<div class="mb-4 border rounded-lg overflow-hidden">
+            <div class="px-3 py-2 bg-gray-50 text-xs font-semibold uppercase text-gray-500 flex items-center justify-between">
+                <span>${group.label || groupKey}</span>
+                <label class="normal-case font-medium text-gray-600 flex items-center gap-1">
+                    <input type="checkbox" class="admin-pack-group-all rounded" data-group="${groupKey}" onchange="toggleAdminPackGroup('${groupKey}', this.checked)">
+                    Select all
+                </label>
+            </div>
+            <table class="min-w-full text-sm">
+                <thead><tr class="text-gray-500">
+                    <th class="text-left px-3 py-2">Module</th>
+                    <th class="text-center w-16">All</th>
+                    <th class="text-center w-16">View</th>
+                    <th class="text-center w-16">Create</th>
+                    <th class="text-center w-16">Edit</th>
+                    <th class="text-center w-16">Delete</th>
+                </tr></thead><tbody>`;
+        Object.keys(group.modules || {}).forEach(moduleKey => {
+            const module = group.modules[moduleKey];
+            const row = matrix[moduleKey] || {};
+            const allChecked = row.view && row.create && row.update && row.delete ? 'checked' : '';
+            html += `<tr class="border-t">
+                <td class="px-3 py-2">${module.label || moduleKey}</td>
+                <td class="text-center"><input type="checkbox" class="admin-pack-row-all rounded" data-module="${moduleKey}" data-group="${groupKey}" title="Select all for this module" ${allChecked} onchange="toggleAdminPackRow('${moduleKey}', this.checked)"></td>`;
+            ['view','create','update','delete'].forEach(action => {
+                const checked = row[action] ? 'checked' : '';
+                html += `<td class="text-center"><input type="checkbox" class="admin-pack-box rounded" data-module="${moduleKey}" data-group="${groupKey}" data-action="${action}" value="1" ${checked} onchange="syncAdminPackRow('${moduleKey}')"></td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+    });
+    document.getElementById('admin-access-matrix').innerHTML = html || '<p class="text-sm text-gray-500">No modules configured.</p>';
+}
+
+function toggleAdminPackAll(on) {
+    document.querySelectorAll('.admin-pack-box, .admin-pack-row-all, .admin-pack-group-all').forEach(el => el.checked = on);
+}
+function toggleAdminPackGroup(group, on) {
+    document.querySelectorAll('.admin-pack-box[data-group="' + group + '"], .admin-pack-row-all[data-group="' + group + '"]').forEach(el => el.checked = on);
+}
+function toggleAdminPackRow(module, on) {
+    document.querySelectorAll('.admin-pack-box[data-module="' + module + '"]').forEach(el => el.checked = on);
+    syncAdminPackGroup(module);
+}
+function syncAdminPackRow(module) {
+    const boxes = Array.from(document.querySelectorAll('.admin-pack-box[data-module="' + module + '"]'));
+    const all = document.querySelector('.admin-pack-row-all[data-module="' + module + '"]');
+    if (all) all.checked = boxes.length > 0 && boxes.every(b => b.checked);
+    syncAdminPackGroup(module);
+}
+function syncAdminPackGroup(module) {
+    const sample = document.querySelector('.admin-pack-box[data-module="' + module + '"]');
+    if (!sample) return;
+    const group = sample.dataset.group;
+    const boxes = Array.from(document.querySelectorAll('.admin-pack-box[data-group="' + group + '"]'));
+    const groupAll = document.querySelector('.admin-pack-group-all[data-group="' + group + '"]');
+    if (groupAll) groupAll.checked = boxes.length > 0 && boxes.every(b => b.checked);
+}
+
+function submitAdminAccess(e) {
+    e.preventDefault();
+    if (!adminAccessCompanyId) return;
+    const btn = document.getElementById('admin-access-save');
+    btn.disabled = true;
+    const formData = new FormData();
+    document.querySelectorAll('.admin-pack-box:checked').forEach(box => {
+        formData.append(`permissions[${box.dataset.module}][${box.dataset.action}]`, '1');
+    });
+    fetch(`/admin/companies/${adminAccessCompanyId}/admin-access`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            closeAdminAccessModal();
+            window.location.reload();
+        } else {
+            alert(data.message || 'Save failed');
+        }
+    })
+    .catch(() => alert('Save failed'))
+    .finally(() => { btn.disabled = false; });
+}
+
+document.getElementById('adminAccessModal').addEventListener('click', function(e) {
+    if (e.target === this) closeAdminAccessModal();
 });
 </script>
 @endpush

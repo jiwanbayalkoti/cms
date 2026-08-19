@@ -35,10 +35,36 @@
     </div>
 </div>
 
+@if(Auth::user()->role === 'admin' && empty($hasCompanyAdminPack))
+    <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 text-sm">
+        Super Admin has not assigned this company's modules yet. You can manage users, but other ERP menus stay closed until Super Admin grants access from Companies → shield icon.
+    </div>
+@endif
+
 @if(!Auth::user()->isSuperAdmin() && $dashboardCompany)
     @if($dashboardCompany->isOnTrial() || ($dashboardCompany->isLockedForPayment() && $dashboardCompany->lock_reason === 'trial_expired'))
         @include('admin.partials.trial-timeline', ['company' => $dashboardCompany])
     @endif
+@endif
+
+@if(can_module('vehicles') && (($vehicleExpiredCount ?? 0) > 0 || ($vehicleExpiringCount ?? 0) > 0))
+<div class="mb-6 rounded-lg border {{ ($vehicleExpiredCount ?? 0) > 0 ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50' }} p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    <div class="text-sm {{ ($vehicleExpiredCount ?? 0) > 0 ? 'text-red-800' : 'text-amber-800' }}">
+        <span class="font-semibold">Vehicle documents:</span>
+        @if(($vehicleExpiredCount ?? 0) > 0)
+            {{ $vehicleExpiredCount }} expired
+        @endif
+        @if(($vehicleExpiredCount ?? 0) > 0 && ($vehicleExpiringCount ?? 0) > 0)
+            ,
+        @endif
+        @if(($vehicleExpiringCount ?? 0) > 0)
+            {{ $vehicleExpiringCount }} expiring within 30 days
+        @endif
+    </div>
+    <a href="{{ route('admin.vehicles.documents') }}" class="text-sm font-semibold {{ ($vehicleExpiredCount ?? 0) > 0 ? 'text-red-700' : 'text-amber-700' }} hover:underline">
+        Review documents
+    </a>
+</div>
 @endif
 
 <!-- First Row -->

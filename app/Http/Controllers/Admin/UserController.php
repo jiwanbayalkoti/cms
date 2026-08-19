@@ -7,10 +7,12 @@ use App\Http\Controllers\Admin\Traits\ValidatesForms;
 use App\Models\User;
 use App\Models\Company;
 use App\Models\Project;
+use App\Models\PermissionRole;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use App\Support\CompanyContext;
+use App\Services\ModulePermissionService;
 use App\Rules\StrongPassword;
 use App\Rules\ValidEmailDomain;
 use App\Mail\UserAccountCreated;
@@ -58,10 +60,10 @@ class UserController extends Controller
             'password' => $passwordRule,
             'password_confirmation' => $user ? 'nullable|string' : 'required|string',
             'company_id' => 'nullable|exists:companies,id',
-            'role' => 'required|in:super_admin,admin,user,site_engineer',
             'is_admin' => 'nullable|boolean',
             'project_ids' => 'nullable|array',
             'project_ids.*' => 'integer|exists:projects,id',
+            'permission_role_id' => $this->permissionRoleIdRule(),
         ];
         
         return $this->validateForm($request, $rules);
@@ -70,7 +72,7 @@ class UserController extends Controller
     public function index()
     {
         $currentUser = auth()->user();
-        $query = User::with('company')->orderBy('name');
+        $query = User::with(['company', 'permissionRole'])->orderBy('name');
 
         // Super admin can see all users
         // Regular admin can only see users from their company (excluding super_admin users)
@@ -111,9 +113,24 @@ class UserController extends Controller
         
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
+            $requestedCompanyId = request('company_id');
+            if ($currentUser->isSuperAdmin() && !$requestedCompanyId) {
+                $permissionRoles = PermissionRole::withoutGlobalScopes()
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'company_id', 'type', 'login_role']);
+            } else {
+                $formCompanyId = $requestedCompanyId
+                    ?: ($currentUser->isSuperAdmin()
+                        ? CompanyContext::getActiveCompanyId()
+                        : ($currentUser->company_id ?: CompanyContext::getActiveCompanyId()));
+                $permissionRoles = $this->permissionRolesForForm($formCompanyId);
+            }
+
             return response()->json([
                 'companies' => $companies,
                 'projects' => $projects,
+                'permission_roles' => $permissionRoles,
             ]);
         }
         
@@ -130,31 +147,16 @@ class UserController extends Controller
             'email' => $this->emailRules('unique:users,email'),
             'password' => ['required', 'string', 'min:8', 'confirmed', new StrongPassword()],
             'company_id' => 'nullable|exists:companies,id',
-            'role' => 'required|in:super_admin,admin,user,site_engineer',
             'is_admin' => 'nullable|boolean',
             'project_ids' => 'nullable|array',
             'project_ids.*' => 'integer|exists:projects,id',
+            'permission_role_id' => $this->permissionRoleIdRule(),
         ]);
 
-        // Role-based restrictions
-        // Only super admin can create super_admin users
-        if ($validated['role'] === 'super_admin' && !$currentUser->isSuperAdmin()) {
-            // Return JSON for AJAX requests
-            if ($request->ajax() || $request->wantsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You do not have permission to create super admin users.',
-                ], 403);
-            }
-            return back()->withInput()->with('error', 'You do not have permission to create super admin users.');
-        }
-
-        // Regular admin can only create users for their company
         $companyId = $validated['company_id'] ?? CompanyContext::getActiveCompanyId();
         if (!$currentUser->isSuperAdmin()) {
             $activeCompanyId = CompanyContext::getActiveCompanyId();
             if ($companyId && $companyId != $activeCompanyId) {
-                // Return JSON for AJAX requests
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json([
                         'success' => false,
@@ -163,20 +165,19 @@ class UserController extends Controller
                 }
                 return back()->withInput()->with('error', 'You can only create users for your own company.');
             }
-            // Force company_id to active company for regular admins
             $companyId = $activeCompanyId;
-            
-            // Regular admin cannot create super_admin or other admins (only regular users and site engineers)
-            if (in_array($validated['role'], ['super_admin', 'admin'])) {
-                // Return JSON for AJAX requests
-                if ($request->ajax() || $request->wantsJson()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'You do not have permission to create admin users.',
-                    ], 403);
-                }
-                return back()->withInput()->with('error', 'You do not have permission to create admin users.');
+        }
+
+        $assignment = $this->resolveRoleAssignment(
+            $request->input('permission_role_id'),
+            $companyId,
+            $currentUser
+        );
+        if (!empty($assignment['error'])) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $assignment['error']], 403);
             }
+            return back()->withInput()->with('error', $assignment['error']);
         }
 
         $user = new User();
@@ -184,9 +185,9 @@ class UserController extends Controller
         $user->email = $validated['email'];
         $user->password = Hash::make($validated['password']);
         $user->company_id = $companyId;
-        $user->role = $validated['role'];
-        // Sync is_admin with role for backward compatibility
-        $user->is_admin = in_array($validated['role'], ['admin', 'super_admin']);
+        $user->role = $assignment['role'];
+        $user->is_admin = in_array($assignment['role'], ['admin', 'super_admin'], true);
+        $user->permission_role_id = $assignment['permission_role_id'];
         $user->save();
         
         // Send email notification to the new user
@@ -230,7 +231,7 @@ class UserController extends Controller
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
-            $user->load('company');
+            $user->load(['company', 'permissionRole']);
             return response()->json([
                 'success' => true,
                 'message' => 'User created successfully.',
@@ -240,6 +241,9 @@ class UserController extends Controller
                     'email' => $user->email,
                     'company_name' => $user->company ? $user->company->name : null,
                     'role' => $user->role,
+                    'role_label' => $user->roleLabel(),
+                    'permission_role_id' => $user->permission_role_id,
+                    'permission_role_name' => $user->permissionRole?->name,
                 ],
             ]);
         }
@@ -281,6 +285,8 @@ class UserController extends Controller
         
         // Return JSON for AJAX requests
         if (request()->ajax() || request()->wantsJson()) {
+            $user->load('permissionRole');
+
             return response()->json([
                 'user' => [
                     'id' => $user->id,
@@ -288,11 +294,18 @@ class UserController extends Controller
                     'email' => $user->email,
                     'company_id' => $user->company_id,
                     'role' => $user->role,
-                    'is_admin' => $user->is_admin,
+                    'is_admin' => (bool) $user->is_admin,
+                    'permission_role_id' => $user->permission_role_id,
+                    'permission_role_name' => $user->permissionRole?->name,
+                    'permission_role_type' => $user->permissionRole?->type,
+                    'permission_role_login_role' => $user->permissionRole?->login_role,
                 ],
-                'companies' => $companies,
-                'projects' => $projects,
+                'companies' => $companies->values()->all(),
+                'projects' => $projects->values()->all(),
                 'selectedProjectIds' => $selectedProjectIds,
+                'permission_roles' => $this->permissionRolesForForm(
+                    $user->company_id ?: CompanyContext::getActiveCompanyId()
+                )->values()->all(),
             ]);
         }
         
@@ -303,64 +316,10 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $currentUser = auth()->user();
-        
-        // Prevent users from modifying their own role
-        if ($currentUser->id === $user->id) {
-            // Users cannot change their own role or company
-            $rules = [
-                'name' => 'sometimes|string|max:255',
-            ];
-            
-            // Email validation - always validate email when updating own profile
-            $rules['email'] = $this->emailRules('unique:users,email,' . $user->id);
-            
-            // Only validate password if it's provided (not empty)
-            if ($request->filled('password')) {
-                $rules['password'] = ['required', 'string', 'min:8', 'confirmed', new StrongPassword()];
-                $rules['password_confirmation'] = 'required|string';
-            }
-            
-            $validated = $request->validate($rules);
-            
-            if (array_key_exists('name', $validated)) {
-                $user->name = $validated['name'];
-            }
-            if (array_key_exists('email', $validated)) {
-                $user->email = $validated['email'];
-            }
-            
-            // Track if password was changed
-            $passwordChanged = false;
-            $newPassword = null;
-            
-            if (!empty($validated['password'] ?? null)) {
-                $passwordChanged = true;
-                $newPassword = $validated['password'];
-                $user->password = Hash::make($validated['password']);
-            }
-            
-            $user->save();
-            
-            // Send password change notification email
-            if ($passwordChanged) {
-                try {
-                    Mail::to($user->email)->send(new PasswordChanged($user, $newPassword, false));
-                    // Track email notification sent
-                    PasswordChanged::incrementEmailCount();
-                } catch (\Exception $e) {
-                    // Log error but don't fail update if email fails
-                    \Log::error('Failed to send password change email: ' . $e->getMessage(), [
-                        'user_id' => $user->id,
-                        'email' => $user->email
-                    ]);
-                }
-            }
-            
-            return redirect()->route('admin.users.index')->with('success', 'Your profile updated successfully.');
-        }
-        
+        $isSelf = (int) $currentUser->id === (int) $user->id;
+
         // Check permissions for editing other users
-        if (!$currentUser->isSuperAdmin()) {
+        if (!$isSelf && !$currentUser->isSuperAdmin()) {
             $companyId = CompanyContext::getActiveCompanyId();
             if ($user->company_id != $companyId) {
                 abort(403, 'You can only edit users from your own company.');
@@ -375,11 +334,11 @@ class UserController extends Controller
         // Build validation rules - password only required if provided
         $rules = [
             'company_id' => 'nullable|exists:companies,id',
-            'role' => 'required|in:super_admin,admin,user,site_engineer',
             'is_admin' => 'nullable|boolean',
             'name' => 'sometimes|string|max:255',
             'project_ids' => 'nullable|array',
             'project_ids.*' => 'integer|exists:projects,id',
+            'permission_role_id' => $this->permissionRoleIdRule(),
         ];
         
         // Email validation - always validate email when updating
@@ -393,36 +352,8 @@ class UserController extends Controller
         
         $validated = $request->validate($rules);
 
-        // Role-based restrictions
-        // Only super admin can assign super_admin role
-        if ($validated['role'] === 'super_admin' && !$currentUser->isSuperAdmin()) {
-            // Return JSON for AJAX requests
-            if ($request->ajax() || $request->wantsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You do not have permission to assign super admin role.',
-                ], 403);
-            }
-            return back()->withInput()->with('error', 'You do not have permission to assign super admin role.');
-        }
-
-        // Regular admin cannot change user to admin or super_admin
-        // Also cannot change existing admin/super_admin users
         if (!$currentUser->isSuperAdmin()) {
-            // Prevent changing to admin roles
-            if (in_array($validated['role'], ['super_admin', 'admin'])) {
-                // Return JSON for AJAX requests
-                if ($request->ajax() || $request->wantsJson()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'You do not have permission to assign admin roles.',
-                    ], 403);
-                }
-                return back()->withInput()->with('error', 'You do not have permission to assign admin roles.');
-            }
-            // Prevent changing existing admin/super_admin users
-            if (in_array($user->role, ['super_admin', 'admin'])) {
-                // Return JSON for AJAX requests
+            if (!$isSelf && in_array($user->role, ['super_admin', 'admin'], true)) {
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json([
                         'success' => false,
@@ -431,12 +362,10 @@ class UserController extends Controller
                 }
                 return back()->withInput()->with('error', 'You do not have permission to modify admin or super admin users.');
             }
-            
-            // Regular admin can only change company to their own
+
             $companyId = $validated['company_id'] ?? $user->company_id;
             $activeCompanyId = CompanyContext::getActiveCompanyId();
             if ($companyId && $companyId != $activeCompanyId) {
-                // Return JSON for AJAX requests
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json([
                         'success' => false,
@@ -446,6 +375,44 @@ class UserController extends Controller
                 return back()->withInput()->with('error', 'You can only assign users to your own company.');
             }
             $validated['company_id'] = $activeCompanyId;
+        }
+
+        $targetCompanyId = $validated['company_id'] ?? $user->company_id;
+        if ($isSelf && !$currentUser->isSuperAdmin()) {
+            $targetCompanyId = $user->company_id;
+        }
+
+        $assignment = $this->resolveRoleAssignment(
+            $request->input('permission_role_id'),
+            $targetCompanyId,
+            $currentUser,
+            $user
+        );
+        if (!empty($assignment['error'])) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $assignment['error']], 422);
+            }
+            return back()->withInput()->with('error', $assignment['error']);
+        }
+
+        if ($isSelf && $currentUser->isSuperAdmin() && ($assignment['role'] ?? null) !== 'super_admin') {
+            $message = 'You cannot change your own Super Admin role.';
+            if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return back()->withInput()->with('error', $message);
+        }
+
+        if (
+            $user->role === 'super_admin'
+            && ($assignment['role'] ?? null) !== 'super_admin'
+            && !User::where('role', 'super_admin')->where('id', '!=', $user->id)->exists()
+        ) {
+            $message = 'Cannot remove the last Super Admin.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return back()->withInput()->with('error', $message);
         }
 
         if (array_key_exists('name', $validated)) {
@@ -465,11 +432,14 @@ class UserController extends Controller
             $user->password = Hash::make($validated['password']);
         }
         
-        $user->company_id = $validated['company_id'] ?? $user->company_id;
-        $user->role = $validated['role'];
-        // Sync is_admin with role for backward compatibility
-        $user->is_admin = in_array($validated['role'], ['admin', 'super_admin']);
+        $user->forceFill([
+            'company_id' => (!$isSelf || $currentUser->isSuperAdmin()) ? $targetCompanyId : $user->company_id,
+            'role' => $assignment['role'],
+            'is_admin' => in_array($assignment['role'], ['admin', 'super_admin'], true),
+            'permission_role_id' => $assignment['permission_role_id'],
+        ]);
         $user->save();
+        $user->refresh()->load(['company', 'permissionRole']);
         
         // Send password change notification email (if changed by admin)
         if ($passwordChanged) {
@@ -515,8 +485,9 @@ class UserController extends Controller
         }
 
         // Return JSON for AJAX requests
-        if ($request->ajax() || $request->wantsJson()) {
-            $user->load('company');
+        if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
+            $user->unsetRelation('permissionRole');
+            $user->load(['company', 'permissionRole']);
             return response()->json([
                 'success' => true,
                 'message' => 'User updated successfully.',
@@ -526,6 +497,9 @@ class UserController extends Controller
                     'email' => $user->email,
                     'company_name' => $user->company ? $user->company->name : null,
                     'role' => $user->role,
+                    'role_label' => $user->roleLabel(),
+                    'permission_role_id' => $user->permission_role_id,
+                    'permission_role_name' => $user->permissionRole?->name,
                 ],
             ]);
         }
@@ -632,7 +606,103 @@ class UserController extends Controller
         session()->forget('impersonate_original_user_id');
         Auth::login($originalUser);
 
+        if ($originalUser->isSuperAdmin()) {
+            return redirect()->route('admin.companies.index')->with('success', 'Switched back to Super Admin.');
+        }
+
         return redirect()->route('admin.users.index')->with('success', 'Switched back to Super Admin.');
+    }
+
+    private function permissionRolesForForm($companyId = null)
+    {
+        $companyId = $companyId ? (int) $companyId : (int) CompanyContext::getActiveCompanyId();
+
+        $query = PermissionRole::withoutGlobalScopes()
+            ->where('is_active', true)
+            ->orderByRaw("CASE WHEN login_role = 'admin' OR type = 'admin_pack' THEN 0 WHEN login_role = 'user' THEN 1 WHEN login_role = 'site_engineer' THEN 2 ELSE 3 END")
+            ->orderBy('name');
+
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        } elseif (!auth()->user()?->isSuperAdmin()) {
+            return collect();
+        }
+
+        return $query->get(['id', 'name', 'company_id', 'type', 'login_role', 'slug'])->values();
+    }
+
+    private function permissionRoleIdRule(): array
+    {
+        return [
+            'required',
+            function ($attribute, $value, $fail) {
+                if ($value === 'super_admin' || $value === 'super-admin') {
+                    return;
+                }
+                if (!PermissionRole::withoutGlobalScopes()->where('id', (int) $value)->where('is_active', true)->exists()) {
+                    $fail('The selected role is invalid.');
+                }
+            },
+        ];
+    }
+
+    private function resolveRoleAssignment($permissionRoleId, $companyId, User $actor, ?User $target = null): array
+    {
+        if ($permissionRoleId === 'super_admin' || $permissionRoleId === 'super-admin') {
+            if (!$actor->isSuperAdmin()) {
+                return ['error' => 'You do not have permission to assign Super Admin.'];
+            }
+
+            return [
+                'role' => 'super_admin',
+                'permission_role_id' => null,
+            ];
+        }
+
+        $modRole = PermissionRole::withoutGlobalScopes()
+            ->where('id', (int) $permissionRoleId)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$modRole) {
+            return ['error' => 'The selected role was not found.'];
+        }
+
+        if ($companyId && (int) $modRole->company_id !== (int) $companyId) {
+            $mapped = PermissionRole::withoutGlobalScopes()
+                ->where('company_id', (int) $companyId)
+                ->where('is_active', true)
+                ->where(function ($q) use ($modRole) {
+                    if ($modRole->login_role) {
+                        $q->where('login_role', $modRole->login_role);
+                    } else {
+                        $q->where('slug', $modRole->slug)->orWhere('name', $modRole->name);
+                    }
+                })
+                ->first();
+
+            if (!$mapped) {
+                return ['error' => 'The selected role does not belong to this company.'];
+            }
+
+            $modRole = $mapped;
+        }
+
+        $loginRole = $modRole->loginRoleValue();
+
+        $keepingOwnAdmin = $target
+            && (int) $actor->id === (int) $target->id
+            && in_array($target->role, ['admin', 'super_admin'], true)
+            && in_array($loginRole, ['admin', 'super_admin'], true);
+
+        if (!$actor->isSuperAdmin() && in_array($loginRole, ['admin', 'super_admin'], true) && !$keepingOwnAdmin) {
+            return ['error' => 'You do not have permission to assign admin roles.'];
+        }
+
+        return [
+            'role' => $loginRole,
+            'permission_role_id' => $modRole->id,
+        ];
     }
 }
 

@@ -78,6 +78,7 @@
                     <option value="per_km" {{ request('rate_type') == 'per_km' ? 'selected' : '' }}>Per Kilometer</option>
                     <option value="per_hour" {{ request('rate_type') == 'per_hour' ? 'selected' : '' }}>Per Hour</option>
                     <option value="daywise" {{ request('rate_type') == 'daywise' ? 'selected' : '' }}>Daywise</option>
+                    <option value="monthly" {{ request('rate_type') == 'monthly' ? 'selected' : '' }}>Monthly</option>
                     <option value="per_quintal" {{ request('rate_type') == 'per_quintal' ? 'selected' : '' }}>Per Quintal</option>
                     <option value="not_fixed" {{ request('rate_type') == 'not_fixed' ? 'selected' : '' }}>Not Fixed</option>
                 </select>
@@ -304,6 +305,7 @@
                                         'per_km' => 'Per KM',
                                         'per_hour' => 'Per Hour',
                                         'daywise' => 'Daywise',
+                                        'monthly' => 'Monthly',
                                         'per_quintal' => 'Per Quintal',
                                         'not_fixed' => 'Not Fixed',
                                     ];
@@ -604,6 +606,7 @@ function buildVehicleRentView(rent) {
         'per_km': 'Per KM',
         'per_hour': 'Per Hour',
         'daywise': 'Daywise',
+        'monthly': 'Monthly',
         'per_quintal': 'Per Quintal',
         'not_fixed': 'Not Fixed',
     };
@@ -669,6 +672,12 @@ function buildVehicleRentView(rent) {
                     <dt class="col-sm-4">Rate per day</dt>
                     <dd class="col-sm-8">${rent.rate_per_day || '—'}</dd>
                     ` : ''}
+                    ${rent.rate_type === 'monthly' ? `
+                    <dt class="col-sm-4">Number of Months</dt>
+                    <dd class="col-sm-8">${rent.number_of_days || '—'}</dd>
+                    <dt class="col-sm-4">Rate per month</dt>
+                    <dd class="col-sm-8">${rent.fixed_rate || '—'}</dd>
+                    ` : ''}
                     ${rent.rate_type === 'per_quintal' ? `
                     <dt class="col-sm-4">Quantity (Quintal)</dt>
                     <dd class="col-sm-8">${rent.quantity_quintal || '—'}</dd>
@@ -724,6 +733,7 @@ function addRentRow(rent) {
         'per_km': 'Per KM',
         'per_hour': 'Per Hour',
         'daywise': 'Daywise',
+        'monthly': 'Monthly',
         'per_quintal': 'Per Quintal',
         'not_fixed': 'Not Fixed',
     };
@@ -782,6 +792,7 @@ function updateRentRow(rent) {
         'per_km': 'Per KM',
         'per_hour': 'Per Hour',
         'daywise': 'Daywise',
+        'monthly': 'Monthly',
         'per_quintal': 'Per Quintal',
         'not_fixed': 'Not Fixed',
     };

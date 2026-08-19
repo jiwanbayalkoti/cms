@@ -74,51 +74,29 @@
     @php
       $currentUser = auth()->user();
       $isOwnAccount = $currentUser->id === $user->id;
+      $formRoles = $permissionRoles ?? collect();
+      $selectedRoleId = old('permission_role_id', $user->role === 'super_admin' ? 'super_admin' : $user->permission_role_id);
+      $roleLocked = $isOwnAccount || (!$currentUser->isSuperAdmin() && in_array($user->role, ['admin', 'super_admin']));
     @endphp
-    @if($isOwnAccount)
-      <input type="hidden" name="role" value="{{ $user->role }}">
-      <input type="text" value="{{ ucfirst(str_replace('_', ' ', $user->role)) }}" class="w-full border rounded px-3 py-2 bg-gray-100" readonly>
-      <p class="text-gray-500 text-xs mt-1">You cannot change your own role.</p>
+    @if($roleLocked)
+      <input type="hidden" name="permission_role_id" value="{{ $selectedRoleId }}">
+      <input type="text" value="{{ $user->roleLabel() }}" class="w-full border rounded px-3 py-2 bg-gray-100" readonly>
+      <p class="text-gray-500 text-xs mt-1">{{ $isOwnAccount ? 'You cannot change your own role.' : 'You cannot change the role of admin users.' }}</p>
     @else
-      @php
-        // Regular admin can only assign "user" or "site_engineer" role
-        if (!$currentUser->isSuperAdmin()) {
-            // Regular admin can only change role to "user" or "site_engineer"
-            $roles = ['user' => 'User', 'site_engineer' => 'Site Engineer'];
-            $canChangeRole = true;
-        } else {
-            // Super admin can assign any role
-            $roles = ['super_admin' => 'Super Admin', 'admin' => 'Admin', 'user' => 'User', 'site_engineer' => 'Site Engineer'];
-            $canChangeRole = true;
-        }
-      @endphp
-      
-      @if(!$currentUser->isSuperAdmin() && in_array($user->role, ['admin', 'super_admin']))
-        {{-- Regular admin editing an admin/super_admin user - show current role as readonly --}}
-        <input type="hidden" name="role" value="{{ $user->role }}">
-        <input type="text" value="{{ ucfirst(str_replace('_', ' ', $user->role)) }}" class="w-full border rounded px-3 py-2 bg-gray-100" readonly>
-        <p class="text-gray-500 text-xs mt-1">You cannot change the role of admin or super admin users. Only super admins can modify admin roles.</p>
-      @elseif(!$currentUser->isSuperAdmin() && $user->role === 'site_engineer')
-        {{-- Regular admin editing a site engineer - can change to user or site_engineer --}}
-        <select name="role" class="w-full border rounded px-3 py-2 @error('role') border-red-500 @enderror">
-          @foreach($roles as $value => $label)
-            <option value="{{ $value }}" {{ (old('role', $user->role) == $value) ? 'selected' : '' }}>{{ $label }}</option>
-          @endforeach
-        </select>
-        <p class="text-gray-500 text-xs mt-1">You can assign user or site engineer role.</p>
-      @else
-        <select name="role" class="w-full border rounded px-3 py-2 @error('role') border-red-500 @enderror">
-          @foreach($roles as $value => $label)
-            <option value="{{ $value }}" {{ (old('role', $user->role) == $value) ? 'selected' : '' }}>{{ $label }}</option>
-          @endforeach
-        </select>
-        @if(!$currentUser->isSuperAdmin())
-          <p class="text-gray-500 text-xs mt-1">You can only assign regular user role.</p>
+      <select name="permission_role_id" class="w-full border rounded px-3 py-2 @error('permission_role_id') border-red-500 @enderror" required>
+        @if($currentUser->isSuperAdmin())
+          <option value="super_admin" {{ (string) $selectedRoleId === 'super_admin' ? 'selected' : '' }}>Super Admin</option>
         @endif
-      @endif
+        @foreach($formRoles as $permRole)
+          @if($currentUser->isSuperAdmin() || !$permRole->isAdminPack())
+            <option value="{{ $permRole->id }}" {{ (string) $selectedRoleId === (string) $permRole->id ? 'selected' : '' }}>{{ $permRole->name }}</option>
+          @endif
+        @endforeach
+      </select>
+      <p class="text-gray-500 text-xs mt-1">Login access is set automatically from this role.</p>
     @endif
-    <div class="field-error text-red-600 text-sm mt-1" data-field="role" style="display: none;"></div>
-    @error('role')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
+    <div class="field-error text-red-600 text-sm mt-1" data-field="permission_role_id" style="display: none;"></div>
+    @error('permission_role_id')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
   </div>
 
   <div class="mb-6">

@@ -66,6 +66,7 @@ function buildVehicleRentForm(data, rent) {
         '<option value="per_km"' + (rent && rent.rate_type === 'per_km' ? ' selected' : '') + '>Per Kilometer</option>' +
         '<option value="per_hour"' + (rent && rent.rate_type === 'per_hour' ? ' selected' : '') + '>Per Hour</option>' +
         '<option value="daywise"' + (rent && rent.rate_type === 'daywise' ? ' selected' : '') + '>Daywise</option>' +
+        '<option value="monthly"' + (rent && rent.rate_type === 'monthly' ? ' selected' : '') + '>Monthly</option>' +
         '<option value="per_quintal"' + (rent && rent.rate_type === 'per_quintal' ? ' selected' : '') + '>Per Quintal</option>' +
         '<option value="not_fixed"' + (rent && rent.rate_type === 'not_fixed' ? ' selected' : '') + '>Not Fixed</option>' +
         '</select></div>' +
@@ -83,15 +84,15 @@ function buildVehicleRentForm(data, rent) {
         '<input type="date" name="rent_start_date" id="rent_start_date" class="form-control" value="' + (rent ? (rent.rent_start_date || '') : '') + '" onchange="calculateDaywise()"></div>' +
         '<div class="col-md-3 mb-3" id="rent_end_date_field" style="display: none;"><label class="form-label">Rent End Date <small class="text-muted">(Leave empty if ongoing)</small></label>' +
         '<input type="date" name="rent_end_date" id="rent_end_date" class="form-control" value="' + (rent ? (rent.rent_end_date || '') : '') + '" onchange="calculateDaywise()"></div>' +
-        '<div class="col-md-3 mb-3" id="number_of_days_field" style="display: none;"><label class="form-label">Number of Days <small class="text-muted">(Manual entry)</small></label>' +
-        '<input type="number" name="number_of_days" id="number_of_days" min="1" class="form-control" value="' + (rent ? (rent.number_of_days || '') : '') + '" placeholder="1" oninput="calculateDaywise()"></div>' +
+        '<div class="col-md-3 mb-3" id="number_of_days_field" style="display: none;"><label class="form-label">Duration <small class="text-muted">(Days/Months)</small></label>' +
+        '<input type="number" name="number_of_days" id="number_of_days" min="1" class="form-control" value="' + (rent ? (rent.number_of_days || '') : '') + '" placeholder="1" oninput="updateTotal()"></div>' +
         '<div class="col-md-3 mb-3" id="rate_per_day_field" style="display: none;"><label class="form-label">Rate per day</label>' +
         '<input type="number" name="rate_per_day" id="rate_per_day" step="0.01" min="0" class="form-control" value="' + (rent ? (rent.rate_per_day || '') : '') + '" placeholder="0.00" oninput="calculateDaywise()"></div>' +
         '<div class="col-md-3 mb-3" id="quantity_quintal_field" style="display: none;"><label class="form-label">Quantity (Quintal)</label>' +
         '<input type="number" name="quantity_quintal" id="quantity_quintal" step="0.01" min="0" class="form-control" value="' + (rent ? (rent.quantity_quintal || '') : '') + '" placeholder="0.00" oninput="calculatePerQuintal()"></div>' +
         '<div class="col-md-3 mb-3" id="rate_per_quintal_field" style="display: none;"><label class="form-label">Rate per quintal</label>' +
         '<input type="number" name="rate_per_quintal" id="rate_per_quintal" step="0.01" min="0" class="form-control" value="' + (rent ? (rent.rate_per_quintal || '') : '') + '" placeholder="0.00" oninput="calculatePerQuintal()"></div>' +
-        '<div class="col-md-3 mb-3" id="fixed_rate_field" style="display: ' + (rent && rent.rate_type === 'fixed' ? 'block' : (!rent ? 'block' : 'none')) + ';"><label class="form-label">Fixed Rate <span class="text-danger">*</span></label>' +
+        '<div class="col-md-3 mb-3" id="fixed_rate_field" style="display: ' + (rent && (rent.rate_type === 'fixed' || rent.rate_type === 'monthly') ? 'block' : (!rent ? 'block' : 'none')) + ';"><label class="form-label">Fixed/Monthly Rate <span class="text-danger">*</span></label>' +
         '<input type="number" name="fixed_rate" id="fixed_rate" step="0.01" min="0" class="form-control" value="' + (rent ? (rent.fixed_rate || '') : '') + '" placeholder="0.00" oninput="updateTotal()"></div>' +
         '</div>' +
         '<div class="row">' +
@@ -159,6 +160,10 @@ function toggleRateFields() {
         var rph = document.getElementById('rate_per_hour_field'); if (rph) rph.style.display = 'block';
     } else if (rateType === 'daywise') {
         ['rent_start_date_field', 'rent_end_date_field', 'number_of_days_field', 'rate_per_day_field'].forEach(function(id) {
+            var el = document.getElementById(id); if (el) el.style.display = 'block';
+        });
+    } else if (rateType === 'monthly') {
+        ['number_of_days_field', 'fixed_rate_field'].forEach(function(id) {
             var el = document.getElementById(id); if (el) el.style.display = 'block';
         });
     } else if (rateType === 'per_quintal') {
@@ -278,6 +283,10 @@ function updateTotal() {
             numberOfDays = parseInt(document.getElementById('number_of_days') && document.getElementById('number_of_days').value || 0, 10);
         }
         total = numberOfDays * ratePerDay;
+    } else if (rateType === 'monthly') {
+        var months = parseInt(document.getElementById('number_of_days') && document.getElementById('number_of_days').value || 0, 10);
+        var monthlyRate = parseFloat(document.getElementById('fixed_rate') && document.getElementById('fixed_rate').value || 0);
+        total = months * monthlyRate;
     } else if (rateType === 'per_quintal') {
         var qty = parseFloat(document.getElementById('quantity_quintal') && document.getElementById('quantity_quintal').value || 0);
         var rpq = parseFloat(document.getElementById('rate_per_quintal') && document.getElementById('rate_per_quintal').value || 0);

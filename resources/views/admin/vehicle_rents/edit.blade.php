@@ -125,6 +125,7 @@
                                 <option value="per_km" {{ old('rate_type', $vehicleRent->rate_type) === 'per_km' ? 'selected' : '' }}>Per Kilometer</option>
                                 <option value="per_hour" {{ old('rate_type', $vehicleRent->rate_type) === 'per_hour' ? 'selected' : '' }}>Per Hour</option>
                                 <option value="daywise" {{ old('rate_type', $vehicleRent->rate_type) === 'daywise' ? 'selected' : '' }}>Daywise</option>
+                                <option value="monthly" {{ old('rate_type', $vehicleRent->rate_type) === 'monthly' ? 'selected' : '' }}>Monthly</option>
                                 <option value="per_quintal" {{ old('rate_type', $vehicleRent->rate_type) === 'per_quintal' ? 'selected' : '' }}>Per Quintal</option>
                                 <option value="not_fixed" {{ old('rate_type', $vehicleRent->rate_type) === 'not_fixed' ? 'selected' : '' }}>Not Fixed</option>
                             </select>
@@ -135,6 +136,7 @@
                             $showDistance = $rateType === 'per_km';
                             $showHourly = $rateType === 'per_hour';
                             $showDaywise = $rateType === 'daywise';
+                            $showMonthly = $rateType === 'monthly';
                             $showQuintal = $rateType === 'per_quintal';
                             $showFixed = $rateType === 'fixed';
                             $isNotFixed = $rateType === 'not_fixed';
@@ -183,9 +185,9 @@
                         </div>
                         
                         <div class="col-md-3 mb-3" id="number_of_days_field" style="display: {{ $showDaywise ? 'block' : 'none' }};">
-                            <label class="form-label">Number of Days <small class="text-muted">(Manual entry)</small></label>
+                            <label class="form-label">Duration <small class="text-muted">(Days/Months)</small></label>
                             <input type="number" name="number_of_days" id="number_of_days" min="1" 
-                                   class="form-control" value="{{ old('number_of_days', $vehicleRent->number_of_days) }}" oninput="calculateDaywise()">
+                                   class="form-control" value="{{ old('number_of_days', $vehicleRent->number_of_days) }}" oninput="updateTotal()">
                         </div>
                         
                         <div class="col-md-3 mb-3" id="rate_per_day_field" style="display: {{ $showDaywise ? 'block' : 'none' }};">
@@ -206,8 +208,8 @@
                                    class="form-control" value="{{ old('rate_per_quintal', $vehicleRent->rate_per_quintal) }}" oninput="calculatePerQuintal()">
                         </div>
                         
-                        <div class="col-md-3 mb-3" id="fixed_rate_field" style="display: {{ $showFixed ? 'block' : 'none' }};">
-                            <label class="form-label">Fixed Rate <span class="text-danger">*</span></label>
+                        <div class="col-md-3 mb-3" id="fixed_rate_field" style="display: {{ ($showFixed || $showMonthly) ? 'block' : 'none' }};">
+                            <label class="form-label">Fixed/Monthly Rate <span class="text-danger">*</span></label>
                             <input type="number" name="fixed_rate" id="fixed_rate" step="0.01" min="0" 
                                    class="form-control" value="{{ old('fixed_rate', $vehicleRent->fixed_rate) }}" oninput="updateTotal()">
                         </div>
@@ -323,6 +325,9 @@ function toggleRateFields() {
         document.getElementById('rent_end_date_field').style.display = 'block';
         document.getElementById('number_of_days_field').style.display = 'block';
         document.getElementById('rate_per_day_field').style.display = 'block';
+    } else if (rateType === 'monthly') {
+        document.getElementById('number_of_days_field').style.display = 'block';
+        document.getElementById('fixed_rate_field').style.display = 'block';
     } else if (rateType === 'per_quintal') {
         document.getElementById('quantity_quintal_field').style.display = 'block';
         document.getElementById('rate_per_quintal_field').style.display = 'block';
@@ -465,6 +470,10 @@ function updateTotal() {
         }
         
         total = numberOfDays * ratePerDay;
+    } else if (rateType === 'monthly') {
+        const months = parseInt(document.getElementById('number_of_days').value) || 0;
+        const monthlyRate = parseFloat(document.getElementById('fixed_rate').value) || 0;
+        total = months * monthlyRate;
     } else if (rateType === 'per_quintal') {
         const quantityQuintal = parseFloat(document.getElementById('quantity_quintal').value) || 0;
         const ratePerQuintal = parseFloat(document.getElementById('rate_per_quintal').value) || 0;

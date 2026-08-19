@@ -16,12 +16,12 @@ class RegisterController extends Controller
 {
     public function showRegisterOptions()
     {
-        return view('admin.auth.register-company');
+        return redirect()->route('admin.login');
     }
 
     public function showCompanyForm()
     {
-        return view('admin.auth.register-company');
+        return redirect()->route('admin.login');
     }
 
     public function registerCompany(Request $request)
@@ -50,7 +50,7 @@ class RegisterController extends Controller
             ]);
             $company->startTrial();
 
-            return User::create([
+            $admin = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
@@ -58,14 +58,29 @@ class RegisterController extends Controller
                 'role' => 'admin',
                 'is_admin' => true,
             ]);
+
+            app(\App\Services\ModulePermissionService::class)->ensureLoginModuleRoles($company->id);
+            app(\App\Services\ModulePermissionService::class)->assignCoreAdminPack($company->id, $admin->id);
+
+            return $admin->fresh();
         });
 
         Auth::login($user);
         $request->session()->regenerate();
         session(['active_company_id' => $user->company_id]);
 
+        $message = 'Company registered. Core modules have been assigned to the company admin.';
+
+        if ($request->ajax() || $request->wantsJson() || $request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'redirect' => route('admin.dashboard'),
+            ]);
+        }
+
         return redirect()
             ->route('admin.dashboard')
-            ->with('success', 'Company registered successfully. Welcome, ' . $user->name . '!');
+            ->with('success', $message);
     }
 }

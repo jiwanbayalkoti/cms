@@ -9,6 +9,9 @@
             <h1 class="h3 mb-1">System Settings</h1>
             <p class="text-muted mb-0">Manage trial days, branding, payment details, and company payment verification.</p>
         </div>
+        @if(Auth::user()->isSuperAdmin())
+            <a href="{{ route('admin.companies.index') }}" class="btn btn-outline-secondary">Back to Companies</a>
+        @endif
     </div>
 
     @if(session('success'))
