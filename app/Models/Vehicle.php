@@ -105,6 +105,63 @@ class Vehicle extends Model
         ];
     }
 
+    public static function documentTypeDefinitions(): array
+    {
+        return [
+            'registration' => [
+                'label' => 'Bluebook / Registration',
+                'expiry_field' => 'registration_expiry',
+                'policy_field' => null,
+            ],
+            'insurance' => [
+                'label' => 'Insurance',
+                'expiry_field' => 'insurance_expiry',
+                'policy_field' => 'insurance_policy_no',
+            ],
+            'fitness' => [
+                'label' => 'Fitness',
+                'expiry_field' => 'fitness_expiry',
+                'policy_field' => null,
+            ],
+            'route_permit' => [
+                'label' => 'Route Permit',
+                'expiry_field' => 'route_permit_expiry',
+                'policy_field' => null,
+            ],
+            'tax_token' => [
+                'label' => 'Tax Token',
+                'expiry_field' => 'tax_token_expiry',
+                'policy_field' => null,
+            ],
+            'puc' => [
+                'label' => 'PUC',
+                'expiry_field' => 'puc_expiry',
+                'policy_field' => null,
+            ],
+            'service' => [
+                'label' => 'Service',
+                'expiry_field' => 'next_service_date',
+                'policy_field' => null,
+                'service_field' => 'last_service_date',
+            ],
+        ];
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(VehicleDocument::class)->latest();
+    }
+
+    public function currentDocuments()
+    {
+        return $this->hasMany(VehicleDocument::class)->where('is_current', true)->latest();
+    }
+
+    public function documentRenewals()
+    {
+        return $this->hasMany(VehicleDocumentRenewal::class)->latest('renewed_at');
+    }
+
     public static function documentDefinitions(): array
     {
         return [

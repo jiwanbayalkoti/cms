@@ -8,6 +8,8 @@ use App\Models\Company;
 use App\Models\CompanyLetterheadAsset;
 use App\Models\CompanyLetterheadExport;
 use App\Support\CompanyContext;
+use App\Services\CompanyBackupService;
+use App\Services\CompanyDataScopeService;
 use App\Services\CompanyPaymentLockService;
 use App\Services\FaviconGeneratorService;
 use App\Services\ModulePermissionService;
@@ -15,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use App\Models\CompanyDocument;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Mpdf\Config\FontVariables;
@@ -36,6 +39,10 @@ class CompanyController extends Controller
             'letterheadAssetStore',
             'letterheadAssetDestroy',
             'letterheadExportList',
+            'documents',
+            'documentsUpload',
+            'documentsDestroy',
+            'documentsDownload',
         ]);
     }
 
@@ -286,7 +293,7 @@ class CompanyController extends Controller
         return redirect()->route('admin.companies.index')->with('success', 'Company updated successfully.');
     }
 
-    public function destroy(Request $request, Company $company)
+    public function destroy(Request $request, Company $company, CompanyDataScopeService $scopeService)
     {
         if (!auth()->user()?->isSuperAdmin()) {
             abort(403, 'Only super admin can delete companies.');
@@ -308,7 +315,7 @@ class CompanyController extends Controller
                 $this->setForeignKeyChecks(false);
                 try {
                     $this->deletePermissionRowsForCompany((int) $company->id);
-                    $deletePlan = $this->companyDeletePlan($company->id);
+                    $deletePlan = $scopeService->buildPlan((int) $company->id);
                     $deletedRows = $this->deleteCompanyRelatedRows($deletePlan);
                     $company->delete();
                 } finally {
@@ -341,6 +348,84 @@ class CompanyController extends Controller
         }
 
         return redirect()->route('admin.companies.index')->with('success', 'Company and all related data deleted successfully.');
+    }
+
+    public function runBackup(Request $request, Company $company, CompanyBackupService $backupService, CompanyDataScopeService $scopeService)
+    {
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403, 'Only super admin can run company backups.');
+        }
+
+        try {
+            $result = $backupService->runBackup(
+                $company,
+                $scopeService->buildPlan((int) $company->id),
+                'manual'
+            );
+
+            $message = 'Backup saved to company_backups/' . $result['relative'];
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'backup' => $result,
+                ]);
+            }
+
+            return redirect()
+                ->route('admin.companies.index')
+                ->with('success', $message);
+        } catch (\Throwable $e) {
+            Log::error('Company backup failed', [
+                'company_id' => $company->id,
+                'message' => $e->getMessage(),
+            ]);
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Could not create backup. ' . $e->getMessage(),
+                ], 500);
+            }
+
+            return redirect()
+                ->route('admin.companies.index')
+                ->with('error', 'Could not create backup. ' . $e->getMessage());
+        }
+    }
+
+    public function backupList(Company $company, CompanyBackupService $backupService)
+    {
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403);
+        }
+
+        return response()->json([
+            'company' => [
+                'id' => $company->id,
+                'name' => $company->name,
+                'folder' => basename($backupService->companyDirectory($company)),
+            ],
+            'root' => $backupService->rootPath(),
+            'backups' => $backupService->listBackups($company),
+        ]);
+    }
+
+    public function downloadBackup(Company $company, string $month, string $filename, CompanyBackupService $backupService)
+    {
+        if (!auth()->user()?->isSuperAdmin()) {
+            abort(403);
+        }
+
+        $path = $backupService->resolveStoredBackup($company, $month, $filename);
+        if (!$path) {
+            abort(404, 'Backup file not found.');
+        }
+
+        return response()->download($path, basename($path), [
+            'Content-Type' => 'application/zip',
+        ]);
     }
 
     protected function companyDeleteFailure(Request $request, string $message, int $status = 422)
@@ -478,89 +563,6 @@ class CompanyController extends Controller
             ->with('success', "Common trial period set to {$days} days. Applied to {$updatedCount} compan" . ($updatedCount === 1 ? 'y without override.' : 'ies without overrides.'));
     }
 
-    protected function companyDeletePlan(int $companyId): array
-    {
-        $columns = $this->databaseColumnsByTable();
-        $foreignKeys = $this->databaseForeignKeys();
-        $plan = [];
-        $queue = [];
-
-        foreach ($columns as $table => $tableColumns) {
-            if ($table === 'companies' || !in_array('company_id', $tableColumns, true)) {
-                continue;
-            }
-
-            $ids = $this->pluckIdsByColumnValues($table, 'company_id', [$companyId], $columns);
-            $count = $ids !== null
-                ? count($ids)
-                : $this->countRowsByColumnValues($table, 'company_id', [$companyId]);
-
-            if ($count < 1) {
-                continue;
-            }
-
-            $this->addDeletePlanEntry($plan, $table, 'company_id', [$companyId], $ids, 1);
-            if ($ids !== null && $ids !== []) {
-                $queue[] = ['table' => $table, 'ids' => $ids, 'depth' => 1];
-            }
-        }
-
-        while ($queue !== []) {
-            $current = array_shift($queue);
-            $parentTable = $current['table'];
-            $parentIds = $current['ids'];
-            $depth = $current['depth'];
-
-            foreach ($foreignKeys as $foreignKey) {
-                if ($foreignKey['parent_table'] !== $parentTable || $foreignKey['child_table'] === 'companies') {
-                    continue;
-                }
-
-                $childTable = $foreignKey['child_table'];
-                $childColumn = $foreignKey['child_column'];
-                $childIds = $this->pluckIdsByColumnValues($childTable, $childColumn, $parentIds, $columns);
-                $count = $childIds !== null
-                    ? count($childIds)
-                    : $this->countRowsByColumnValues($childTable, $childColumn, $parentIds);
-
-                if ($count < 1) {
-                    continue;
-                }
-
-                $newIds = $this->addDeletePlanEntry($plan, $childTable, $childColumn, $parentIds, $childIds, $depth + 1);
-                if ($newIds !== []) {
-                    $queue[] = ['table' => $childTable, 'ids' => $newIds, 'depth' => $depth + 1];
-                }
-            }
-        }
-
-        return $plan;
-    }
-
-    protected function addDeletePlanEntry(array &$plan, string $table, string $column, array $values, ?array $ids, int $depth): array
-    {
-        $plan[$table] ??= [
-            'ids' => [],
-            'criteria' => [],
-            'depth' => 0,
-        ];
-
-        $plan[$table]['depth'] = max($plan[$table]['depth'], $depth);
-        $plan[$table]['criteria'][] = [
-            'column' => $column,
-            'values' => array_values(array_unique($values)),
-        ];
-
-        if ($ids === null) {
-            return [];
-        }
-
-        $newIds = array_values(array_diff($ids, $plan[$table]['ids']));
-        $plan[$table]['ids'] = array_values(array_unique(array_merge($plan[$table]['ids'], $ids)));
-
-        return $newIds;
-    }
-
     protected function deleteCompanyRelatedRows(array $plan): int
     {
         $deletedRows = 0;
@@ -597,73 +599,6 @@ class CompanyController extends Controller
         if (DB::getDriverName() === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=' . ($enabled ? '1' : '0'));
         }
-    }
-
-    protected function databaseColumnsByTable(): array
-    {
-        $rows = DB::select(
-            "SELECT TABLE_NAME, COLUMN_NAME
-             FROM INFORMATION_SCHEMA.COLUMNS
-             WHERE TABLE_SCHEMA = DATABASE()"
-        );
-
-        $columns = [];
-        foreach ($rows as $row) {
-            $table = (string) ($row->TABLE_NAME ?? '');
-            $column = (string) ($row->COLUMN_NAME ?? '');
-            if ($table === '' || $column === '') {
-                continue;
-            }
-
-            $columns[$table] ??= [];
-            $columns[$table][] = $column;
-        }
-
-        return $columns;
-    }
-
-    protected function databaseForeignKeys(): array
-    {
-        $rows = DB::select(
-            "SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME
-             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-             WHERE TABLE_SCHEMA = DATABASE()
-               AND REFERENCED_TABLE_NAME IS NOT NULL"
-        );
-
-        return collect($rows)
-            ->map(fn ($row) => [
-                'child_table' => (string) ($row->TABLE_NAME ?? ''),
-                'child_column' => (string) ($row->COLUMN_NAME ?? ''),
-                'parent_table' => (string) ($row->REFERENCED_TABLE_NAME ?? ''),
-            ])
-            ->filter(fn (array $row) => $row['child_table'] !== '' && $row['child_column'] !== '' && $row['parent_table'] !== '')
-            ->values()
-            ->all();
-    }
-
-    protected function pluckIdsByColumnValues(string $table, string $column, array $values, array $columns): ?array
-    {
-        if (!in_array('id', $columns[$table] ?? [], true)) {
-            return null;
-        }
-
-        $ids = [];
-        foreach (array_chunk(array_values(array_unique($values)), 500) as $chunk) {
-            $ids = array_merge($ids, DB::table($table)->whereIn($column, $chunk)->pluck('id')->all());
-        }
-
-        return array_values(array_unique(array_map('intval', $ids)));
-    }
-
-    protected function countRowsByColumnValues(string $table, string $column, array $values): int
-    {
-        $count = 0;
-        foreach (array_chunk(array_values(array_unique($values)), 500) as $chunk) {
-            $count += DB::table($table)->whereIn($column, $chunk)->count();
-        }
-
-        return $count;
     }
 
     public function switch(Request $request)
@@ -1474,6 +1409,128 @@ class CompanyController extends Controller
             }
         }
         $mpdf->page = $savedPage;
+    }
+
+    // ─── Company Documents ────────────────────────────────────────────────────
+
+    public function documents()
+    {
+        $companyId = CompanyContext::getActiveCompanyId();
+        if (!$companyId) {
+            return redirect()->route('admin.companies.index')->with('error', 'Select a company first.');
+        }
+        $company   = Company::findOrFail($companyId);
+        $documents = $company->documents()->with('uploader')->get();
+        $types     = CompanyDocument::$types;
+
+        return view('admin.companies.documents', compact('company', 'documents', 'types'));
+    }
+
+    public function documentsUpload(Request $request)
+    {
+        $companyId = CompanyContext::getActiveCompanyId();
+        if (!$companyId) {
+            return response()->json(['success' => false, 'message' => 'No active company. Select a company first.'], 403);
+        }
+        $company = Company::findOrFail($companyId);
+
+        try {
+            $validated = $request->validate([
+                'document_type' => 'required|string|max:100',
+                'label'         => 'required|string|max:255',
+                'file'          => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx',
+                'notes'         => 'nullable|string|max:1000',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $messages = collect($e->errors())->flatten()->unique()->values()->all();
+
+            return response()->json([
+                'success' => false,
+                'message' => implode(' ', $messages) ?: 'Validation failed.',
+                'errors'  => $e->errors(),
+            ], 422);
+        }
+
+        try {
+            $file = $request->file('file');
+            $path = $file->store("company_documents/{$companyId}", 'public');
+
+            $doc = $company->documents()->create([
+                'uploaded_by'   => auth()->id(),
+                'document_type' => $validated['document_type'],
+                'label'         => $validated['label'],
+                'file_path'     => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type'     => $file->getMimeType(),
+                'file_size'     => $file->getSize(),
+                'notes'         => $validated['notes'] ?? null,
+            ]);
+
+            $doc->load('uploader');
+
+            return response()->json([
+                'success'  => true,
+                'message'  => 'Document uploaded successfully.',
+                'document' => $this->documentJson($doc),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Company document upload failed: '.$e->getMessage(), [
+                'company_id' => $companyId,
+                'user_id' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not save the file. Please try again.',
+            ], 500);
+        }
+    }
+
+    public function documentsDestroy(CompanyDocument $document)
+    {
+        $companyId = CompanyContext::getActiveCompanyId();
+        if ((int) $document->company_id !== (int) $companyId && !auth()->user()->isSuperAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        Storage::disk('public')->delete($document->file_path);
+        $document->delete();
+
+        return response()->json(['success' => true, 'message' => 'Document deleted.']);
+    }
+
+    public function documentsDownload(CompanyDocument $document)
+    {
+        $companyId = CompanyContext::getActiveCompanyId();
+        if ((int) $document->company_id !== (int) $companyId && !auth()->user()->isSuperAdmin()) {
+            abort(403);
+        }
+
+        $disk = Storage::disk('public');
+        if (!$disk->exists($document->file_path)) {
+            abort(404, 'File not found.');
+        }
+
+        return $disk->download($document->file_path, $document->original_name);
+    }
+
+    private function documentJson(CompanyDocument $doc): array
+    {
+        return [
+            'id'            => $doc->id,
+            'document_type' => $doc->document_type,
+            'type_label'    => $doc->getTypeLabel(),
+            'label'         => $doc->label,
+            'original_name' => $doc->original_name,
+            'file_size'     => $doc->getFileSizeFormatted(),
+            'mime_type'     => $doc->mime_type,
+            'is_image'      => $doc->isImage(),
+            'is_pdf'        => $doc->isPdf(),
+            'url'           => $doc->getUrl(),
+            'notes'         => $doc->notes,
+            'uploaded_by'   => $doc->uploader?->name,
+            'created_at'    => $doc->created_at?->format('Y-m-d H:i'),
+        ];
     }
 }
 

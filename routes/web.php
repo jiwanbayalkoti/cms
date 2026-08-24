@@ -357,6 +357,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('vehicles/export/excel', [VehicleController::class, 'export'])->name('vehicles.export');
         Route::get('vehicles', [VehicleController::class, 'index'])->name('vehicles.index');
         Route::get('vehicles/create', [VehicleController::class, 'create'])->name('vehicles.create');
+        Route::get('vehicles/{vehicle}/documents/manage', [VehicleController::class, 'vehicleDocuments'])->name('vehicles.vehicle-documents');
+        Route::get('vehicles/{vehicle}/documents/{document}/download', [VehicleController::class, 'documentsDownload'])->name('vehicles.vehicle-documents.download');
         Route::get('vehicles/{vehicle}', [VehicleController::class, 'show'])->name('vehicles.show');
         Route::get('vehicles/{vehicle}/edit', [VehicleController::class, 'edit'])->name('vehicles.edit');
         Route::middleware(['throttle:forms'])->group(function () {
@@ -364,6 +366,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
             Route::patch('vehicles/{vehicle}', [VehicleController::class, 'update']);
             Route::delete('vehicles/{vehicle}', [VehicleController::class, 'destroy'])->name('vehicles.destroy');
+        });
+        Route::middleware(['throttle:uploads'])->group(function () {
+            Route::post('vehicles/{vehicle}/documents', [VehicleController::class, 'documentsUpload'])->name('vehicles.vehicle-documents.upload');
+            Route::delete('vehicles/{vehicle}/documents/{document}', [VehicleController::class, 'documentsDestroy'])->name('vehicles.vehicle-documents.destroy');
         });
         Route::post('vehicles/validate', [VehicleController::class, 'validateVehicle'])->name('vehicles.validate');
         Route::post('vehicles/{vehicle}/validate', [VehicleController::class, 'validateVehicle'])->name('vehicles.validate.edit');
@@ -435,17 +441,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Company Profile (Admin only - not accessible to regular users)
         Route::middleware(['admin_only'])->group(function () {
-        Route::get('/company/profile', [CompanyController::class, 'profile'])->name('companies.profile');
-        Route::get('/company/letterhead', [CompanyController::class, 'letterhead'])->name('companies.letterhead');
-        Route::get('/company/letterhead/exports', [CompanyController::class, 'letterheadExportList'])->name('companies.letterhead.exports');
-        Route::get('/company/letterhead/export/pdf', [CompanyController::class, 'letterheadExportPdf'])->name('companies.letterhead.export.pdf');
-        Route::middleware(['throttle:uploads'])->group(function () {
-            Route::put('/company/profile', [CompanyController::class, 'profileUpdate'])->name('companies.profile.update');
-            Route::put('/company/letterhead', [CompanyController::class, 'letterheadUpdate'])->name('companies.letterhead.update');
-            Route::post('/company/letterhead/export/pdf', [CompanyController::class, 'letterheadExportPdf'])->name('companies.letterhead.export.pdf.post');
-            Route::post('/company/letterhead/assets', [CompanyController::class, 'letterheadAssetStore'])->name('companies.letterhead.assets.store');
-            Route::delete('/company/letterhead/assets/{asset}', [CompanyController::class, 'letterheadAssetDestroy'])->name('companies.letterhead.assets.destroy');
-        });
+            Route::get('/company/profile', [CompanyController::class, 'profile'])->name('companies.profile');
+            Route::get('/company/letterhead', [CompanyController::class, 'letterhead'])->name('companies.letterhead');
+            Route::get('/company/letterhead/exports', [CompanyController::class, 'letterheadExportList'])->name('companies.letterhead.exports');
+            Route::get('/company/letterhead/export/pdf', [CompanyController::class, 'letterheadExportPdf'])->name('companies.letterhead.export.pdf');
+            // Company documents
+            Route::get('/company/documents', [CompanyController::class, 'documents'])->name('companies.documents');
+            Route::get('/company/documents/{document}/download', [CompanyController::class, 'documentsDownload'])->name('companies.documents.download');
+            Route::middleware(['throttle:uploads'])->group(function () {
+                Route::put('/company/profile', [CompanyController::class, 'profileUpdate'])->name('companies.profile.update');
+                Route::put('/company/letterhead', [CompanyController::class, 'letterheadUpdate'])->name('companies.letterhead.update');
+                Route::post('/company/letterhead/export/pdf', [CompanyController::class, 'letterheadExportPdf'])->name('companies.letterhead.export.pdf.post');
+                Route::post('/company/letterhead/assets', [CompanyController::class, 'letterheadAssetStore'])->name('companies.letterhead.assets.store');
+                Route::delete('/company/letterhead/assets/{asset}', [CompanyController::class, 'letterheadAssetDestroy'])->name('companies.letterhead.assets.destroy');
+                Route::post('/company/documents', [CompanyController::class, 'documentsUpload'])->name('companies.documents.upload');
+                Route::delete('/company/documents/{document}', [CompanyController::class, 'documentsDestroy'])->name('companies.documents.destroy');
+            });
         });
 
         // Users management (Admin and Super Admin can access)
@@ -487,6 +498,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('payment-requests/{paymentRequest}/verify', [SystemSettingsController::class, 'verifyPayment'])->name('payment-requests.verify');
             Route::post('payment-requests/{paymentRequest}/reject', [SystemSettingsController::class, 'rejectPayment'])->name('payment-requests.reject');
             Route::get('companies', [CompanyController::class, 'index'])->name('companies.index');
+            Route::post('companies/{company}/backup', [CompanyController::class, 'runBackup'])->name('companies.backup');
+            Route::get('companies/{company}/backups', [CompanyController::class, 'backupList'])->name('companies.backups');
+            Route::get('companies/{company}/backups/{month}/{filename}', [CompanyController::class, 'downloadBackup'])->name('companies.backups.download');
             Route::get('companies/create', [CompanyController::class, 'create'])->name('companies.create');
             Route::get('companies/{company}/admin-access', [CompanyController::class, 'adminAccess'])->name('companies.admin-access');
             Route::post('companies/{company}/admin-access', [CompanyController::class, 'saveAdminAccess'])->name('companies.admin-access.save');

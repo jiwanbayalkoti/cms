@@ -9,8 +9,12 @@ use App\Models\Project;
 use App\Models\Staff;
 use App\Models\Supplier;
 use App\Models\Vehicle;
+use App\Models\VehicleDocument;
+use App\Models\VehicleDocumentRenewal;
 use App\Support\CompanyContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
@@ -251,6 +255,194 @@ class VehicleController extends Controller
         $filename = 'vehicles-' . now()->format('Y-m-d') . '.xlsx';
 
         return Excel::download(new VehicleExport($query), $filename);
+    }
+
+    public function vehicleDocuments(Vehicle $vehicle)
+    {
+        $this->assertCompanyAccess($vehicle);
+
+        $vehicle->load(['project', 'supplier']);
+        $documents = $vehicle->documents()->with('uploader')->get();
+        $renewals = $vehicle->documentRenewals()->with(['renewer', 'document'])->limit(100)->get();
+        $types = Vehicle::documentTypeDefinitions();
+
+        return view('admin.vehicles.vehicle-documents', compact('vehicle', 'documents', 'renewals', 'types'));
+    }
+
+    public function documentsUpload(Request $request, Vehicle $vehicle)
+    {
+        $this->assertCompanyAccess($vehicle);
+
+        $typeKeys = array_keys(Vehicle::documentTypeDefinitions());
+
+        try {
+            $validated = $request->validate([
+                'document_type' => ['required', Rule::in($typeKeys)],
+                'label' => 'required|string|max:255',
+                'file' => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx',
+                'expiry_date' => 'nullable|date',
+                'service_date' => 'nullable|date',
+                'policy_number' => 'nullable|string|max:100',
+                'cost' => 'nullable|numeric|min:0',
+                'notes' => 'nullable|string|max:1000',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $messages = collect($e->errors())->flatten()->unique()->values()->all();
+
+            return response()->json([
+                'success' => false,
+                'message' => implode(' ', $messages) ?: 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        if ($validated['document_type'] === 'service' && empty($validated['expiry_date']) && empty($validated['service_date'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Service records need at least a service date or next service date.',
+            ], 422);
+        }
+
+        try {
+            $document = DB::transaction(function () use ($request, $vehicle, $validated) {
+                $typeDef = Vehicle::documentTypeDefinitions()[$validated['document_type']];
+                $previousExpiry = !empty($typeDef['expiry_field'])
+                    ? $vehicle->{$typeDef['expiry_field']}
+                    : null;
+                $previousPolicy = !empty($typeDef['policy_field'])
+                    ? $vehicle->{$typeDef['policy_field']}
+                    : null;
+
+                VehicleDocument::where('vehicle_id', $vehicle->id)
+                    ->where('document_type', $validated['document_type'])
+                    ->where('is_current', true)
+                    ->update(['is_current' => false]);
+
+                $file = $request->file('file');
+                $path = $file->store("vehicle_documents/{$vehicle->company_id}/{$vehicle->id}", 'public');
+
+                $doc = $vehicle->documents()->create([
+                    'company_id' => $vehicle->company_id,
+                    'uploaded_by' => auth()->id(),
+                    'document_type' => $validated['document_type'],
+                    'label' => $validated['label'],
+                    'file_path' => $path,
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                    'expiry_date' => $validated['expiry_date'] ?? null,
+                    'service_date' => $validated['service_date'] ?? null,
+                    'policy_number' => $validated['policy_number'] ?? null,
+                    'cost' => $validated['cost'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                    'is_current' => true,
+                ]);
+
+                $updates = [];
+                if (!empty($typeDef['expiry_field']) && !empty($validated['expiry_date'])) {
+                    $updates[$typeDef['expiry_field']] = $validated['expiry_date'];
+                }
+                if (!empty($typeDef['policy_field']) && !empty($validated['policy_number'])) {
+                    $updates[$typeDef['policy_field']] = $validated['policy_number'];
+                }
+                if ($validated['document_type'] === 'service' && !empty($validated['service_date'])) {
+                    $updates['last_service_date'] = $validated['service_date'];
+                }
+                if ($updates !== []) {
+                    $vehicle->update($updates);
+                }
+
+                VehicleDocumentRenewal::create([
+                    'company_id' => $vehicle->company_id,
+                    'vehicle_id' => $vehicle->id,
+                    'vehicle_document_id' => $doc->id,
+                    'document_type' => $validated['document_type'],
+                    'previous_expiry' => $previousExpiry,
+                    'new_expiry' => $validated['expiry_date'] ?? null,
+                    'service_date' => $validated['service_date'] ?? null,
+                    'previous_policy_number' => $previousPolicy,
+                    'new_policy_number' => $validated['policy_number'] ?? null,
+                    'cost' => $validated['cost'] ?? null,
+                    'notes' => $validated['notes'] ?? null,
+                    'renewed_by' => auth()->id(),
+                    'renewed_at' => now(),
+                ]);
+
+                return $doc;
+            });
+
+            $document->load('uploader');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Document uploaded and vehicle expiry updated.',
+                'document' => $this->vehicleDocumentJson($document),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Vehicle document upload failed: ' . $e->getMessage(), [
+                'vehicle_id' => $vehicle->id,
+                'user_id' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not save the file. Please try again.',
+            ], 500);
+        }
+    }
+
+    public function documentsDestroy(Vehicle $vehicle, VehicleDocument $document)
+    {
+        $this->assertCompanyAccess($vehicle);
+
+        if ((int) $document->vehicle_id !== (int) $vehicle->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        Storage::disk('public')->delete($document->file_path);
+        $document->delete();
+
+        return response()->json(['success' => true, 'message' => 'Document deleted.']);
+    }
+
+    public function documentsDownload(Vehicle $vehicle, VehicleDocument $document)
+    {
+        $this->assertCompanyAccess($vehicle);
+
+        if ((int) $document->vehicle_id !== (int) $vehicle->id) {
+            abort(403);
+        }
+
+        $disk = Storage::disk('public');
+        if (!$disk->exists($document->file_path)) {
+            abort(404, 'File not found.');
+        }
+
+        return $disk->download($document->file_path, $document->original_name);
+    }
+
+    protected function vehicleDocumentJson(VehicleDocument $doc): array
+    {
+        return [
+            'id' => $doc->id,
+            'document_type' => $doc->document_type,
+            'type_label' => $doc->getTypeLabel(),
+            'label' => $doc->label,
+            'original_name' => $doc->original_name,
+            'file_size' => $doc->getFileSizeFormatted(),
+            'mime_type' => $doc->mime_type,
+            'is_image' => $doc->isImage(),
+            'is_pdf' => $doc->isPdf(),
+            'url' => $doc->getUrl(),
+            'expiry_date' => $doc->expiry_date?->format('Y-m-d'),
+            'service_date' => $doc->service_date?->format('Y-m-d'),
+            'policy_number' => $doc->policy_number,
+            'cost' => $doc->cost,
+            'notes' => $doc->notes,
+            'is_current' => $doc->is_current,
+            'uploaded_by' => $doc->uploader?->name,
+            'created_at' => $doc->created_at?->format('Y-m-d H:i'),
+        ];
     }
 
     protected function rules(Request $request, Vehicle $vehicle = null): array

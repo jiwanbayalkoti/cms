@@ -185,6 +185,11 @@ return [
             'group' => 'fleet',
             'routes' => ['admin.equipment.*'],
         ],
+        'company_documents' => [
+            'label' => 'Company Documents',
+            'group' => 'admin',
+            'routes' => ['admin.companies.documents*'],
+        ],
         'dashboard' => [
             'label' => 'Admin Dashboard',
             'group' => 'admin',
@@ -221,6 +226,7 @@ return [
             'reports' => ['view', 'create', 'update', 'delete'],
             'salary_payments' => ['view', 'create', 'update', 'delete'],
             'vehicles' => ['view', 'create', 'update', 'delete'],
+            'company_documents' => ['view', 'create', 'update', 'delete'],
         ],
         'user' => [
             'projects' => ['view', 'create', 'update', 'delete'],

@@ -12,6 +12,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
+        $schedule->command('companies:backup-monthly')->monthlyOn(1, '02:00');
         $schedule->command('logs:prune-user-activities')->dailyAt('01:00');
         $schedule->command('companies:lock-expired-trials')->everyFifteenMinutes();
         $schedule->command('vehicles:notify-due')->dailyAt('08:00');

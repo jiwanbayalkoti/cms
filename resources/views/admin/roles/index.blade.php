@@ -66,16 +66,29 @@
                 <div class="card-header fw-semibold">Roles</div>
                 <div class="list-group list-group-flush">
                     @forelse($roles as $role)
+                        @php
+                            $modulesGranted = $role->modules->filter(fn($m) => $m->can_view || $m->can_create || $m->can_update || $m->can_delete)->count();
+                            $totalModules = count(config('modules.modules', []));
+                        @endphp
                         <a href="{{ route('admin.roles.index', ['role' => $role->id]) }}"
-                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center {{ $selected && $selected->id === $role->id ? 'active' : '' }}">
-                            <span>
-                                {{ $role->name }}
-                                @if($role->isAdminPack())<span class="badge bg-dark ms-1">Admin pack</span>
-                                @elseif($role->isLoginRole())<span class="badge bg-info text-dark ms-1">{{ ucfirst(str_replace('_', ' ', $role->login_role)) }}</span>
-                                @endif
-                                @unless($role->is_active)<span class="badge bg-secondary ms-1">Inactive</span>@endunless
-                            </span>
-                            <span class="badge {{ $selected && $selected->id === $role->id ? 'bg-light text-dark' : 'bg-secondary' }}">{{ $role->users_count }}</span>
+                           class="list-group-item list-group-item-action {{ $selected && $selected->id === $role->id ? 'active' : '' }}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <span>
+                                    {{ $role->isAdminPack() ? 'Company Admin' : $role->name }}
+                                    @if($role->isAdminPack())
+                                        <span class="badge bg-primary ms-1">Admin</span>
+                                    @elseif($role->isLoginRole())
+                                        <span class="badge bg-info text-dark ms-1">{{ ucfirst(str_replace('_', ' ', $role->login_role)) }}</span>
+                                    @endif
+                                    @unless($role->is_active)<span class="badge bg-secondary ms-1">Inactive</span>@endunless
+                                </span>
+                                <span class="badge {{ $selected && $selected->id === $role->id ? 'bg-light text-dark' : 'bg-secondary' }}">
+                                    {{ $role->users_count }} user{{ $role->users_count !== 1 ? 's' : '' }}
+                                </span>
+                            </div>
+                            <div class="small mt-1 {{ $selected && $selected->id === $role->id ? 'text-white-50' : 'text-muted' }}">
+                                <i class="bi bi-shield-check me-1"></i>{{ $modulesGranted }} / {{ $totalModules }} modules
+                            </div>
                         </a>
                     @empty
                         <div class="list-group-item text-muted small">No custom roles yet. Create one to start assigning modules.</div>

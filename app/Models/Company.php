@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\AppSetting;
+use App\Models\CompanyDocument;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -139,6 +140,11 @@ class Company extends Model
     public function paymentRequests()
     {
         return $this->hasMany(CompanyPaymentRequest::class)->latest();
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(CompanyDocument::class)->latest();
     }
 
     public function startTrial(?int $days = null): void

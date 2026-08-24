@@ -163,6 +163,7 @@
                         </td>
                         <td class="px-4 py-3 text-sm">
                             <div class="d-flex gap-1 text-nowrap">
+                                <a href="{{ route('admin.vehicles.vehicle-documents', $vehicle) }}" class="btn btn-outline-success btn-sm" title="Documents &amp; expiry history"><i class="bi bi-folder2-open"></i></a>
                                 <button type="button" onclick="openViewVehicleModal({{ $vehicle->id }})" class="btn btn-outline-primary btn-sm" title="View"><i class="bi bi-eye"></i></button>
                                 <button type="button" onclick="openEditVehicleModal({{ $vehicle->id }})" class="btn btn-outline-warning btn-sm" title="Edit"><i class="bi bi-pencil"></i></button>
                                 <button type="button" onclick="showDeleteVehicleConfirmation({{ $vehicle->id }}, @json($vehicle->vehicle_number))" class="btn btn-outline-danger btn-sm" title="Delete"><i class="bi bi-trash"></i></button>
@@ -526,7 +527,8 @@ function openViewVehicleModal(id) {
                 <div class="col-span-2"><dt class="text-gray-500">Notes</dt><dd>${v.notes || '—'}</dd></div>
             </dl>
             <h4 class="text-sm font-semibold mb-2">Documents</h4>
-            <div class="space-y-1">${docs}</div>
+            <div class="space-y-1 mb-4">${docs}</div>
+            <a href="/admin/vehicles/${v.id}/documents/manage" class="inline-flex items-center px-3 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Manage documents &amp; history</a>
         `;
     })
     .catch(() => { content.innerHTML = '<p class="text-red-600 text-sm">Failed to load vehicle.</p>'; });

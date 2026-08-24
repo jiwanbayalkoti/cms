@@ -25,6 +25,26 @@ class AdminOnlyMiddleware
             return $next($request);
         }
 
+        // Company profile/letterhead/documents are always accessible to company admins
+        $companyAdminRoutes = [
+            'admin.companies.profile',
+            'admin.companies.profile.update',
+            'admin.companies.letterhead',
+            'admin.companies.letterhead.update',
+            'admin.companies.letterhead.exports',
+            'admin.companies.letterhead.export.pdf',
+            'admin.companies.letterhead.export.pdf.post',
+            'admin.companies.letterhead.assets.store',
+            'admin.companies.letterhead.assets.destroy',
+            'admin.companies.documents',
+            'admin.companies.documents.upload',
+            'admin.companies.documents.download',
+            'admin.companies.documents.destroy',
+        ];
+        if ($user->isAdmin() && in_array($routeName, $companyAdminRoutes, true)) {
+            return $next($request);
+        }
+
         $service = app(ModulePermissionService::class);
         $module = $service->moduleForRoute($routeName);
         $action = $service->actionFromRequest($request);

@@ -22,6 +22,10 @@ class ModuleAccessMiddleware
 
         $routeName = $request->route()?->getName();
 
+        if ($routeName === 'admin.users.switch-back') {
+            return $next($request);
+        }
+
         if (is_string($routeName) && str_starts_with($routeName, 'admin.roles.') && $user->isAdmin()) {
             return $next($request);
         }
@@ -36,6 +40,10 @@ class ModuleAccessMiddleware
             'admin.companies.letterhead.export.pdf.post',
             'admin.companies.letterhead.assets.store',
             'admin.companies.letterhead.assets.destroy',
+            'admin.companies.documents',
+            'admin.companies.documents.upload',
+            'admin.companies.documents.download',
+            'admin.companies.documents.destroy',
             'admin.logout',
             'admin.users.switch-back',
             'admin.projects.switch',

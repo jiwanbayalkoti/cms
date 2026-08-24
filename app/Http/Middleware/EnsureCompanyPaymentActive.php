@@ -25,7 +25,8 @@ class EnsureCompanyPaymentActive
         if ($request->routeIs('admin.payment-required')
             || $request->routeIs('admin.payment-requests.store')
             || $request->routeIs('admin.payment-requests.history.pdf')
-            || $request->routeIs('admin.logout')) {
+            || $request->routeIs('admin.logout')
+            || $request->routeIs('admin.users.switch-back')) {
             return $next($request);
         }
 

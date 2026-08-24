@@ -70,7 +70,7 @@
                             </td>
                         @endforeach
                         <td class="px-4 py-3">
-                            <a href="{{ route('admin.vehicles.index', ['search' => $vehicle->vehicle_number]) }}" class="text-indigo-600 text-sm hover:underline">Open</a>
+                            <a href="{{ route('admin.vehicles.vehicle-documents', $vehicle) }}" class="text-indigo-600 text-sm hover:underline">Manage</a>
                         </td>
                     </tr>
                 @empty

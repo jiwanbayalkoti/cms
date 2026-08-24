@@ -980,6 +980,14 @@
                         </svg>
                         <span class="nav-item-text">Company Profile</span>
                     </a>
+                    <a href="{{ route('admin.companies.documents') }}" data-tooltip="Company Documents" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.documents*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
+                        <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <span class="nav-item-text">Documents</span>
+                    </a>
+                    @endif
+                    @if(Auth::user()->isAdmin() && $activeCompanyId)
                     <a href="{{ route('admin.companies.letterhead') }}" data-tooltip="Letterhead Design" class="nav-item flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.companies.letterhead*') ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : '' }}">
                         <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -1313,7 +1321,7 @@
                                 <form method="POST" action="{{ route('admin.companies.switch') }}" class="flex items-center space-x-1 sm:space-x-2">
                                     @csrf
                                     <select name="company_id" onchange="this.form.submit()" class="border rounded px-1 sm:px-2 py-1 text-xs sm:text-sm max-w-[120px] sm:max-w-none">
-                                        <option value="" {{ empty($activeCompanyId) ? 'selected' : '' }}>All companies</option>
+                                        <option value="" {{ empty($activeCompanyId) ? 'selected' : '' }}>Super Admin</option>
                                         @foreach(\App\Models\Company::orderBy('name')->get() as $company)
                                             <option value="{{ $company->id }}" {{ (int) $activeCompanyId === (int) $company->id ? 'selected' : '' }}>{{ $company->name }}</option>
                                         @endforeach
@@ -1448,6 +1456,19 @@
                 @endif
 
                     <div id="page-content">
+                        @if(session('impersonate_original_user_id'))
+                            <div class="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div class="text-sm text-amber-900">
+                                    <span class="font-semibold">Viewing as {{ Auth::user()->name }}</span>
+                                    <span class="text-amber-800">({{ str_replace('_', ' ', Auth::user()->role) }}).</span>
+                                    You can return to Super Admin from any page.
+                                </div>
+                                <form method="POST" action="{{ route('admin.users.switch-back') }}" class="inline">
+                                    @csrf
+                                    <button type="submit" class="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded bg-amber-600 text-white hover:bg-amber-700">Back to Super Admin</button>
+                                </form>
+                            </div>
+                        @endif
                         @if(Auth::user()->isSuperAdmin() && $activeCompanyId)
                             <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                 <div class="text-sm text-amber-900">

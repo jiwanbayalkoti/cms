@@ -371,14 +371,9 @@ class ModulePermissionService
      */
     public function ensureLoginModuleRoles(int $companyId): void
     {
+        // Admin login_role is handled by the admin_pack itself (saveAdminPack/assignCoreAdminPack).
+        // We do NOT create a separate "Company Admin" row here to avoid duplicates.
         $defs = [
-            'admin' => [
-                'name' => 'Company Admin',
-                'slug' => 'company-admin',
-                'type' => PermissionRole::TYPE_ADMIN_PACK,
-                'description' => 'Login role: Admin. Modules come from Super Admin.',
-                'defaults' => null,
-            ],
             'user' => [
                 'name' => 'User',
                 'slug' => 'user',

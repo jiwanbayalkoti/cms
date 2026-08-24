@@ -4,11 +4,23 @@
 
 @section('content')
 <div class="mb-4 mb-md-12">
-    <div class="d-flex justify-content-between align-items-center mb-4 mb-md-12">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h2 class="h4 mb-0">Company Profile</h2>
-        <a href="{{ route('admin.dashboard') }}" onclick="if(typeof window.loadPageViaAjax === 'function') { event.preventDefault(); window.loadPageViaAjax('{{ route('admin.dashboard') }}'); }" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
-        </a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ route('admin.companies.documents') }}"
+               onclick="if(typeof window.loadPageViaAjax === 'function') { event.preventDefault(); window.loadPageViaAjax('{{ route('admin.companies.documents') }}'); }"
+               class="btn btn-outline-indigo btn-sm" style="border-color:#6366f1;color:#6366f1;">
+                <i class="bi bi-file-earmark-text me-1"></i> Documents
+            </a>
+            <a href="{{ route('admin.companies.letterhead') }}"
+               onclick="if(typeof window.loadPageViaAjax === 'function') { event.preventDefault(); window.loadPageViaAjax('{{ route('admin.companies.letterhead') }}'); }"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-card-heading me-1"></i> Letterhead
+            </a>
+            <a href="{{ route('admin.dashboard') }}" onclick="if(typeof window.loadPageViaAjax === 'function') { event.preventDefault(); window.loadPageViaAjax('{{ route('admin.dashboard') }}'); }" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+            </a>
+        </div>
     </div>
 
     @if($company->hasPaymentTimeline())

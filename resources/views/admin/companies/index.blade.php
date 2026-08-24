@@ -147,6 +147,15 @@
           <button onclick="openEditCompanyModal({{ $company->id }})" class="btn btn-sm btn-outline-warning" title="Edit">
             <i class="bi bi-pencil"></i>
           </button>
+          <form method="POST" action="{{ route('admin.companies.backup', $company) }}" class="inline backup-company-form" data-company-name="{{ $company->name }}">
+            @csrf
+            <button type="submit" class="btn btn-sm btn-outline-success" title="Run backup now">
+              <i class="bi bi-cloud-upload"></i>
+            </button>
+          </form>
+          <button type="button" onclick="openCompanyBackupsModal({{ $company->id }}, '{{ addslashes($company->name) }}')" class="btn btn-sm btn-outline-secondary" title="View saved backups">
+            <i class="bi bi-archive"></i>
+          </button>
           <button onclick="showDeleteConfirmation({{ $company->id }}, '{{ addslashes($company->name) }}')" class="btn btn-sm btn-outline-danger" title="Delete">
             <i class="bi bi-trash"></i>
           </button>
@@ -341,6 +350,71 @@
     </div>
 </div>
 
+<!-- Company Backups Modal -->
+<div id="companyBackupsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between p-6 border-b">
+            <div>
+                <h3 class="text-xl font-semibold text-gray-900">Company Backups</h3>
+                <p class="text-sm text-gray-500 mt-1" id="company-backups-name"></p>
+                <p class="text-xs text-gray-400 mt-1">Saved under <code class="bg-gray-100 px-1 rounded">company_backups/</code> in monthly folders.</p>
+            </div>
+            <button type="button" onclick="closeCompanyBackupsModal()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1" id="company-backups-content">
+            <p class="text-sm text-gray-500">Loading backups...</p>
+        </div>
+        <div class="p-4 border-t flex justify-end gap-2">
+            <button type="button" onclick="closeCompanyBackupsModal()" class="px-4 py-2 rounded border border-gray-300 text-gray-700">Close</button>
+            <button type="button" id="company-backups-run-btn" class="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">Run Backup Now</button>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Confirmation Modal -->
+<div id="backupConfirmationModal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-2xl max-w-md w-full" onclick="event.stopPropagation()">
+        <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full">
+                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Run Company Backup</h3>
+            <div class="text-gray-700 text-sm mb-6 space-y-3">
+                <p class="text-center">
+                    Create a full backup for <span class="font-semibold text-gray-900" id="backup-confirm-company-name"></span>?
+                </p>
+                <div class="bg-green-50 border border-green-200 text-green-800 rounded-lg p-3 text-xs">
+                    Full backup includes <strong>SQL dump</strong> (<code class="bg-white px-1 rounded">dump.sql</code>), JSON copy, and all uploaded files. Saved under <code class="bg-white px-1 rounded">company_backups/</code>. Large companies may take a minute.
+                </div>
+            </div>
+            <div class="flex space-x-3">
+                <button type="button" onclick="closeBackupConfirmation()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">Cancel</button>
+                <button type="button" onclick="confirmCompanyBackup()" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">Start Backup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Progress Modal -->
+<div id="backupProgressModal" class="fixed inset-0 bg-black bg-opacity-50 z-[70] hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-2xl max-w-md w-full" onclick="event.stopPropagation()">
+        <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-900 text-center mb-1">Creating backup...</h3>
+            <p class="text-sm text-gray-500 text-center mb-4" id="backup-progress-company"></p>
+            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div id="backup-progress-bar" class="bg-green-600 h-3 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+            </div>
+            <p id="backup-progress-percent" class="text-xs text-gray-500 text-right mt-1">0%</p>
+            <p id="backup-progress-status" class="text-sm text-gray-600 mt-3 text-center">Starting backup...</p>
+            <button type="button" id="backup-progress-close-btn" onclick="closeBackupProgressModal()" class="hidden w-full mt-4 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Delete Confirmation Modal -->
 <div id="deleteConfirmationModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-lg shadow-2xl max-w-md w-full" onclick="event.stopPropagation()">
@@ -459,6 +533,11 @@ var csrfToken = window.csrfToken;
 const commonTrialDays = {{ $commonTrialDays }};
 let currentCompanyId = null;
 let deleteCompanyId = null;
+let backupsCompanyId = null;
+let pendingBackupCompanyId = null;
+let pendingBackupCompanyName = null;
+let backupProgressInterval = null;
+let backupInProgress = false;
 let pendingLockCompanyForm = null;
 window.editModalStoredLogoUrl = '';
 window.editModalStoredFaviconUrl = '';
@@ -471,6 +550,231 @@ function handleCompanyCardClick(event, companyId) {
     if (form) {
         form.submit();
     }
+}
+
+function openCompanyBackupsModal(companyId, companyName) {
+    backupsCompanyId = companyId;
+    document.getElementById('company-backups-name').textContent = companyName || '';
+    document.getElementById('companyBackupsModal').classList.remove('hidden');
+    loadCompanyBackups(companyId);
+}
+
+function closeCompanyBackupsModal() {
+    document.getElementById('companyBackupsModal').classList.add('hidden');
+    backupsCompanyId = null;
+}
+
+function loadCompanyBackups(companyId) {
+    const content = document.getElementById('company-backups-content');
+    content.innerHTML = '<p class="text-sm text-gray-500">Loading backups...</p>';
+
+    fetch(`/admin/companies/${companyId}/backups`, {
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const backups = data.backups || [];
+        if (!backups.length) {
+            content.innerHTML = '<p class="text-sm text-gray-500">No backups yet for this company. Use "Run Backup Now" to create one.</p>';
+            return;
+        }
+
+        let html = '<div class="overflow-x-auto"><table class="min-w-full text-sm"><thead><tr class="border-b text-left text-gray-500">';
+        html += '<th class="py-2 pr-4">Month</th><th class="py-2 pr-4">File</th><th class="py-2 pr-4">Type</th><th class="py-2 pr-4">Size</th><th class="py-2 pr-4">Created</th><th class="py-2">Download</th></tr></thead><tbody>';
+        backups.forEach(function(backup) {
+            const downloadUrl = `/admin/companies/${companyId}/backups/${encodeURIComponent(backup.month)}/${encodeURIComponent(backup.filename)}`;
+            html += `<tr class="border-b border-gray-100">
+                <td class="py-2 pr-4">${escapeHtml(backup.month)}</td>
+                <td class="py-2 pr-4 font-mono text-xs">${escapeHtml(backup.filename)}</td>
+                <td class="py-2 pr-4">${escapeHtml(backup.trigger)}</td>
+                <td class="py-2 pr-4">${escapeHtml(backup.size_human)}</td>
+                <td class="py-2 pr-4">${escapeHtml(backup.created_at)}</td>
+                <td class="py-2"><a href="${downloadUrl}" class="text-indigo-600 hover:text-indigo-800">Download</a></td>
+            </tr>`;
+        });
+        html += '</tbody></table></div>';
+        content.innerHTML = html;
+    })
+    .catch(function() {
+        content.innerHTML = '<p class="text-sm text-red-600">Failed to load backups.</p>';
+    });
+}
+
+document.getElementById('company-backups-run-btn').addEventListener('click', function() {
+    if (!backupsCompanyId || backupInProgress) {
+        return;
+    }
+    const companyName = document.getElementById('company-backups-name').textContent || '';
+    openBackupConfirmation(backupsCompanyId, companyName);
+});
+
+document.getElementById('companiesContainer').addEventListener('submit', function(e) {
+    const form = e.target.closest('.backup-company-form');
+    if (!form) {
+        return;
+    }
+    e.preventDefault();
+    if (backupInProgress) {
+        return;
+    }
+    const companyId = form.action.match(/companies\/(\d+)\/backup/)?.[1];
+    if (!companyId) {
+        return;
+    }
+    openBackupConfirmation(companyId, form.dataset.companyName || '');
+});
+
+function openBackupConfirmation(companyId, companyName) {
+    pendingBackupCompanyId = companyId;
+    pendingBackupCompanyName = companyName || '';
+    document.getElementById('backup-confirm-company-name').textContent = companyName || 'this company';
+    document.getElementById('backupConfirmationModal').classList.remove('hidden');
+}
+
+function closeBackupConfirmation() {
+    document.getElementById('backupConfirmationModal').classList.add('hidden');
+    pendingBackupCompanyId = null;
+    pendingBackupCompanyName = null;
+}
+
+function confirmCompanyBackup() {
+    if (!pendingBackupCompanyId || backupInProgress) {
+        return;
+    }
+    const companyId = pendingBackupCompanyId;
+    const companyName = pendingBackupCompanyName || '';
+    closeBackupConfirmation();
+    runCompanyBackup(companyId, companyName);
+}
+
+function setBackupButtonsDisabled(disabled) {
+    document.querySelectorAll('.backup-company-form button, #company-backups-run-btn').forEach(function(btn) {
+        btn.disabled = disabled;
+    });
+}
+
+function startBackupProgress(companyName) {
+    const bar = document.getElementById('backup-progress-bar');
+    const status = document.getElementById('backup-progress-status');
+    const percent = document.getElementById('backup-progress-percent');
+    const closeBtn = document.getElementById('backup-progress-close-btn');
+
+    document.getElementById('backup-progress-company').textContent = companyName || '';
+    bar.style.width = '0%';
+    bar.classList.remove('bg-red-600');
+    bar.classList.add('bg-green-600');
+    status.classList.remove('text-red-600');
+    status.classList.add('text-gray-600');
+    percent.textContent = '0%';
+    status.textContent = 'Starting backup...';
+    closeBtn.classList.add('hidden');
+    document.getElementById('backupProgressModal').classList.remove('hidden');
+
+    if (backupProgressInterval) {
+        clearInterval(backupProgressInterval);
+    }
+
+    const stages = [
+        { at: 8, text: 'Scanning company data...' },
+        { at: 25, text: 'Building SQL dump...' },
+        { at: 45, text: 'Exporting table JSON...' },
+        { at: 65, text: 'Collecting uploaded files...' },
+        { at: 82, text: 'Creating ZIP archive...' },
+        { at: 90, text: 'Saving backup to folder...' },
+    ];
+
+    let progress = 0;
+    backupProgressInterval = setInterval(function() {
+        if (progress < 90) {
+            progress += Math.random() * 4 + 1;
+            progress = Math.min(90, progress);
+            bar.style.width = progress + '%';
+            percent.textContent = Math.round(progress) + '%';
+            const stage = stages.filter(function(s) { return progress >= s.at; }).pop();
+            if (stage) {
+                status.textContent = stage.text;
+            }
+        }
+    }, 350);
+}
+
+function finishBackupProgress(success, message) {
+    if (backupProgressInterval) {
+        clearInterval(backupProgressInterval);
+        backupProgressInterval = null;
+    }
+
+    const bar = document.getElementById('backup-progress-bar');
+    const status = document.getElementById('backup-progress-status');
+    const percent = document.getElementById('backup-progress-percent');
+    const closeBtn = document.getElementById('backup-progress-close-btn');
+
+    if (success) {
+        bar.style.width = '100%';
+        percent.textContent = '100%';
+        status.textContent = message || 'Backup completed successfully!';
+        setTimeout(function() {
+            closeBackupProgressModal();
+        }, 1500);
+        return;
+    }
+
+    bar.classList.remove('bg-green-600');
+    bar.classList.add('bg-red-600');
+    status.classList.remove('text-gray-600');
+    status.classList.add('text-red-600');
+    status.textContent = message || 'Backup failed.';
+    closeBtn.classList.remove('hidden');
+}
+
+function closeBackupProgressModal() {
+    document.getElementById('backupProgressModal').classList.add('hidden');
+    if (backupProgressInterval) {
+        clearInterval(backupProgressInterval);
+        backupProgressInterval = null;
+    }
+}
+
+function runCompanyBackup(companyId, companyName) {
+    if (backupInProgress) {
+        return;
+    }
+
+    backupInProgress = true;
+    setBackupButtonsDisabled(true);
+    startBackupProgress(companyName);
+
+    fetch(`/admin/companies/${companyId}/backup`, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken,
+        },
+    })
+    .then(function(response) {
+        return response.json().then(function(data) {
+            return { ok: response.ok, data: data };
+        });
+    })
+    .then(function(result) {
+        if (!result.ok || !result.data.success) {
+            throw new Error(result.data.message || 'Backup failed');
+        }
+        finishBackupProgress(true, result.data.message || 'Backup saved successfully.');
+        showNotification(result.data.message || 'Backup saved successfully.', 'success');
+        if (backupsCompanyId === Number(companyId)) {
+            loadCompanyBackups(companyId);
+        }
+    })
+    .catch(function(error) {
+        finishBackupProgress(false, error.message || 'Backup failed.');
+        showNotification(error.message || 'Backup failed.', 'error');
+    })
+    .finally(function() {
+        backupInProgress = false;
+        setBackupButtonsDisabled(false);
+    });
 }
 
 function openTrialPeriodModal(scope, actionUrl, companyName, currentDays) {
@@ -1004,6 +1308,15 @@ function addCompanyRow(company) {
           </button>
           <button onclick="openEditCompanyModal(${company.id})" class="btn btn-sm btn-outline-warning" title="Edit">
             <i class="bi bi-pencil"></i>
+          </button>
+          <form method="POST" action="/admin/companies/${company.id}/backup" class="inline backup-company-form" data-company-name="${escapeHtml(company.name || '')}">
+            <input type="hidden" name="_token" value="${escapeHtml(csrfToken)}">
+            <button type="submit" class="btn btn-sm btn-outline-success" title="Run backup now">
+              <i class="bi bi-cloud-upload"></i>
+            </button>
+          </form>
+          <button type="button" onclick="openCompanyBackupsModal(${company.id}, ${JSON.stringify(company.name || '')})" class="btn btn-sm btn-outline-secondary" title="View saved backups">
+            <i class="bi bi-archive"></i>
           </button>
           <button onclick="showDeleteConfirmation(${company.id}, ${JSON.stringify(escapeHtml(company.name || ''))})" class="btn btn-sm btn-outline-danger" title="Delete">
             <i class="bi bi-trash"></i>
