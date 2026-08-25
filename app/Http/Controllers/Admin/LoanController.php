@@ -82,50 +82,22 @@ class LoanController extends Controller
         $staff = Staff::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
         $bankAccounts = BankAccount::where('company_id', $companyId)->where('is_active', true)->orderBy('account_name')->get();
 
-        // Interest is annual (%). Calculate interest from loan_date till endDate (today by default).
-        $endCarbon = Carbon::parse($endDate)->endOfDay();
-        $allForTotals = (clone $query)->get(['direction', 'amount', 'interest_rate', 'loan_date']);
+        // Principal totals for Taken (received) vs Given (repaid) within current filters.
+        $allForTotals = (clone $query)->get(['direction', 'amount']);
 
-        $totalReceived = 0.0;
+        $totalTaken = (float) $allForTotals
+            ->where('direction', 'received')
+            ->sum(fn ($l) => (float) ($l->amount ?? 0));
 
-        foreach ($allForTotals->where('direction', 'received')->filter(fn ($l) => $l->isApproved()) as $l) {
-            $principal = (float) ($l->amount ?? 0);
-            $rate = (float) ($l->interest_rate ?? 0);
-            $loanDate = $l->loan_date ? Carbon::parse($l->loan_date)->startOfDay() : null;
-            $days = $loanDate ? max(0, $loanDate->diffInDays($endCarbon)) : 0;
+        $totalGiven = (float) $allForTotals
+            ->where('direction', 'repaid')
+            ->sum(fn ($l) => (float) ($l->amount ?? 0));
 
-            $accruedInterest = $principal * $rate / 100 * ($days / 365);
-            $totalReceived += $principal + $accruedInterest;
-        }
+        $netBalance = $totalTaken - $totalGiven;
 
-        // Repaid/given + installment repayments — from linked expenses (matches dashboard & reports).
-        $expenseRepaidQuery = Expense::query()
-            ->where('company_id', $companyId)
-            ->whereNotNull('loan_id')
-            ->whereBetween('date', [$startDate, $endDate])
-            ->whereHas('loan', function ($q) {
-                $q->whereNotNull('approved_at');
-            });
-
-        $this->filterByAccessibleProjects($expenseRepaidQuery, 'project_id');
-
-        if ($request->filled('project_id')) {
-            $expenseRepaidQuery->where('project_id', (int) $request->project_id);
-        }
-
-        if ($request->filled('direction') && $request->direction === 'repaid') {
-            $expenseRepaidQuery->whereHas('loan', function ($q) {
-                $q->where('direction', 'repaid');
-            });
-        } elseif ($request->filled('direction') && $request->direction === 'received') {
-            $expenseRepaidQuery->whereHas('loan', function ($q) {
-                $q->where('direction', 'received');
-            });
-        }
-
-        $totalRepaid = (float) $expenseRepaidQuery->sum('amount');
-
-        $netBalance = $totalReceived - $totalRepaid;
+        // Keep legacy names used by any partials/AJAX replacements.
+        $totalReceived = $totalTaken;
+        $totalRepaid = $totalGiven;
 
         return view('admin.loans.index', compact(
             'loans',
@@ -133,6 +105,8 @@ class LoanController extends Controller
             'suppliers',
             'staff',
             'bankAccounts',
+            'totalTaken',
+            'totalGiven',
             'totalReceived',
             'totalRepaid',
             'netBalance',

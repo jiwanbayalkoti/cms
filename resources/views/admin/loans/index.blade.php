@@ -85,16 +85,18 @@
 
 <div id="loanSummaryCards" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
     <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Total Received</div>
-        <div class="text-2xl font-bold text-green-600">${{ number_format($totalReceived ?? 0, 2) }}</div>
+        <div class="text-sm text-muted">Total Taken</div>
+        <div class="text-xs text-muted mb-1">Loans received from others</div>
+        <div class="text-2xl font-bold text-green-600">${{ number_format($totalTaken ?? $totalReceived ?? 0, 2) }}</div>
     </div>
     <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Total Repaid (Expenses)</div>
-        <div class="text-xs text-muted">Approved given loans + repayments</div>
-        <div class="text-2xl font-bold text-red-600">${{ number_format($totalRepaid ?? 0, 2) }}</div>
+        <div class="text-sm text-muted">Total Given</div>
+        <div class="text-xs text-muted mb-1">Loans given to others</div>
+        <div class="text-2xl font-bold text-red-600">${{ number_format($totalGiven ?? $totalRepaid ?? 0, 2) }}</div>
     </div>
     <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Net (Received - Repaid)</div>
+        <div class="text-sm text-muted">Net (Taken − Given)</div>
+        <div class="text-xs text-muted mb-1">Based on loan principal amounts</div>
         <div class="text-2xl font-bold {{ ($netBalance ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' }}">${{ number_format($netBalance ?? 0, 2) }}</div>
     </div>
 </div>
