@@ -133,8 +133,8 @@
             {{ $loans->total() }} record{{ $loans->total() === 1 ? '' : 's' }}
         </div>
     </div>
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
+    <div>
+        <table class="w-full table-fixed divide-y divide-gray-200">
             <thead class="bg-gray-50" id="loan-thead">
                 @php
                     $sc = $sortColumn ?? request('sort', 'loan_date');
@@ -149,50 +149,36 @@
                     };
                 @endphp
                 <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="w-[9%] px-2 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <button type="button" data-sort-col="loan_date" onclick="sortLoans('loan_date')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-gray-500 hover:text-indigo-700 fw-semibold uppercase tracking-wider">
                             Date {!! $loanThSort('loan_date') !!}
                         </button>
                     </th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="w-[8%] px-2 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <button type="button" data-sort-col="direction" onclick="sortLoans('direction')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-gray-500 hover:text-indigo-700 fw-semibold uppercase tracking-wider">
                             Type {!! $loanThSort('direction') !!}
                         </button>
                     </th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="w-[20%] px-2 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <button type="button" data-sort-col="party" onclick="sortLoans('party')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-gray-500 hover:text-indigo-700 fw-semibold uppercase tracking-wider">
                             Party {!! $loanThSort('party') !!}
                         </button>
                     </th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="w-[18%] px-2 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <button type="button" data-sort-col="project" onclick="sortLoans('project')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-gray-500 hover:text-indigo-700 fw-semibold uppercase tracking-wider">
                             Project {!! $loanThSort('project') !!}
                         </button>
                     </th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="w-[22%] px-2 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <button type="button" data-sort-col="amount" onclick="sortLoans('amount')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-gray-500 hover:text-indigo-700 fw-semibold uppercase tracking-wider">
                             Amount {!! $loanThSort('amount') !!}
                         </button>
-                    </th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <button type="button" data-sort-col="interest_rate" onclick="sortLoans('interest_rate')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-gray-500 hover:text-indigo-700 fw-semibold uppercase tracking-wider">
-                            Rate {!! $loanThSort('interest_rate') !!}
+                        <button type="button" data-sort-col="interest_rate" onclick="sortLoans('interest_rate')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-gray-400 hover:text-indigo-700 ms-1" title="Sort by rate">
+                            {!! $loanThSort('interest_rate') !!}
                         </button>
                     </th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Interest</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payable</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <button type="button" data-sort-col="payment_method" onclick="sortLoans('payment_method')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-gray-500 hover:text-indigo-700 fw-semibold uppercase tracking-wider">
-                            Method {!! $loanThSort('payment_method') !!}
-                        </button>
-                    </th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <button type="button" data-sort-col="bank" onclick="sortLoans('bank')" class="btn btn-link btn-sm btn-keep-text p-0 text-decoration-none text-gray-500 hover:text-indigo-700 fw-semibold uppercase tracking-wider">
-                            Bank {!! $loanThSort('bank') !!}
-                        </button>
-                    </th>
-                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th class="w-[13%] px-2 py-2.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="w-[10%] px-2 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
@@ -239,11 +225,11 @@
                         onkeydown="handleLoanRowToggleKeydown(event, this)"
                         aria-controls="{{ $paymentCollapseId }}"
                         aria-expanded="false">
-                        <td class="px-4 py-3 whitespace-nowrap">
-                            <div class="text-sm font-medium text-gray-900">{{ $loan->loan_date->format('M d, Y') }}</div>
+                        <td class="px-2 py-2.5 align-top">
+                            <div class="text-sm font-medium text-gray-900 leading-tight">{{ $loan->loan_date->format('M d, Y') }}</div>
                         </td>
-                        <td class="px-4 py-3 whitespace-nowrap">
-                            <div class="flex flex-wrap gap-1">
+                        <td class="px-2 py-2.5 align-top">
+                            <div class="flex flex-col gap-1 items-start">
                                 @if($loan->direction === 'received')
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Taken</span>
                                 @else
@@ -254,41 +240,37 @@
                                 @endif
                             </div>
                         </td>
-                        <td class="px-4 py-3">
-                            <div class="text-sm font-medium text-gray-900">{{ $partyLabel }}</div>
+                        <td class="px-2 py-2.5 align-top">
+                            <div class="text-sm font-medium text-gray-900 break-words leading-tight">{{ $partyLabel }}</div>
                             @if($loan->reference_number)
-                                <div class="text-xs text-gray-500">Ref: {{ $loan->reference_number }}</div>
+                                <div class="text-xs text-gray-500 mt-0.5 break-words">Ref: {{ $loan->reference_number }}</div>
                             @endif
                         </td>
-                        <td class="px-4 py-3">
-                            <div class="text-sm text-gray-700">{{ $loan->project ? $loan->project->name : '—' }}</div>
+                        <td class="px-2 py-2.5 align-top">
+                            <div class="text-sm text-gray-700 break-words leading-tight">{{ $loan->project ? $loan->project->name : '—' }}</div>
+                            <div class="text-xs text-gray-500 mt-0.5 break-words">
+                                {{ $loan->payment_method ? ucfirst(str_replace('_', ' ', $loan->payment_method)) : '—' }}
+                                @if($loan->bankAccount)
+                                    · {{ $loan->bankAccount->account_name }}
+                                @endif
+                            </div>
                         </td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap">
-                            <span class="text-sm font-semibold {{ $loan->direction === 'received' ? 'text-green-600' : 'text-red-600' }}">
+                        <td class="px-2 py-2.5 text-right align-top">
+                            <div class="text-sm font-semibold {{ $loan->direction === 'received' ? 'text-green-600' : 'text-red-600' }}">
                                 ${{ number_format($loan->amount, 2) }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap text-sm text-gray-600">{{ number_format($rate, 2) }}%</td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap text-sm text-gray-600">
-                            ${{ number_format($outstanding ? $interestAmount : 0, 2) }}
-                        </td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                            </div>
+                            <div class="text-xs text-gray-500 mt-0.5">
+                                {{ number_format($rate, 2) }}% · Int ${{ number_format($outstanding ? $interestAmount : 0, 2) }}
+                            </div>
                             @if($loan->direction === 'received')
-                                <div class="text-sm font-semibold text-green-600">${{ number_format($payableAmount, 2) }}</div>
+                                <div class="text-xs font-semibold text-green-700 mt-0.5">Due ${{ number_format($payableAmount, 2) }}</div>
                             @elseif($isApproved && $outstanding)
-                                <div class="text-sm font-semibold text-red-600">${{ number_format((float) ($outstanding['principal_outstanding'] ?? 0), 2) }}</div>
-                                <div class="text-xs text-gray-500">Outstanding</div>
+                                <div class="text-xs font-semibold text-red-700 mt-0.5">Out ${{ number_format((float) ($outstanding['principal_outstanding'] ?? 0), 2) }}</div>
                             @else
-                                <div class="text-sm font-semibold text-red-600">${{ number_format($principal, 2) }}</div>
+                                <div class="text-xs font-semibold text-red-700 mt-0.5">Due ${{ number_format($principal, 2) }}</div>
                             @endif
                         </td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                            {{ $loan->payment_method ? ucfirst(str_replace('_', ' ', $loan->payment_method)) : '—' }}
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-600">
-                            {{ $loan->bankAccount ? $loan->bankAccount->account_name : '—' }}
-                        </td>
-                        <td class="px-4 py-3 text-center align-middle loan-approval-cell whitespace-nowrap" onclick="event.stopPropagation();">
+                        <td class="px-2 py-2.5 text-center align-top loan-approval-cell" onclick="event.stopPropagation();">
                             @if($isApproved)
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">Approved</span>
                                 <div class="text-xs text-gray-400 mt-1">{{ $loan->approved_at->format('M d, Y') }}</div>
@@ -302,8 +284,8 @@
                                 @endif
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-right whitespace-nowrap" onclick="event.stopPropagation();">
-                            <div class="d-flex gap-1 justify-content-end loan-row-actions">
+                        <td class="px-2 py-2.5 text-right align-top" onclick="event.stopPropagation();">
+                            <div class="d-flex gap-1 justify-content-end flex-wrap loan-row-actions">
                                 @if($loan->direction === 'received' && !$isClosed && $isApproved)
                                     <button type="button"
                                             class="btn btn-sm btn-outline-primary loan-pay-btn"
@@ -345,8 +327,8 @@
                         </td>
                     </tr>
                     <tr class="loan-payments-row">
-                        <td colspan="12" class="p-0">
-                            <div id="{{ $paymentCollapseId }}" class="loan-payments-collapse d-none bg-gray-50 border-t border-gray-100 px-4 sm:px-6 py-4">
+                        <td colspan="7" class="p-0">
+                            <div id="{{ $paymentCollapseId }}" class="loan-payments-collapse d-none bg-gray-50 border-t border-gray-100 px-3 sm:px-4 py-3">
                                 @php
                                     $payments = $loan->payments ?? collect();
                                     $paymentsTotal = (float) $payments->sum('amount');
@@ -378,34 +360,34 @@
                                 @elseif($payments->isEmpty())
                                     <div class="text-sm text-gray-500">{{ $isGivenLoan ? 'No returns recorded yet.' : 'No payments recorded yet.' }}</div>
                                 @else
-                                    <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-                                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                    <div class="rounded-lg border border-gray-200 bg-white">
+                                        <table class="w-full table-fixed divide-y divide-gray-200 text-sm">
                                             <thead class="bg-gray-50">
                                                 <tr>
-                                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">{{ $amountColLabel }}</th>
-                                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Interest</th>
-                                                    <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Principal</th>
-                                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
-                                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
+                                                    <th class="w-[16%] px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                                    <th class="w-[16%] px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">{{ $amountColLabel }}</th>
+                                                    <th class="w-[14%] px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">Interest</th>
+                                                    <th class="w-[14%] px-2 py-2 text-right text-xs font-medium text-gray-500 uppercase">Principal</th>
+                                                    <th class="w-[16%] px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
+                                                    <th class="w-[24%] px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-100">
                                                 @foreach($payments as $p)
                                                     <tr class="hover:bg-gray-50">
-                                                        <td class="px-3 py-2 text-gray-700">{{ $p->payment_date ? \Carbon\Carbon::parse($p->payment_date)->format('M d, Y') : '—' }}</td>
-                                                        <td class="px-3 py-2 text-right font-semibold {{ $isGivenLoan ? 'text-green-600' : 'text-gray-900' }}">${{ number_format((float) $p->amount, 2) }}</td>
-                                                        <td class="px-3 py-2 text-right text-gray-600">${{ number_format((float) ($p->interest_paid ?? 0), 2) }}</td>
-                                                        <td class="px-3 py-2 text-right text-gray-600">${{ number_format((float) ($p->principal_paid ?? 0), 2) }}</td>
-                                                        <td class="px-3 py-2 text-gray-600">{{ $p->payment_method ? ucfirst(str_replace('_', ' ', $p->payment_method)) : '—' }}</td>
-                                                        <td class="px-3 py-2 text-gray-500">{{ $p->notes ?? '—' }}</td>
+                                                        <td class="px-2 py-2 text-gray-700">{{ $p->payment_date ? \Carbon\Carbon::parse($p->payment_date)->format('M d, Y') : '—' }}</td>
+                                                        <td class="px-2 py-2 text-right font-semibold {{ $isGivenLoan ? 'text-green-600' : 'text-gray-900' }}">${{ number_format((float) $p->amount, 2) }}</td>
+                                                        <td class="px-2 py-2 text-right text-gray-600">${{ number_format((float) ($p->interest_paid ?? 0), 2) }}</td>
+                                                        <td class="px-2 py-2 text-right text-gray-600">${{ number_format((float) ($p->principal_paid ?? 0), 2) }}</td>
+                                                        <td class="px-2 py-2 text-gray-600 break-words">{{ $p->payment_method ? ucfirst(str_replace('_', ' ', $p->payment_method)) : '—' }}</td>
+                                                        <td class="px-2 py-2 text-gray-500 break-words">{{ $p->notes ?? '—' }}</td>
                                                     </tr>
                                                 @endforeach
                                             </tbody>
                                             <tfoot class="bg-gray-50">
                                                 <tr>
-                                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-700">Total</th>
-                                                    <th class="px-3 py-2 text-right text-sm font-semibold text-gray-900">${{ number_format($paymentsTotal, 2) }}</th>
+                                                    <th class="px-2 py-2 text-left text-xs font-semibold text-gray-700">Total</th>
+                                                    <th class="px-2 py-2 text-right text-sm font-semibold text-gray-900">${{ number_format($paymentsTotal, 2) }}</th>
                                                     <th colspan="4"></th>
                                                 </tr>
                                             </tfoot>
@@ -417,7 +399,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="12" class="px-4 py-10 text-center text-sm text-gray-500">
+                        <td colspan="7" class="px-4 py-10 text-center text-sm text-gray-500">
                             No loan transactions found.
                         </td>
                     </tr>
