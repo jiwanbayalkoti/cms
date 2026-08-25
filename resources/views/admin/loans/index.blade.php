@@ -3,10 +3,10 @@
 @section('title', 'Loans')
 
 @section('content')
-<div class="mb-6 flex justify-between items-center gap-4">
+<div class="mb-4 flex justify-between items-center gap-4">
     <div>
         <h1 class="text-3xl font-bold text-gray-900">Loans</h1>
-        <p class="mt-2 text-gray-600">Record loan received/repaid separately from Income.</p>
+        <p class="mt-1 text-gray-600 text-sm">Record loan received/repaid separately from Income.</p>
     </div>
     <div class="flex gap-2">
         <a href="{{ route('admin.reports.loans') }}" class="btn btn-outline-primary">
@@ -15,6 +15,43 @@
         <button type="button" class="btn btn-success" onclick="openLoanCrudModal('create', null, event)">
             <i class="bi bi-plus-circle me-1"></i>Add Loan
         </button>
+    </div>
+</div>
+
+<div id="loanSummaryCards" class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+    <div class="bg-white border rounded-lg p-3">
+        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Taken loans (company borrowed)</div>
+        <div class="grid grid-cols-3 gap-2">
+            <div class="rounded-md bg-green-50 border border-green-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Total Taken</div>
+                <div class="text-lg font-bold text-green-700 leading-tight mt-0.5">${{ number_format($totalTaken ?? $totalReceived ?? 0, 2) }}</div>
+            </div>
+            <div class="rounded-md bg-amber-50 border border-amber-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Total Repaid</div>
+                <div class="text-lg font-bold text-amber-700 leading-tight mt-0.5">${{ number_format($totalRepaid ?? 0, 2) }}</div>
+            </div>
+            <div class="rounded-md bg-slate-50 border border-slate-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Remaining</div>
+                <div class="text-lg font-bold {{ ($takenRemaining ?? $netBalance ?? 0) >= 0 ? 'text-slate-800' : 'text-red-600' }} leading-tight mt-0.5">${{ number_format($takenRemaining ?? $netBalance ?? 0, 2) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white border rounded-lg p-3">
+        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Given loans (company lent)</div>
+        <div class="grid grid-cols-3 gap-2">
+            <div class="rounded-md bg-red-50 border border-red-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Total Given</div>
+                <div class="text-lg font-bold text-red-700 leading-tight mt-0.5">${{ number_format($totalGiven ?? 0, 2) }}</div>
+            </div>
+            <div class="rounded-md bg-blue-50 border border-blue-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Returned / Repaid</div>
+                <div class="text-lg font-bold text-blue-700 leading-tight mt-0.5">${{ number_format($totalGivenReturned ?? 0, 2) }}</div>
+            </div>
+            <div class="rounded-md bg-slate-50 border border-slate-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Remaining</div>
+                <div class="text-lg font-bold {{ ($givenRemaining ?? 0) >= 0 ? 'text-slate-800' : 'text-red-600' }} leading-tight mt-0.5">${{ number_format($givenRemaining ?? 0, 2) }}</div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -37,12 +74,12 @@
     </div>
 @endif
 
-<div class="bg-white shadow-lg rounded-lg p-4 mb-6">
-    <form method="GET" action="{{ route('admin.loans.index') }}" class="row g-3" id="loanFilterForm" onsubmit="applyLoanFilters(event)">
+<div class="bg-white shadow-lg rounded-lg p-3 mb-4">
+    <form method="GET" action="{{ route('admin.loans.index') }}" class="row g-2" id="loanFilterForm" onsubmit="applyLoanFilters(event)">
         <input type="hidden" name="sort" id="loan_filter_sort" value="{{ $sortColumn ?? request('sort', 'loan_date') }}">
         <input type="hidden" name="sort_dir" id="loan_filter_sort_dir" value="{{ $sortDir ?? request('sort_dir', 'desc') }}">
         <div class="col-md-3">
-            <label class="form-label small">Project</label>
+            <label class="form-label small mb-1">Project</label>
             <select name="project_id" class="form-select form-select-sm" onchange="applyLoanFilters(null, true)">
                 <option value="">All Projects</option>
                 @foreach($projects ?? [] as $p)
@@ -51,15 +88,15 @@
             </select>
         </div>
         <div class="col-md-2">
-            <label class="form-label small">Start Date</label>
+            <label class="form-label small mb-1">Start Date</label>
             <input type="date" name="start_date" value="{{ request('start_date', $startDate ?? '') }}" class="form-control form-control-sm" onchange="applyLoanFilters(null, true)">
         </div>
         <div class="col-md-2">
-            <label class="form-label small">End Date</label>
+            <label class="form-label small mb-1">End Date</label>
             <input type="date" name="end_date" value="{{ request('end_date', $endDate ?? '') }}" class="form-control form-control-sm" onchange="applyLoanFilters(null, true)">
         </div>
         <div class="col-md-2">
-            <label class="form-label small">Direction</label>
+            <label class="form-label small mb-1">Direction</label>
             <select name="direction" class="form-select form-select-sm" onchange="applyLoanFilters(null, true)">
                 <option value="">All</option>
                 <option value="received" {{ request('direction') === 'received' ? 'selected' : '' }}>Taken</option>
@@ -67,7 +104,7 @@
             </select>
         </div>
         <div class="col-md-2">
-            <label class="form-label small">Per Page</label>
+            <label class="form-label small mb-1">Per Page</label>
             <select name="per_page" class="form-select form-select-sm" onchange="applyLoanFilters(null, true)">
                 <option value="15" {{ (string) request('per_page', '15') === '15' ? 'selected' : '' }}>15</option>
                 <option value="25" {{ (string) request('per_page') === '25' ? 'selected' : '' }}>25</option>
@@ -81,29 +118,6 @@
             </button>
         </div>
     </form>
-</div>
-
-<div id="loanSummaryCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Total Taken</div>
-        <div class="text-xs text-muted mb-1">Loans received from others</div>
-        <div class="text-2xl font-bold text-green-600">${{ number_format($totalTaken ?? $totalReceived ?? 0, 2) }}</div>
-    </div>
-    <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Total Given</div>
-        <div class="text-xs text-muted mb-1">Loans given to others</div>
-        <div class="text-2xl font-bold text-red-600">${{ number_format($totalGiven ?? 0, 2) }}</div>
-    </div>
-    <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Total Repaid</div>
-        <div class="text-xs text-muted mb-1">Payments on taken loans</div>
-        <div class="text-2xl font-bold text-amber-600">${{ number_format($totalRepaid ?? 0, 2) }}</div>
-    </div>
-    <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Net (Taken − Repaid)</div>
-        <div class="text-xs text-muted mb-1">Outstanding on taken loans</div>
-        <div class="text-2xl font-bold {{ ($netBalance ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' }}">${{ number_format($netBalance ?? 0, 2) }}</div>
-    </div>
 </div>
 
 <div id="loanTableSection" class="bg-white shadow-lg rounded-lg overflow-hidden">
