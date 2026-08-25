@@ -155,11 +155,6 @@
 
 @push('scripts')
 <script>
-    function closeAuthAlert(button) {
-        const alert = button.closest('.auth-alert');
-        if (alert) alert.remove();
-    }
-
     function togglePasswordVisibility(inputId, button) {
         const input = document.getElementById(inputId);
         if (!input) return;

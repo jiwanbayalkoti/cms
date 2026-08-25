@@ -13,10 +13,10 @@
 </div>
 
 @if(session('success'))
-    <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3">{{ session('success') }}</div>
+    <div class="alert-message mb-4 rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 relative pr-10" role="alert">{{ session('success') }}</div>
 @endif
 @if(session('error'))
-    <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 px-4 py-3">{{ session('error') }}</div>
+    <div class="alert-message mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 px-4 py-3 relative pr-10" role="alert">{{ session('error') }}</div>
 @endif
 
 <div class="mb-4 bg-white shadow-lg rounded-lg p-4">

@@ -154,6 +154,16 @@
             cursor: pointer;
         }
         .auth-alert-close:hover { opacity: 1; }
+        .auth-alert.hiding {
+            opacity: 0;
+            transform: translateY(-6px);
+            transition: all 0.25s ease-in-out;
+            margin-bottom: 0 !important;
+            padding-top: 0;
+            padding-bottom: 0;
+            max-height: 0;
+            overflow: hidden;
+        }
         .auth-section-title {
             display: flex;
             align-items: center;
@@ -260,5 +270,36 @@
 
     @stack('modals')
     @stack('scripts')
+    <script>
+        (function () {
+            function dismissAuthAlert(alert) {
+                if (!alert || !alert.isConnected) return;
+                alert.classList.add('hiding');
+                setTimeout(function () {
+                    if (alert.isConnected) alert.remove();
+                }, 250);
+            }
+
+            window.closeAuthAlert = function (button) {
+                const alert = button && button.closest ? button.closest('.auth-alert') : null;
+                if (!alert) return;
+                if (alert._autoDismissTimer) {
+                    clearTimeout(alert._autoDismissTimer);
+                    alert._autoDismissTimer = null;
+                }
+                dismissAuthAlert(alert);
+            };
+
+            document.addEventListener('DOMContentLoaded', function () {
+                document.querySelectorAll('.auth-alert').forEach(function (alert) {
+                    if (alert.dataset.autoDismissBound === '1') return;
+                    alert.dataset.autoDismissBound = '1';
+                    alert._autoDismissTimer = setTimeout(function () {
+                        dismissAuthAlert(alert);
+                    }, 5000);
+                });
+            });
+        })();
+    </script>
 </body>
 </html>

@@ -215,11 +215,6 @@
     const registerStoreUrl = @json(route('admin.register.company.store'));
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-    function closeAuthAlert(button) {
-        const alert = button.closest('.auth-alert');
-        if (alert) alert.remove();
-    }
-
     function togglePasswordVisibility(inputId, button) {
         const input = document.getElementById(inputId);
         if (!input) return;
@@ -309,12 +304,6 @@
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') closeRegisterModal();
-    });
-
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.auth-card > .auth-alert').forEach(function (alert) {
-            setTimeout(function () { alert.remove(); }, 6000);
-        });
     });
 </script>
 @endpush

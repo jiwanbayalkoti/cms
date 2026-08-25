@@ -1873,6 +1873,9 @@
                     oldScript.remove();
                     document.body.appendChild(newScript);
                 });
+                if (typeof window.initFlashAlerts === 'function') {
+                    window.initFlashAlerts(contentContainer);
+                }
                 return;
             }
             
@@ -2230,6 +2233,9 @@
                 
                 // Re-initialize any components that need it
                 wrapTablesForMobile();
+                if (typeof window.initFlashAlerts === 'function') {
+                    window.initFlashAlerts(contentContainer);
+                }
                 
                 // Re-attach event listeners for dynamically loaded content
                 if (typeof attachPaginationListeners === 'function') {
@@ -2355,15 +2361,80 @@
         }, true); // Use capture phase to catch events before other handlers
         
         // Alert Messages Auto-dismiss and Close functionality
+        function dismissAlertElement(alert) {
+            if (!alert || !alert.isConnected) return;
+            alert.classList.add('hiding');
+            setTimeout(function() {
+                if (alert.isConnected) alert.remove();
+            }, 300);
+        }
+
         function closeAlert(button) {
             const alert = button.closest('.alert-message, .alert');
             if (alert) {
-                alert.classList.add('hiding');
-                setTimeout(function() {
-                    alert.remove();
-                }, 300);
+                if (alert._autoDismissTimer) {
+                    clearTimeout(alert._autoDismissTimer);
+                    alert._autoDismissTimer = null;
+                }
+                dismissAlertElement(alert);
             }
         }
+
+        /**
+         * Auto-hide flash / status alerts after a few seconds.
+         * Works for layout .alert-message and Bootstrap .alert-* on any page.
+         */
+        window.initFlashAlerts = function(root) {
+            root = root || document;
+            const selector = [
+                '.alert-message',
+                '.alert.alert-success',
+                '.alert.alert-danger',
+                '.alert.alert-info',
+                '.alert.alert-warning'
+            ].join(', ');
+            const alerts = root.querySelectorAll(selector);
+            alerts.forEach(function(alert) {
+                if (alert.dataset.autoDismissBound === '1') return;
+                if (alert.classList.contains('alert-permanent') || alert.dataset.noAutoDismiss === '1') return;
+                if (alert.closest('#vehicle-alert-dropdown')) return;
+
+                alert.dataset.autoDismissBound = '1';
+
+                if (alert.classList.contains('alert') && !alert.classList.contains('alert-message')) {
+                    alert.classList.add('alert-message');
+                }
+
+                // Prefer existing close controls; otherwise add one
+                let closeBtn = alert.querySelector('.alert-close-btn, .btn-close, [data-bs-dismiss="alert"]');
+                if (!closeBtn) {
+                    alert.style.position = 'relative';
+                    if (!alert.style.paddingRight) {
+                        alert.style.paddingRight = '2.5rem';
+                    }
+                    closeBtn = document.createElement('button');
+                    closeBtn.type = 'button';
+                    closeBtn.className = 'alert-close-btn';
+                    closeBtn.setAttribute('onclick', 'closeAlert(this)');
+                    closeBtn.setAttribute('aria-label', 'Close');
+                    closeBtn.innerHTML = '<span aria-hidden="true">&times;</span>';
+                    alert.appendChild(closeBtn);
+                }
+
+                const timeoutMs = 5000;
+                alert._autoDismissTimer = setTimeout(function() {
+                    dismissAlertElement(alert);
+                }, timeoutMs);
+
+                const clearTimer = function() {
+                    if (alert._autoDismissTimer) {
+                        clearTimeout(alert._autoDismissTimer);
+                        alert._autoDismissTimer = null;
+                    }
+                };
+                closeBtn.addEventListener('click', clearTimer, { once: true });
+            });
+        };
         
         // Remove text from action buttons, keep only icons (skip .btn-keep-text)
         document.addEventListener('DOMContentLoaded', function() {
@@ -2429,50 +2500,9 @@
             wrapTablesForMobile();
         });
         
-        // Auto-dismiss alerts after 5 seconds
+        // Auto-dismiss alerts after 5 seconds (layout flash + page Bootstrap alerts)
         document.addEventListener('DOMContentLoaded', function() {
-            // Handle both .alert-message and Bootstrap .alert classes
-            const alerts = document.querySelectorAll('.alert-message, .alert.alert-success, .alert.alert-danger, .alert.alert-info, .alert.alert-warning');
-            alerts.forEach(function(alert) {
-                // Skip if already has close button
-                if (alert.querySelector('.alert-close-btn')) {
-                    return;
-                }
-                
-                // Add alert-message class for styling if it's a Bootstrap alert
-                if (alert.classList.contains('alert') && !alert.classList.contains('alert-message')) {
-                    alert.classList.add('alert-message');
-                }
-                
-                // Add close button if it doesn't have one
-                if (!alert.querySelector('.alert-close-btn')) {
-                    alert.style.position = 'relative';
-                    alert.style.paddingRight = '2.5rem';
-                    const closeBtn = document.createElement('button');
-                    closeBtn.type = 'button';
-                    closeBtn.className = 'alert-close-btn';
-                    closeBtn.setAttribute('onclick', 'closeAlert(this)');
-                    closeBtn.setAttribute('aria-label', 'Close');
-                    closeBtn.innerHTML = '<span aria-hidden="true">&times;</span>';
-                    alert.appendChild(closeBtn);
-                }
-                
-                // Set timeout to auto-dismiss after 5 seconds
-                const timeout = setTimeout(function() {
-                    alert.classList.add('hiding');
-                    setTimeout(function() {
-                        alert.remove();
-                    }, 300);
-                }, 5000);
-                
-                // Clear timeout if user manually closes the alert
-                const closeBtn = alert.querySelector('.alert-close-btn');
-                if (closeBtn) {
-                    closeBtn.addEventListener('click', function() {
-                        clearTimeout(timeout);
-                    });
-                }
-            });
+            window.initFlashAlerts(document);
         });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>

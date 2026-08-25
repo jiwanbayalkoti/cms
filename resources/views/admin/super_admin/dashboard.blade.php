@@ -16,10 +16,10 @@
 </div>
 
 @if(session('success'))
-    <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800 text-sm">{{ session('success') }}</div>
+    <div class="alert-message mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800 text-sm relative pr-10" role="alert">{{ session('success') }}</div>
 @endif
 @if(session('error'))
-    <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm">{{ session('error') }}</div>
+    <div class="alert-message mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800 text-sm relative pr-10" role="alert">{{ session('error') }}</div>
 @endif
 
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">

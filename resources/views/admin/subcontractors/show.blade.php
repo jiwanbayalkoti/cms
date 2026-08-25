@@ -18,7 +18,7 @@
 </div>
 
 @if(session('success'))
-    <div class="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3">{{ session('success') }}</div>
+    <div class="alert-message mb-4 rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 relative pr-10" role="alert">{{ session('success') }}</div>
 @endif
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
