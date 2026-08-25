@@ -83,7 +83,7 @@ class LoanController extends Controller
         $bankAccounts = BankAccount::where('company_id', $companyId)->where('is_active', true)->orderBy('account_name')->get();
 
         // Principal totals for Taken (received) vs Given (repaid) within current filters.
-        $allForTotals = (clone $query)->get(['direction', 'amount']);
+        $allForTotals = (clone $query)->get(['id', 'direction', 'amount']);
 
         $totalTaken = (float) $allForTotals
             ->where('direction', 'received')
@@ -93,11 +93,29 @@ class LoanController extends Controller
             ->where('direction', 'repaid')
             ->sum(fn ($l) => (float) ($l->amount ?? 0));
 
-        $netBalance = $totalTaken - $totalGiven;
+        // Total repaid = installment payments against Taken (received) loans.
+        $repaidQuery = LoanPayment::query()
+            ->where('company_id', $companyId)
+            ->whereBetween('payment_date', [$startDate, $endDate])
+            ->whereHas('loan', function ($q) use ($request) {
+                $q->where('direction', 'received');
+                if ($request->filled('direction') && $request->direction === 'repaid') {
+                    // Direction filter is Given only — no taken-loan repayments in this view.
+                    $q->whereRaw('1 = 0');
+                }
+            });
 
-        // Keep legacy names used by any partials/AJAX replacements.
+        $this->filterByAccessibleProjects($repaidQuery, 'project_id');
+
+        if ($request->filled('project_id')) {
+            $repaidQuery->where('project_id', (int) $request->project_id);
+        }
+
+        $totalRepaid = (float) $repaidQuery->sum('amount');
+        $netBalance = $totalTaken - $totalRepaid;
+
+        // Legacy alias used elsewhere.
         $totalReceived = $totalTaken;
-        $totalRepaid = $totalGiven;
 
         return view('admin.loans.index', compact(
             'loans',
