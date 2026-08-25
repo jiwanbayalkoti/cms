@@ -3,28 +3,65 @@
 @section('title', 'Loans Report')
 
 @section('content')
-<div class="mb-6 flex justify-between items-center gap-3">
+<div class="mb-4 flex justify-between items-center gap-3">
     <div>
         <h1 class="text-3xl font-bold text-gray-900">Loans Report</h1>
-        <p class="mt-2 text-gray-600">Loan taken (received) vs repayments. <strong>Given</strong> loans appear in <a href="{{ route('admin.expenses.index') }}" class="text-indigo-600 hover:underline">Expenses</a> only after <strong>approval</strong>.</p>
+        <p class="mt-1 text-gray-600 text-sm">Taken vs Given loans with repaid and remaining totals.</p>
     </div>
     <a href="{{ route('admin.reports.index') }}" class="btn btn-outline-secondary">
         Back to Reports
     </a>
 </div>
 
-<div class="bg-white shadow-lg rounded-lg p-4 mb-6">
-    <form method="GET" action="{{ route('admin.reports.loans') }}" class="row g-3 align-items-end">
+<div id="loanSummaryCards" class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+    <div class="bg-white border rounded-lg p-3">
+        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Taken loans (company borrowed)</div>
+        <div class="grid grid-cols-3 gap-2">
+            <div class="rounded-md bg-green-50 border border-green-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Total Taken</div>
+                <div class="text-lg font-bold text-green-700 leading-tight mt-0.5">${{ number_format($totalTaken ?? $totalReceived ?? 0, 2) }}</div>
+            </div>
+            <div class="rounded-md bg-amber-50 border border-amber-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Total Repaid</div>
+                <div class="text-lg font-bold text-amber-700 leading-tight mt-0.5">${{ number_format($totalRepaid ?? 0, 2) }}</div>
+            </div>
+            <div class="rounded-md bg-slate-50 border border-slate-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Remaining</div>
+                <div class="text-lg font-bold {{ ($takenRemaining ?? $netBalance ?? 0) >= 0 ? 'text-slate-800' : 'text-red-600' }} leading-tight mt-0.5">${{ number_format($takenRemaining ?? $netBalance ?? 0, 2) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="bg-white border rounded-lg p-3">
+        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-2">Given loans (company lent)</div>
+        <div class="grid grid-cols-3 gap-2">
+            <div class="rounded-md bg-red-50 border border-red-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Total Given</div>
+                <div class="text-lg font-bold text-red-700 leading-tight mt-0.5">${{ number_format($totalGiven ?? 0, 2) }}</div>
+            </div>
+            <div class="rounded-md bg-blue-50 border border-blue-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Returned / Repaid</div>
+                <div class="text-lg font-bold text-blue-700 leading-tight mt-0.5">${{ number_format($totalGivenReturned ?? 0, 2) }}</div>
+            </div>
+            <div class="rounded-md bg-slate-50 border border-slate-100 px-2.5 py-2">
+                <div class="text-xs text-muted leading-tight">Remaining</div>
+                <div class="text-lg font-bold {{ ($givenRemaining ?? 0) >= 0 ? 'text-slate-800' : 'text-red-600' }} leading-tight mt-0.5">${{ number_format($givenRemaining ?? 0, 2) }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white shadow-lg rounded-lg p-3 mb-4">
+    <form method="GET" action="{{ route('admin.reports.loans') }}" class="row g-2 align-items-end">
         <div class="col-md-3">
-            <label class="form-label small">Start Date</label>
+            <label class="form-label small mb-1">Start Date</label>
             <input type="date" name="start_date" class="form-control form-control-sm" value="{{ $startDate }}">
         </div>
         <div class="col-md-3">
-            <label class="form-label small">End Date</label>
+            <label class="form-label small mb-1">End Date</label>
             <input type="date" name="end_date" class="form-control form-control-sm" value="{{ $endDate }}" max="{{ date('Y-m-d') }}">
         </div>
         <div class="col-md-4">
-            <label class="form-label small">Project</label>
+            <label class="form-label small mb-1">Project</label>
             <select name="project_id" class="form-select form-select-sm">
                 <option value="">All Projects</option>
                 @foreach($projects ?? [] as $p)
@@ -38,24 +75,6 @@
             </button>
         </div>
     </form>
-</div>
-
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Loan Taken (Received)</div>
-        <div class="text-xs text-muted mt-1">Principal + accrued interest till {{ \Carbon\Carbon::parse($endDate)->format('M d, Y') }}</div>
-        <div class="text-2xl font-bold text-green-600 mt-1">${{ number_format($totalReceived ?? 0, 2) }}</div>
-    </div>
-    <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Total Repaid (from Expenses)</div>
-        <div class="text-xs text-muted mt-1">Given loans + installment repayments</div>
-        <div class="text-2xl font-bold text-red-600 mt-1">${{ number_format($totalRepaid ?? 0, 2) }}</div>
-    </div>
-    <div class="bg-white border rounded-lg p-4">
-        <div class="text-sm text-muted">Outstanding (Net)</div>
-        <div class="text-xs text-muted mt-1">Received − Repaid</div>
-        <div class="text-2xl font-bold {{ ($netBalance ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' }} mt-1">${{ number_format($netBalance ?? 0, 2) }}</div>
-    </div>
 </div>
 
 <div class="bg-white shadow-lg rounded-lg overflow-hidden">
@@ -95,9 +114,9 @@
                             @if(($loan->row_type ?? 'loan') === 'payment' || ($loan->direction ?? '') === 'repayment')
                                 <span class="badge bg-warning text-dark">Repayment</span>
                             @elseif(($loan->direction ?? '') === 'received')
-                                <span class="badge bg-success">Received</span>
+                                <span class="badge bg-success">Taken</span>
                             @elseif(($loan->direction ?? '') === 'repaid')
-                                <span class="badge bg-danger">Given (Repaid)</span>
+                                <span class="badge bg-danger">Given</span>
                             @else
                                 <span class="badge bg-secondary">Legacy</span>
                             @endif

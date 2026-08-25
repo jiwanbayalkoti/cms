@@ -993,28 +993,45 @@ class ReportController extends Controller
             ];
         });
 
-        $totalReceived = (float) $loanRecords
+        $totalTaken = (float) $loanRecords
             ->where('direction', 'received')
-            ->filter(fn ($loan) => $loan->isApproved())
-            ->sum(fn ($loan) => $this->loanReceivedPayableAsOf($loan, $endCarbon));
-        $totalReceived += (float) $legacyRows->where('direction', 'received')->sum('payable_amount');
+            ->sum(fn ($loan) => (float) ($loan->amount ?? 0));
+        $totalTaken += (float) $legacyRows->where('direction', 'received')->sum('amount');
 
-        $expenseRepaidQuery = Expense::query()
+        $totalGiven = (float) $loanRecords
+            ->where('direction', 'repaid')
+            ->sum(fn ($loan) => (float) ($loan->amount ?? 0));
+        $totalGiven += (float) $legacyRows->where('direction', 'repaid')->sum('amount');
+
+        $takenRepaidQuery = LoanPayment::query()
             ->where('company_id', $companyId)
-            ->whereNotNull('loan_id')
-            ->whereBetween('date', [$startDate, $endDate])
+            ->whereBetween('payment_date', [$startDate, $endDate])
             ->whereHas('loan', function ($q) {
-                $q->whereNotNull('approved_at');
+                $q->where('direction', 'received');
             });
-
-        $this->filterByAccessibleProjects($expenseRepaidQuery, 'project_id');
-
+        $this->filterByAccessibleProjectsForLoans($takenRepaidQuery, 'project_id');
         if ($projectId) {
-            $expenseRepaidQuery->where('project_id', $projectId);
+            $takenRepaidQuery->where('project_id', $projectId);
         }
+        $totalRepaid = (float) $takenRepaidQuery->sum('amount');
+        $takenRemaining = $totalTaken - $totalRepaid;
 
-        $totalRepaid = (float) $expenseRepaidQuery->sum('amount');
-        $netBalance = $totalReceived - $totalRepaid;
+        $givenReturnedQuery = LoanPayment::query()
+            ->where('company_id', $companyId)
+            ->whereBetween('payment_date', [$startDate, $endDate])
+            ->whereHas('loan', function ($q) {
+                $q->where('direction', 'repaid');
+            });
+        $this->filterByAccessibleProjectsForLoans($givenReturnedQuery, 'project_id');
+        if ($projectId) {
+            $givenReturnedQuery->where('project_id', $projectId);
+        }
+        $totalGivenReturned = (float) $givenReturnedQuery->sum('amount');
+        $givenRemaining = $totalGiven - $totalGivenReturned;
+
+        // Legacy aliases for older view references.
+        $totalReceived = $totalTaken;
+        $netBalance = $takenRemaining;
 
         $loans = $loanRows
             ->concat($paymentRows)
@@ -1030,8 +1047,13 @@ class ReportController extends Controller
             'projectId',
             'projects',
             'loans',
+            'totalTaken',
+            'totalGiven',
             'totalReceived',
             'totalRepaid',
+            'takenRemaining',
+            'totalGivenReturned',
+            'givenRemaining',
             'netBalance'
         ));
     }
