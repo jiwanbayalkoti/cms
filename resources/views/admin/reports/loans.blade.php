@@ -8,8 +8,9 @@
         <h1 class="text-3xl font-bold text-gray-900">Loans Report</h1>
         <p class="mt-1 text-gray-600 text-sm">Taken vs Given loans with repaid and remaining totals.</p>
     </div>
-    <a href="{{ route('admin.reports.index') }}" class="btn btn-outline-secondary">
-        Back to Reports
+    <a href="{{ route('admin.reports.index') }}" class="btn btn-outline-secondary btn-sm btn-keep-text">
+        <i class="bi bi-arrow-left"></i>
+        <span>Back to Reports</span>
     </a>
 </div>
 
@@ -70,8 +71,9 @@
             </select>
         </div>
         <div class="col-md-2">
-            <button type="submit" class="btn btn-primary btn-sm w-100">
-                Filter
+            <button type="submit" class="btn btn-primary btn-sm btn-keep-text w-100">
+                <i class="bi bi-funnel"></i>
+                <span>Filter</span>
             </button>
         </div>
     </form>

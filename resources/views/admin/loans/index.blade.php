@@ -9,11 +9,13 @@
         <p class="mt-1 text-gray-600 text-sm">Record loan received/repaid separately from Income.</p>
     </div>
     <div class="flex gap-2">
-        <a href="{{ route('admin.reports.loans') }}" class="btn btn-outline-primary">
-            <i class="bi bi-file-earmark-text me-1"></i>Loans Report
+        <a href="{{ route('admin.reports.loans') }}" class="btn btn-outline-primary btn-sm btn-keep-text">
+            <i class="bi bi-file-earmark-text"></i>
+            <span>Loans Report</span>
         </a>
-        <button type="button" class="btn btn-success" onclick="openLoanCrudModal('create', null, event)">
-            <i class="bi bi-plus-circle me-1"></i>Add Loan
+        <button type="button" class="btn btn-success btn-sm btn-keep-text" onclick="openLoanCrudModal('create', null, event)">
+            <i class="bi bi-plus-circle"></i>
+            <span>Add Loan</span>
         </button>
     </div>
 </div>
@@ -113,8 +115,9 @@
             </select>
         </div>
         <div class="col-md-1 d-flex align-items-end">
-            <button type="button" onclick="resetLoanFilters()" class="btn btn-outline-secondary btn-sm w-100">
-                <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+            <button type="button" onclick="resetLoanFilters()" class="btn btn-outline-secondary btn-sm btn-keep-text w-100">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                <span>Reset</span>
             </button>
         </div>
     </form>
