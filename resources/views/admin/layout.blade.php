@@ -2380,6 +2380,69 @@
             }
         }
 
+        window.getCsrfToken = function() {
+            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        };
+
+        /**
+         * Pull a fresh CSRF token and sync it into the meta tag and every open form,
+         * so pages left open past the session lifetime keep working.
+         */
+        window.refreshCsrfToken = async function() {
+            const res = await fetch('{{ route('admin.session.token') }}', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            if (!res.ok) throw new Error('Could not refresh security token.');
+
+            const data = await res.json();
+            if (!data.token) throw new Error('Could not refresh security token.');
+
+            document.querySelector('meta[name="csrf-token"]')?.setAttribute('content', data.token);
+            document.querySelectorAll('input[name="_token"]').forEach(function(input) {
+                input.value = data.token;
+            });
+
+            return data;
+        };
+
+        /**
+         * fetch() wrapper that retries once with a fresh token when the session's
+         * CSRF token has expired (HTTP 419).
+         */
+        window.csrfFetch = async function(url, options) {
+            options = options || {};
+            const send = function() {
+                const opts = Object.assign({}, options, { credentials: 'same-origin' });
+                opts.headers = Object.assign({}, options.headers, { 'X-CSRF-TOKEN': window.getCsrfToken() });
+                return fetch(url, opts);
+            };
+
+            let response = await send();
+            if (response.status !== 419) return response;
+
+            const refreshed = await window.refreshCsrfToken();
+            if (!refreshed.authenticated) {
+                const err = new Error('Your session has expired. Please sign in again.');
+                err.sessionExpired = true;
+                throw err;
+            }
+
+            // FormData bodies are single-use streams, so rebuild before retrying.
+            if (options.body instanceof FormData && options.formElement) {
+                options = Object.assign({}, options, { body: new FormData(options.formElement) });
+            }
+
+            response = await send();
+            if (response.status === 419) {
+                const err = new Error('Your session has expired. Please reload the page and try again.');
+                err.sessionExpired = true;
+                throw err;
+            }
+
+            return response;
+        };
+
         /**
          * Auto-hide flash / status alerts after a few seconds.
          * Works for layout .alert-message and Bootstrap .alert-* on any page.

@@ -392,7 +392,6 @@ window.submitUpload = function (e) {
     const form = e.target;
     const btn = form.querySelector('#upload-submit-btn') || form.querySelector('[type="submit"]');
     const errEl = form.querySelector('#upload-error');
-    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
     const showError = function (msg) {
         if (errEl) {
@@ -416,14 +415,14 @@ window.submitUpload = function (e) {
         btn.textContent = 'Uploading...';
     }
 
-    fetch('{{ route("admin.companies.documents.upload") }}', {
+    window.csrfFetch('{{ route("admin.companies.documents.upload") }}', {
         method: 'POST',
         headers: {
-            'X-CSRF-TOKEN': csrf,
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
         },
-        body: new FormData(form)
+        body: new FormData(form),
+        formElement: form
     })
     .then(async function (r) {
         const data = await r.json().catch(function () { return null; });
@@ -440,6 +439,9 @@ window.submitUpload = function (e) {
     })
     .catch(function (err) {
         showError(err.message || 'An error occurred. Please try again.');
+        if (err.sessionExpired) {
+            setTimeout(function () { window.location.reload(); }, 2500);
+        }
     });
 
     return false;
@@ -517,7 +519,6 @@ window.submitEdit = function (e) {
     const form = e.target;
     const btn = document.getElementById('edit-submit-btn');
     const errEl = document.getElementById('edit-error');
-    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const id = document.getElementById('edit-doc-id').value;
 
     const showError = function (msg) {
@@ -547,14 +548,14 @@ window.submitEdit = function (e) {
         btn.textContent = 'Saving...';
     }
 
-    fetch('/admin/company/documents/' + id, {
+    window.csrfFetch('/admin/company/documents/' + id, {
         method: 'POST',
         headers: {
-            'X-CSRF-TOKEN': csrf,
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
         },
-        body: new FormData(form)
+        body: new FormData(form),
+        formElement: form
     })
     .then(async function (r) {
         const data = await r.json().catch(function () { return null; });
@@ -571,6 +572,9 @@ window.submitEdit = function (e) {
     })
     .catch(function (err) {
         showError(err.message || 'An error occurred. Please try again.');
+        if (err.sessionExpired) {
+            setTimeout(function () { window.location.reload(); }, 2500);
+        }
     });
 
     return false;
@@ -624,13 +628,11 @@ window.deleteDoc = function (el) {
         confirmBtn.addEventListener('click', function () {
             const id = window._deleteDocId;
             if (!id) return;
-            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
             this.disabled = true;
             this.textContent = 'Deleting...';
-            fetch('/admin/company/documents/' + id, {
+            window.csrfFetch('/admin/company/documents/' + id, {
                 method: 'DELETE',
                 headers: {
-                    'X-CSRF-TOKEN': csrf,
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json'
                 }
@@ -645,8 +647,12 @@ window.deleteDoc = function (el) {
                     confirmBtn.textContent = 'Delete';
                 }
             })
-            .catch(function () {
-                alert('An error occurred.');
+            .catch(function (err) {
+                alert(err.message || 'An error occurred.');
+                if (err.sessionExpired) {
+                    window.location.reload();
+                    return;
+                }
                 confirmBtn.disabled = false;
                 confirmBtn.textContent = 'Delete';
             });

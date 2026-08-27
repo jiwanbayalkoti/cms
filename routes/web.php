@@ -88,6 +88,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         ->middleware(['admin'])
         ->name('payment-requests.history.pdf');
     
+    // Lets long-open admin pages recover from an expired CSRF token instead of failing with 419.
+    Route::get('/session/token', function () {
+        return response()->json([
+            'token'         => csrf_token(),
+            'authenticated' => auth()->check(),
+        ]);
+    })->name('session.token');
+
     // Protected Admin Routes
     Route::middleware(['admin', 'site_engineer', 'module_access', 'super_admin_company', 'company_payment', 'activity_log'])->group(function () {
         // Dashboard (Admin only - not accessible to regular users)
