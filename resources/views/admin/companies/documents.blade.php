@@ -13,7 +13,7 @@
         padding: 0.4rem 0.85rem !important;
         gap: 0.35rem;
     }
-    .docs-page .doc-action-btn {
+    .doc-action-btn {
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -29,7 +29,7 @@
         font-size: 1rem !important;
         text-decoration: none !important;
     }
-    .docs-page .doc-action-btn svg {
+    .doc-action-btn svg {
         width: 20px !important;
         height: 20px !important;
         min-width: 20px !important;
@@ -39,31 +39,39 @@
         fill: none !important;
         flex-shrink: 0 !important;
     }
-    .docs-page .doc-action-btn.doc-action-download {
+    .doc-action-btn.doc-action-download {
         color: #2563eb;
         border-color: #93c5fd;
     }
-    .docs-page .doc-action-btn.doc-action-download:hover {
+    .doc-action-btn.doc-action-download:hover {
         background: #eff6ff;
         color: #1d4ed8;
     }
-    .docs-page .doc-action-btn.doc-action-view {
+    .doc-action-btn.doc-action-view {
         color: #4b5563;
         border-color: #d1d5db;
     }
-    .docs-page .doc-action-btn.doc-action-view:hover {
+    .doc-action-btn.doc-action-view:hover {
         background: #f3f4f6;
         color: #111827;
     }
-    .docs-page .doc-action-btn.doc-action-delete {
+    .doc-action-btn.doc-action-edit {
+        color: #b45309;
+        border-color: #fcd34d;
+    }
+    .doc-action-btn.doc-action-edit:hover {
+        background: #fffbeb;
+        color: #92400e;
+    }
+    .doc-action-btn.doc-action-delete {
         color: #dc2626;
         border-color: #fca5a5;
     }
-    .docs-page .doc-action-btn.doc-action-delete:hover {
+    .doc-action-btn.doc-action-delete:hover {
         background: #fef2f2;
         color: #b91c1c;
     }
-    .docs-page .doc-file-icon {
+    .doc-file-icon {
         width: 56px;
         height: 56px;
         display: block;
@@ -83,6 +91,13 @@
                 <option value="{{ $key }}">{{ $label }}</option>
             @endforeach
         </select>
+        <select id="doc-period-filter" class="form-select" style="width: auto; min-width: 170px;">
+            <option value="all">All periods</option>
+            @foreach($periods as $periodKey => $periodLabel)
+                <option value="{{ $periodKey }}">{{ $periodLabel }}</option>
+            @endforeach
+            <option value="none">No period set</option>
+        </select>
         <a href="{{ route('admin.companies.profile') }}" class="btn btn-outline-secondary btn-sm btn-keep-text">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             <span>Back to Profile</span>
@@ -92,8 +107,6 @@
             <span>Upload Document</span>
         </button>
     </div>
-</div>
-
 </div>
 
 {{-- Documents Grid --}}
@@ -114,12 +127,18 @@
         </div>
         <div class="row g-3" id="docs-grid">
             @foreach($documents as $doc)
-                <div class="col-12 col-sm-6 col-lg-4 doc-card-wrap" data-type="{{ $doc->document_type }}" data-id="{{ $doc->id }}">
+                <div class="col-12 col-sm-6 col-lg-4 doc-card-wrap"
+                     data-type="{{ $doc->document_type }}"
+                     data-period="{{ $doc->getPeriodKey() ?? 'none' }}"
+                     data-id="{{ $doc->id }}">
                     <div class="card h-100 shadow-sm border-0">
                         {{-- Preview area --}}
                         <div class="bg-light d-flex align-items-center justify-content-center" style="height:140px; border-radius:0.375rem 0.375rem 0 0; overflow:hidden;">
                             @if($doc->isImage())
-                                <img src="{{ $doc->getUrl() }}" alt="{{ $doc->label }}" class="img-fluid" style="max-height:140px; object-fit:contain; cursor:pointer;" onclick="openPreview('{{ $doc->getUrl() }}','{{ addslashes($doc->label) }}')">
+                                <img src="{{ $doc->getUrl() }}" alt="{{ $doc->label }}" class="img-fluid" style="max-height:140px; object-fit:contain; cursor:pointer;"
+                                     data-doc-url="{{ $doc->getUrl() }}"
+                                     data-doc-label="{{ $doc->label }}"
+                                     onclick="openPreview(this)">
                             @elseif($doc->isPdf())
                                 <a href="{{ $doc->getUrl() }}" target="_blank" class="text-decoration-none text-center p-3">
                                     <svg class="doc-file-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#dc2626" stroke-width="1.5">
@@ -139,7 +158,12 @@
                             @endif
                         </div>
                         <div class="card-body p-3">
-                            <span class="badge bg-indigo-100 text-indigo-700 mb-1" style="background:#e0e7ff;color:#4338ca;font-size:0.7rem;">{{ $doc->getTypeLabel() }}</span>
+                            <div class="d-flex flex-wrap gap-1 mb-1">
+                                <span class="badge" style="background:#e0e7ff;color:#4338ca;font-size:0.7rem;">{{ $doc->getTypeLabel() }}</span>
+                                @if($doc->getPeriodLabel())
+                                    <span class="badge" style="background:#dcfce7;color:#15803d;font-size:0.7rem;">{{ $doc->getPeriodLabel() }}</span>
+                                @endif
+                            </div>
                             <h6 class="card-title mb-1 fw-semibold" style="font-size:0.9rem;">{{ $doc->label }}</h6>
                             <p class="text-muted small mb-1">{{ $doc->original_name }}</p>
                             <p class="text-muted small mb-0">{{ $doc->getFileSizeFormatted() }} &middot; {{ $doc->created_at->format('Y-m-d') }}</p>
@@ -150,19 +174,35 @@
                         </div>
                         <div class="card-footer bg-transparent p-2 d-flex gap-2 justify-content-end">
                             <a href="{{ route('admin.companies.documents.download', $doc) }}" class="doc-action-btn doc-action-download" title="Download">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                             </a>
                             @if($doc->isImage())
-                                <button type="button" class="doc-action-btn doc-action-view" title="View" onclick="openPreview('{{ $doc->getUrl() }}','{{ addslashes($doc->label) }}')">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                <button type="button" class="doc-action-btn doc-action-view" title="View"
+                                        data-doc-url="{{ $doc->getUrl() }}"
+                                        data-doc-label="{{ $doc->label }}"
+                                        onclick="openPreview(this)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                 </button>
                             @elseif($doc->isPdf())
                                 <a href="{{ $doc->getUrl() }}" target="_blank" class="doc-action-btn doc-action-view" title="View PDF">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                 </a>
                             @endif
-                            <button type="button" class="doc-action-btn doc-action-delete" title="Delete" onclick="deleteDoc({{ $doc->id }}, '{{ addslashes($doc->label) }}')">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            <button type="button" class="doc-action-btn doc-action-edit" title="Edit"
+                                    data-doc-id="{{ $doc->id }}"
+                                    data-doc-type="{{ $doc->document_type }}"
+                                    data-doc-label="{{ $doc->label }}"
+                                    data-doc-period="{{ $doc->getPeriodKey() }}"
+                                    data-doc-notes="{{ $doc->notes }}"
+                                    data-doc-filename="{{ $doc->original_name }}"
+                                    onclick="openEditModal(this)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
+                            <button type="button" class="doc-action-btn doc-action-delete" title="Delete"
+                                    data-doc-id="{{ $doc->id }}"
+                                    data-doc-label="{{ $doc->label }}"
+                                    onclick="deleteDoc(this)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             </button>
                         </div>
                     </div>
@@ -201,6 +241,16 @@
                     </div>
 
                     <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            Document Period (Month / Year)
+                            <span class="text-danger d-none" id="doc-period-required">*</span>
+                            <span class="text-muted fw-normal" id="doc-period-optional">(optional)</span>
+                        </label>
+                        <input type="month" name="document_period" id="doc-period" class="form-control">
+                        <div class="form-text" id="doc-period-help">Which month/year this document belongs to.</div>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label fw-semibold">File <span class="text-danger">*</span></label>
                         <input type="file" name="file" id="doc-file" class="form-control" required
                                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx">
@@ -216,6 +266,67 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="upload-submit-btn">
                         <i class="bi bi-upload me-1"></i> Upload
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- Edit Modal --}}
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <form id="editForm" enctype="multipart/form-data" onsubmit="submitEdit(event)">
+                @csrf
+                <input type="hidden" name="document_id" id="edit-doc-id">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalLabel"><i class="bi bi-pencil-square me-2"></i>Edit Document</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="edit-error" class="alert alert-danger d-none"></div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Document Type <span class="text-danger">*</span></label>
+                        <select name="document_type" id="edit-doc-type" class="form-select" required>
+                            @foreach($types as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Label / Name <span class="text-danger">*</span></label>
+                        <input type="text" name="label" id="edit-doc-label" class="form-control" required maxlength="255">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            Document Period (Month / Year)
+                            <span class="text-danger d-none" id="edit-doc-period-required">*</span>
+                            <span class="text-muted fw-normal" id="edit-doc-period-optional">(optional)</span>
+                        </label>
+                        <input type="month" name="document_period" id="edit-doc-period" class="form-control">
+                        <div class="form-text">Which month/year this document belongs to.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Replace File <span class="text-muted fw-normal">(optional)</span></label>
+                        <input type="file" name="file" id="edit-doc-file" class="form-control"
+                               accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx">
+                        <div class="form-text">Current: <span id="edit-current-file" class="fw-semibold"></span>. Leave empty to keep it.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes <span class="text-muted fw-normal">(optional)</span></label>
+                        <textarea name="notes" id="edit-doc-notes" class="form-control" rows="2" maxlength="1000"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="edit-submit-btn">
+                        <i class="bi bi-check2 me-1"></i> Save Changes
                     </button>
                 </div>
             </form>
@@ -259,6 +370,21 @@
 
 @push('scripts')
 <script>
+window.docPeriodRequiredTypes = @json($periodRequiredTypes);
+
+window.applyPeriodRequirement = function (type, inputId, requiredMarkId, optionalMarkId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const required = window.docPeriodRequiredTypes.indexOf(type) !== -1;
+    input.required = required;
+
+    const requiredMark = document.getElementById(requiredMarkId);
+    const optionalMark = document.getElementById(optionalMarkId);
+    if (requiredMark) requiredMark.classList.toggle('d-none', !required);
+    if (optionalMark) optionalMark.classList.toggle('d-none', required);
+};
+
 window.submitUpload = function (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -333,26 +459,138 @@ window.openUploadModal = function () {
         btn.disabled = false;
         btn.textContent = 'Upload';
     }
+    window.applyPeriodRequirement('', 'doc-period', 'doc-period-required', 'doc-period-optional');
     if (modalEl && window.bootstrap) {
         window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 };
 
-window.openPreview = function (url, title) {
+window.openEditModal = function (el) {
+    const doc = {
+        id: el.dataset.docId,
+        document_type: el.dataset.docType,
+        label: el.dataset.docLabel,
+        period: el.dataset.docPeriod,
+        notes: el.dataset.docNotes,
+        original_name: el.dataset.docFilename
+    };
+
+    const form = document.getElementById('editForm');
+    if (form) form.reset();
+
+    const errEl = document.getElementById('edit-error');
+    if (errEl) {
+        errEl.classList.add('d-none');
+        errEl.textContent = '';
+    }
+
+    const btn = document.getElementById('edit-submit-btn');
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+    }
+
+    document.getElementById('edit-doc-id').value = doc.id;
+    document.getElementById('edit-doc-type').value = doc.document_type || '';
+    document.getElementById('edit-doc-label').value = doc.label || '';
+    document.getElementById('edit-doc-period').value = doc.period || '';
+    document.getElementById('edit-doc-notes').value = doc.notes || '';
+    document.getElementById('edit-current-file').textContent = doc.original_name || '—';
+
+    window.applyPeriodRequirement(
+        doc.document_type,
+        'edit-doc-period',
+        'edit-doc-period-required',
+        'edit-doc-period-optional'
+    );
+
+    const modalEl = document.getElementById('editModal');
+    if (modalEl && window.bootstrap) {
+        window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+};
+
+window.submitEdit = function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const form = e.target;
+    const btn = document.getElementById('edit-submit-btn');
+    const errEl = document.getElementById('edit-error');
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const id = document.getElementById('edit-doc-id').value;
+
+    const showError = function (msg) {
+        if (errEl) {
+            errEl.textContent = msg;
+            errEl.classList.remove('d-none');
+        } else {
+            alert(msg);
+        }
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Save Changes';
+        }
+    };
+
+    if (!id) {
+        showError('Missing document reference.');
+        return false;
+    }
+
+    if (errEl) {
+        errEl.classList.add('d-none');
+        errEl.textContent = '';
+    }
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+    }
+
+    fetch('/admin/company/documents/' + id, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': csrf,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        },
+        body: new FormData(form)
+    })
+    .then(async function (r) {
+        const data = await r.json().catch(function () { return null; });
+        if (!data) {
+            throw new Error('Server did not return a valid response.');
+        }
+        if (!r.ok || !data.success) {
+            throw new Error(data.message || 'Update failed.');
+        }
+        return data;
+    })
+    .then(function () {
+        window.location.reload();
+    })
+    .catch(function (err) {
+        showError(err.message || 'An error occurred. Please try again.');
+    });
+
+    return false;
+};
+
+window.openPreview = function (el) {
     const img = document.getElementById('preview-img');
     const titleEl = document.getElementById('preview-title');
     const modalEl = document.getElementById('previewModal');
-    if (img) img.src = url;
-    if (titleEl) titleEl.textContent = title || '';
+    if (img) img.src = el.dataset.docUrl || '';
+    if (titleEl) titleEl.textContent = el.dataset.docLabel || '';
     if (modalEl && window.bootstrap) {
         window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 };
 
-window.deleteDoc = function (id, label) {
-    window._deleteDocId = id;
+window.deleteDoc = function (el) {
+    window._deleteDocId = el.dataset.docId;
     const nameEl = document.getElementById('delete-doc-name');
-    if (nameEl) nameEl.textContent = label || '';
+    if (nameEl) nameEl.textContent = el.dataset.docLabel || '';
     const modalEl = document.getElementById('deleteDocModal');
     if (modalEl && window.bootstrap) {
         window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -368,6 +606,15 @@ window.deleteDoc = function (id, label) {
                 const text = this.options[this.selectedIndex]?.text || '';
                 labelInput.value = text !== '— Select type —' ? text : '';
             }
+            window.applyPeriodRequirement(this.value, 'doc-period', 'doc-period-required', 'doc-period-optional');
+        });
+    }
+
+    const editTypeSelect = document.getElementById('edit-doc-type');
+    if (editTypeSelect && !editTypeSelect.dataset.bound) {
+        editTypeSelect.dataset.bound = '1';
+        editTypeSelect.addEventListener('change', function () {
+            window.applyPeriodRequirement(this.value, 'edit-doc-period', 'edit-doc-period-required', 'edit-doc-period-optional');
         });
     }
 
@@ -406,25 +653,35 @@ window.deleteDoc = function (id, label) {
         });
     }
 
-    const filterSelect = document.getElementById('doc-type-filter');
-    if (filterSelect && !filterSelect.dataset.bound) {
-        filterSelect.dataset.bound = '1';
-        filterSelect.addEventListener('change', function () {
-            const type = this.value;
-            let visible = 0;
-            const cards = document.querySelectorAll('.doc-card-wrap');
-            cards.forEach(function (c) {
-                const show = type === 'all' || c.dataset.type === type;
-                c.style.display = show ? '' : 'none';
-                if (show) visible++;
-            });
-            const emptyState = document.getElementById('empty-state');
-            if (emptyState && cards.length > 0) {
-                if (visible === 0) emptyState.classList.remove('d-none');
-                else emptyState.classList.add('d-none');
-            }
+    const typeFilter = document.getElementById('doc-type-filter');
+    const periodFilter = document.getElementById('doc-period-filter');
+
+    const applyFilters = function () {
+        const type = typeFilter ? typeFilter.value : 'all';
+        const period = periodFilter ? periodFilter.value : 'all';
+        const cards = document.querySelectorAll('.doc-card-wrap');
+        let visible = 0;
+
+        cards.forEach(function (c) {
+            const typeMatch = type === 'all' || c.dataset.type === type;
+            const periodMatch = period === 'all' || c.dataset.period === period;
+            const show = typeMatch && periodMatch;
+            c.style.display = show ? '' : 'none';
+            if (show) visible++;
         });
-    }
+
+        const emptyState = document.getElementById('empty-state');
+        if (emptyState && cards.length > 0) {
+            emptyState.classList.toggle('d-none', visible !== 0);
+        }
+    };
+
+    [typeFilter, periodFilter].forEach(function (select) {
+        if (select && !select.dataset.bound) {
+            select.dataset.bound = '1';
+            select.addEventListener('change', applyFilters);
+        }
+    });
 })();
 </script>
 @endpush

@@ -12,11 +12,24 @@ class CompanyDocument extends Model
         'uploaded_by',
         'document_type',
         'label',
+        'document_date',
         'file_path',
         'original_name',
         'mime_type',
         'file_size',
         'notes',
+    ];
+
+    protected $casts = [
+        'document_date' => 'date',
+    ];
+
+    /**
+     * Document types that must be tied to a specific month/year.
+     */
+    public static array $periodRequiredTypes = [
+        'audit_report',
+        'tax_clearance',
     ];
 
     public static array $types = [
@@ -43,6 +56,24 @@ class CompanyDocument extends Model
     public function getTypeLabel(): string
     {
         return self::$types[$this->document_type] ?? ucfirst(str_replace('_', ' ', $this->document_type));
+    }
+
+    public static function requiresPeriod(?string $type): bool
+    {
+        return in_array($type, self::$periodRequiredTypes, true);
+    }
+
+    /**
+     * Period as "YYYY-MM" for form inputs and filtering.
+     */
+    public function getPeriodKey(): ?string
+    {
+        return $this->document_date?->format('Y-m');
+    }
+
+    public function getPeriodLabel(): ?string
+    {
+        return $this->document_date?->format('M Y');
     }
 
     public function getUrl(): string

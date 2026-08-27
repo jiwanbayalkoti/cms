@@ -455,6 +455,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/company/letterhead/assets', [CompanyController::class, 'letterheadAssetStore'])->name('companies.letterhead.assets.store');
                 Route::delete('/company/letterhead/assets/{asset}', [CompanyController::class, 'letterheadAssetDestroy'])->name('companies.letterhead.assets.destroy');
                 Route::post('/company/documents', [CompanyController::class, 'documentsUpload'])->name('companies.documents.upload');
+                Route::post('/company/documents/{document}', [CompanyController::class, 'documentsUpdate'])->name('companies.documents.update');
                 Route::delete('/company/documents/{document}', [CompanyController::class, 'documentsDestroy'])->name('companies.documents.destroy');
             });
         });

@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\CompanyLetterheadAsset;
 use App\Models\CompanyLetterheadExport;
 use App\Support\CompanyContext;
+use Carbon\Carbon;
 use App\Services\CompanyBackupService;
 use App\Services\CompanyDataScopeService;
 use App\Services\CompanyPaymentLockService;
@@ -17,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 use App\Models\CompanyDocument;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -1423,7 +1425,21 @@ class CompanyController extends Controller
         $documents = $company->documents()->with('uploader')->get();
         $types     = CompanyDocument::$types;
 
-        return view('admin.companies.documents', compact('company', 'documents', 'types'));
+        $periods = $documents
+            ->filter(fn ($doc) => $doc->document_date !== null)
+            ->sortByDesc('document_date')
+            ->mapWithKeys(fn ($doc) => [$doc->getPeriodKey() => $doc->getPeriodLabel()])
+            ->all();
+
+        $periodRequiredTypes = CompanyDocument::$periodRequiredTypes;
+
+        return view('admin.companies.documents', compact(
+            'company',
+            'documents',
+            'types',
+            'periods',
+            'periodRequiredTypes'
+        ));
     }
 
     public function documentsUpload(Request $request)
@@ -1435,12 +1451,23 @@ class CompanyController extends Controller
         $company = Company::findOrFail($companyId);
 
         try {
-            $validated = $request->validate([
-                'document_type' => 'required|string|max:100',
-                'label'         => 'required|string|max:255',
-                'file'          => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx',
-                'notes'         => 'nullable|string|max:1000',
-            ]);
+            $validated = $request->validate(
+                [
+                    'document_type'   => 'required|string|max:100',
+                    'label'           => 'required|string|max:255',
+                    'document_period' => [
+                        'nullable',
+                        'regex:/^\d{4}-(0[1-9]|1[0-2])$/',
+                        Rule::requiredIf(CompanyDocument::requiresPeriod($request->input('document_type'))),
+                    ],
+                    'file'            => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx',
+                    'notes'           => 'nullable|string|max:1000',
+                ],
+                [
+                    'document_period.required' => 'Please select which month/year this document belongs to.',
+                    'document_period.regex'    => 'Document period must be a valid month (YYYY-MM).',
+                ]
+            );
         } catch (\Illuminate\Validation\ValidationException $e) {
             $messages = collect($e->errors())->flatten()->unique()->values()->all();
 
@@ -1459,6 +1486,7 @@ class CompanyController extends Controller
                 'uploaded_by'   => auth()->id(),
                 'document_type' => $validated['document_type'],
                 'label'         => $validated['label'],
+                'document_date' => $this->resolveDocumentDate($validated['document_period'] ?? null),
                 'file_path'     => $path,
                 'original_name' => $file->getClientOriginalName(),
                 'mime_type'     => $file->getMimeType(),
@@ -1482,6 +1510,90 @@ class CompanyController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Could not save the file. Please try again.',
+            ], 500);
+        }
+    }
+
+    public function documentsUpdate(Request $request, CompanyDocument $document)
+    {
+        $companyId = CompanyContext::getActiveCompanyId();
+        if ((int) $document->company_id !== (int) $companyId && !auth()->user()->isSuperAdmin()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized.'], 403);
+        }
+
+        try {
+            $validated = $request->validate(
+                [
+                    'document_type'   => 'required|string|max:100',
+                    'label'           => 'required|string|max:255',
+                    'document_period' => [
+                        'nullable',
+                        'regex:/^\d{4}-(0[1-9]|1[0-2])$/',
+                        Rule::requiredIf(CompanyDocument::requiresPeriod($request->input('document_type'))),
+                    ],
+                    'file'            => 'nullable|file|max:20480|mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx',
+                    'notes'           => 'nullable|string|max:1000',
+                ],
+                [
+                    'document_period.required' => 'Please select which month/year this document belongs to.',
+                    'document_period.regex'    => 'Document period must be a valid month (YYYY-MM).',
+                ]
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $messages = collect($e->errors())->flatten()->unique()->values()->all();
+
+            return response()->json([
+                'success' => false,
+                'message' => implode(' ', $messages) ?: 'Validation failed.',
+                'errors'  => $e->errors(),
+            ], 422);
+        }
+
+        try {
+            $attributes = [
+                'document_type' => $validated['document_type'],
+                'label'         => $validated['label'],
+                'document_date' => $this->resolveDocumentDate($validated['document_period'] ?? null),
+                'notes'         => $validated['notes'] ?? null,
+            ];
+
+            if ($request->hasFile('file')) {
+                $oldPath = $document->file_path;
+                $file    = $request->file('file');
+                $path    = $file->store("company_documents/{$document->company_id}", 'public');
+
+                $attributes += [
+                    'file_path'     => $path,
+                    'original_name' => $file->getClientOriginalName(),
+                    'mime_type'     => $file->getMimeType(),
+                    'file_size'     => $file->getSize(),
+                ];
+
+                $document->update($attributes);
+
+                if ($oldPath && $oldPath !== $path) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            } else {
+                $document->update($attributes);
+            }
+
+            $document->load('uploader');
+
+            return response()->json([
+                'success'  => true,
+                'message'  => 'Document updated successfully.',
+                'document' => $this->documentJson($document),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Company document update failed: '.$e->getMessage(), [
+                'document_id' => $document->id,
+                'user_id'     => auth()->id(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not update the document. Please try again.',
             ], 500);
         }
     }
@@ -1514,6 +1626,22 @@ class CompanyController extends Controller
         return $disk->download($document->file_path, $document->original_name);
     }
 
+    /**
+     * Convert a "YYYY-MM" period into the first day of that month.
+     */
+    private function resolveDocumentDate(?string $period): ?string
+    {
+        if (!$period) {
+            return null;
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m', $period)->startOfMonth()->toDateString();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     private function documentJson(CompanyDocument $doc): array
     {
         return [
@@ -1521,6 +1649,8 @@ class CompanyController extends Controller
             'document_type' => $doc->document_type,
             'type_label'    => $doc->getTypeLabel(),
             'label'         => $doc->label,
+            'period'        => $doc->getPeriodKey(),
+            'period_label'  => $doc->getPeriodLabel(),
             'original_name' => $doc->original_name,
             'file_size'     => $doc->getFileSizeFormatted(),
             'mime_type'     => $doc->mime_type,
