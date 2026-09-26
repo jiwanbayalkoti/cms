@@ -24,7 +24,7 @@ class AdvancePaymentExport implements FromCollection, WithHeadings, WithMapping,
     public function collection()
     {
         if ($this->collection === null) {
-            $this->collection = $this->query->with(['project', 'supplier', 'subcontractor', 'staff', 'bankAccount'])
+            $this->collection = $this->query->with(['project', 'supplier', 'subcontractor', 'staff', 'worker', 'bankAccount'])
                 ->orderBy('payment_date', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -59,17 +59,21 @@ class AdvancePaymentExport implements FromCollection, WithHeadings, WithMapping,
             'material_payment' => 'Material Payment',
         ];
 
-        $beneficiaryType = $payment->staff_id
-            ? 'staff'
-            : ($payment->subcontractor_id ? 'subcontractor' : ($payment->beneficiary_type ?: 'supplier'));
+        $beneficiaryType = $payment->worker_id
+            ? 'worker'
+            : ($payment->staff_id
+                ? 'staff'
+                : ($payment->subcontractor_id ? 'subcontractor' : ($payment->beneficiary_type ?: 'supplier')));
         $beneficiaryName = match ($beneficiaryType) {
             'subcontractor' => $payment->subcontractor?->name ?? '—',
             'staff' => $payment->staff?->name ?? '—',
+            'worker' => $payment->worker?->name ?? '—',
             default => $payment->supplier?->name ?? '—',
         };
         $beneficiaryTypeLabel = match ($beneficiaryType) {
             'subcontractor' => 'Sub-contractor',
             'staff' => 'Staff',
+            'worker' => 'Worker',
             default => 'Supplier',
         };
 

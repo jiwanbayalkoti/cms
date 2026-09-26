@@ -8,6 +8,7 @@ use App\Models\Traits\CompanyScoped;
 use App\Models\Traits\ProjectScoped;
 use App\Models\Subcontractor;
 use App\Models\Staff;
+use App\Models\Worker;
 
 class AdvancePayment extends Model
 {
@@ -21,6 +22,7 @@ class AdvancePayment extends Model
         'supplier_id',
         'subcontractor_id',
         'staff_id',
+        'worker_id',
         'amount',
         'payment_date',
         'bank_account_id',
@@ -74,6 +76,11 @@ class AdvancePayment extends Model
     public function staff()
     {
         return $this->belongsTo(Staff::class);
+    }
+
+    public function worker()
+    {
+        return $this->belongsTo(Worker::class);
     }
 
     /**

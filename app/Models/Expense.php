@@ -24,6 +24,8 @@ class Expense extends Model
         'subcategory_id',
         'expense_type_id',
         'staff_id',
+        'worker_id',
+        'worker_payment_id',
         'item_name',
         'description',
         'amount',
@@ -54,6 +56,16 @@ class Expense extends Model
     public function staff()
     {
         return $this->belongsTo(Staff::class);
+    }
+
+    public function worker()
+    {
+        return $this->belongsTo(Worker::class);
+    }
+
+    public function workerPayment()
+    {
+        return $this->belongsTo(WorkerPayment::class);
     }
 
     public function company()
@@ -152,6 +164,9 @@ class Expense extends Model
         }
         if ($this->subcontractor_id) {
             return ['name' => 'Sub-contractor', 'class' => 'bg-teal-100 text-teal-800'];
+        }
+        if ($this->worker_id || $this->worker_payment_id) {
+            return ['name' => 'Worker Wages', 'class' => 'bg-cyan-100 text-cyan-800'];
         }
         if ($this->expenseType) {
             return ['name' => $this->expenseType->name, 'class' => 'bg-gray-100 text-gray-800'];

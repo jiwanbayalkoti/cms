@@ -10,6 +10,7 @@ use App\Models\Income;
 use App\Models\Expense;
 use App\Models\Category;
 use App\Models\Staff;
+use App\Models\Worker;
 use App\Models\Loan;
 use App\Models\LoanPayment;
 use App\Models\MaterialName;
@@ -701,6 +702,87 @@ class ReportController extends Controller
             'paymentsByStaff',
             'totalByStaff',
             'staff'
+        ));
+    }
+
+    /**
+     * Worker payment report (wages from expenses linked to workers).
+     */
+    public function workerPaymentReport(Request $request)
+    {
+        $startDate = $request->get('start_date', date('Y-01-01'));
+        $endDate = $request->get('end_date', date('Y-m-d'));
+        $workerId = $request->get('worker_id');
+        $projectId = $request->get('project_id');
+        $wageType = $request->get('wage_type');
+        $companyId = CompanyContext::getActiveCompanyId();
+
+        $workerWageType = \App\Models\ExpenseType::where('name', 'Worker Wages')->value('id');
+
+        $query = Expense::with(['worker', 'project', 'expenseType', 'workerPayment'])
+            ->where('expenses.company_id', $companyId)
+            ->whereBetween('expenses.date', [$startDate, $endDate])
+            ->where(function ($q) use ($workerWageType) {
+                $q->whereNotNull('worker_id')
+                    ->orWhereNotNull('worker_payment_id');
+                if ($workerWageType) {
+                    $q->orWhere('expense_type_id', $workerWageType);
+                }
+            });
+
+        $this->filterByAccessibleProjects($query, 'expenses.project_id');
+
+        if ($workerId) {
+            $query->where('worker_id', $workerId);
+        }
+        if ($projectId) {
+            $query->where('project_id', $projectId);
+        }
+        if ($wageType) {
+            $query->whereHas('workerPayment', function ($q) use ($wageType) {
+                $q->where('wage_type', $wageType);
+            });
+        }
+
+        $totalPayments = (clone $query)->sum('amount');
+        $payments = $query->orderBy('date', 'desc')->paginate(15)->withQueryString();
+
+        $totalByWorkerQuery = Expense::query()
+            ->where('expenses.company_id', $companyId)
+            ->whereBetween('expenses.date', [$startDate, $endDate])
+            ->whereNotNull('expenses.worker_id');
+        $this->filterByAccessibleProjects($totalByWorkerQuery, 'expenses.project_id');
+        if ($projectId) {
+            $totalByWorkerQuery->where('expenses.project_id', $projectId);
+        }
+        if ($workerId) {
+            $totalByWorkerQuery->where('expenses.worker_id', $workerId);
+        }
+        if ($wageType) {
+            $totalByWorkerQuery->join('worker_payments', 'expenses.worker_payment_id', '=', 'worker_payments.id')
+                ->where('worker_payments.wage_type', $wageType);
+        }
+        $totalByWorker = $totalByWorkerQuery
+            ->join('workers', 'expenses.worker_id', '=', 'workers.id')
+            ->select('workers.name', 'workers.wage_type', DB::raw('SUM(expenses.amount) as total'))
+            ->groupBy('workers.id', 'workers.name', 'workers.wage_type')
+            ->orderByDesc('total')
+            ->get();
+
+        $workers = Worker::where('company_id', $companyId)->where('is_active', true)->orderBy('name')->get();
+        $projects = $this->getAccessibleProjects();
+
+        return view('admin.reports.worker-payment', compact(
+            'startDate',
+            'endDate',
+            'workerId',
+            'projectId',
+            'wageType',
+            'projects',
+            'payments',
+            'totalPayments',
+            'totalByWorker',
+            'workers'
         ));
     }
 

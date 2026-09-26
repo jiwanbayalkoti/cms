@@ -171,12 +171,16 @@
                             <td>{{ $payment->project->name ?? 'N/A' }}</td>
                             <td>
                                 @php
-                                    $beneficiaryType = $payment->staff_id ? 'staff' : ($payment->subcontractor_id ? 'subcontractor' : ($payment->beneficiary_type ?: 'supplier'));
+                                    $beneficiaryType = $payment->worker_id
+                                        ? 'worker'
+                                        : ($payment->staff_id ? 'staff' : ($payment->subcontractor_id ? 'subcontractor' : ($payment->beneficiary_type ?: 'supplier')));
                                 @endphp
                                 @if($beneficiaryType === 'subcontractor')
                                     {{ $payment->subcontractor->name ?? 'N/A' }} <span class="badge bg-secondary ms-1">Sub-contractor</span>
                                 @elseif($beneficiaryType === 'staff')
                                     {{ $payment->staff->name ?? 'N/A' }} <span class="badge bg-primary ms-1">Staff</span>
+                                @elseif($beneficiaryType === 'worker')
+                                    {{ $payment->worker->name ?? 'N/A' }} <span class="badge bg-success ms-1">Worker</span>
                                 @else
                                     {{ $payment->supplier->name ?? 'N/A' }} <span class="badge bg-light text-dark border ms-1">Supplier</span>
                                 @endif
@@ -191,7 +195,7 @@
                                     <button onclick="openEditAdvancePaymentModal({{ $payment->id }})" class="btn btn-sm btn-outline-warning" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button onclick="showDeleteAdvancePaymentConfirmation({{ $payment->id }}, '{{ addslashes($payment->staff->name ?? $payment->subcontractor->name ?? $payment->supplier->name ?? 'N/A') }}')" class="btn btn-sm btn-outline-danger" title="Delete">
+                                    <button onclick="showDeleteAdvancePaymentConfirmation({{ $payment->id }}, '{{ addslashes($payment->worker->name ?? $payment->staff->name ?? $payment->subcontractor->name ?? $payment->supplier->name ?? 'N/A') }}')" class="btn btn-sm btn-outline-danger" title="Delete">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
@@ -249,6 +253,7 @@
                             <option value="supplier">Supplier</option>
                             <option value="subcontractor">Sub-contractor</option>
                             <option value="staff">Staff</option>
+                            <option value="worker">Worker</option>
                         </select>
                         <div class="field-error text-danger small mt-1" data-field="beneficiary_type" style="display: none;"></div>
                     </div>
@@ -261,11 +266,13 @@
                         <div class="field-error text-danger small mt-1" data-field="supplier_id" style="display: none;"></div>
                         <div class="field-error text-danger small mt-1" data-field="subcontractor_id" style="display: none;"></div>
                         <div class="field-error text-danger small mt-1" data-field="staff_id" style="display: none;"></div>
+                        <div class="field-error text-danger small mt-1" data-field="worker_id" style="display: none;"></div>
                     </div>
                 </div>
                 <input type="hidden" name="supplier_id" id="supplier_id">
                 <input type="hidden" name="subcontractor_id" id="subcontractor_id">
                 <input type="hidden" name="staff_id" id="staff_id">
+                <input type="hidden" name="worker_id" id="worker_id">
                 
                 <div class="card mb-4">
                     <div class="card-header">
@@ -382,6 +389,7 @@ let deleteAdvancePaymentId = null;
 let modalSuppliers = [];
 let modalSubcontractors = [];
 let modalStaff = [];
+let modalWorkers = [];
 
 if (typeof showNotification !== 'function') {
     window.showNotification = function(message, type) {
@@ -393,26 +401,57 @@ if (typeof showNotification !== 'function') {
 function getBeneficiaryLabel(type) {
     if (type === 'subcontractor') return 'Sub-contractor';
     if (type === 'staff') return 'Staff';
+    if (type === 'worker') return 'Worker';
     return 'Supplier';
 }
 
 function getBeneficiaryBadge(type) {
     if (type === 'subcontractor') return ' <span class="badge bg-secondary ms-1">Sub-contractor</span>';
     if (type === 'staff') return ' <span class="badge bg-primary ms-1">Staff</span>';
+    if (type === 'worker') return ' <span class="badge bg-success ms-1">Worker</span>';
     return ' <span class="badge bg-light text-dark border ms-1">Supplier</span>';
 }
 
 function getBeneficiaryType(payment) {
-    return payment.staff_id ? 'staff' : (payment.subcontractor_id ? 'subcontractor' : (payment.beneficiary_type || 'supplier'));
+    if (payment.worker_id || payment.beneficiary_type === 'worker') return 'worker';
+    if (payment.staff_id) return 'staff';
+    if (payment.subcontractor_id) return 'subcontractor';
+    return payment.beneficiary_type || 'supplier';
+}
+
+function beneficiaryList(type) {
+    if (type === 'subcontractor') return modalSubcontractors;
+    if (type === 'staff') return modalStaff;
+    if (type === 'worker') return modalWorkers;
+    return modalSuppliers;
+}
+
+function syncBeneficiaryHiddenIds(type, selectedId) {
+    const supplierIdInput = document.getElementById('supplier_id');
+    const subcontractorIdInput = document.getElementById('subcontractor_id');
+    const staffIdInput = document.getElementById('staff_id');
+    const workerIdInput = document.getElementById('worker_id');
+    supplierIdInput.value = '';
+    subcontractorIdInput.value = '';
+    staffIdInput.value = '';
+    workerIdInput.value = '';
+    if (type === 'subcontractor') subcontractorIdInput.value = selectedId || '';
+    else if (type === 'staff') staffIdInput.value = selectedId || '';
+    else if (type === 'worker') workerIdInput.value = selectedId || '';
+    else supplierIdInput.value = selectedId || '';
+}
+
+function beneficiaryNameFromPayment(payment, type) {
+    if (type === 'subcontractor') return payment.subcontractor ? payment.subcontractor.name : 'N/A';
+    if (type === 'staff') return payment.staff ? payment.staff.name : 'N/A';
+    if (type === 'worker') return payment.worker ? payment.worker.name : 'N/A';
+    return payment.supplier ? payment.supplier.name : 'N/A';
 }
 
 function updateBeneficiaryDropdown(selectedType = 'supplier', selectedId = '') {
     const beneficiaryLabel = document.getElementById('beneficiary_label');
     const beneficiarySelect = document.getElementById('beneficiary_id');
-    const supplierIdInput = document.getElementById('supplier_id');
-    const subcontractorIdInput = document.getElementById('subcontractor_id');
-    const staffIdInput = document.getElementById('staff_id');
-    const list = selectedType === 'subcontractor' ? modalSubcontractors : (selectedType === 'staff' ? modalStaff : modalSuppliers);
+    const list = beneficiaryList(selectedType);
     const label = getBeneficiaryLabel(selectedType);
 
     beneficiaryLabel.innerHTML = `${label} <span class="text-danger">*</span>`;
@@ -423,46 +462,19 @@ function updateBeneficiaryDropdown(selectedType = 'supplier', selectedId = '') {
         beneficiarySelect.innerHTML += `<option value="${item.id}" ${selected}>${item.name}</option>`;
     });
 
-    if (selectedType === 'subcontractor') {
-        supplierIdInput.value = '';
-        subcontractorIdInput.value = selectedId || '';
-        staffIdInput.value = '';
-    } else if (selectedType === 'staff') {
-        supplierIdInput.value = '';
-        subcontractorIdInput.value = '';
-        staffIdInput.value = selectedId || '';
-    } else {
-        supplierIdInput.value = selectedId || '';
-        subcontractorIdInput.value = '';
-        staffIdInput.value = '';
-    }
+    syncBeneficiaryHiddenIds(selectedType, selectedId);
 }
 
 function bindBeneficiaryInputs() {
     const beneficiaryTypeSelect = document.getElementById('beneficiary_type');
     const beneficiarySelect = document.getElementById('beneficiary_id');
-    const supplierIdInput = document.getElementById('supplier_id');
-    const subcontractorIdInput = document.getElementById('subcontractor_id');
-    const staffIdInput = document.getElementById('staff_id');
 
     beneficiaryTypeSelect.onchange = function() {
         updateBeneficiaryDropdown(this.value, '');
     };
 
     beneficiarySelect.onchange = function() {
-        if (beneficiaryTypeSelect.value === 'subcontractor') {
-            supplierIdInput.value = '';
-            subcontractorIdInput.value = this.value || '';
-            staffIdInput.value = '';
-        } else if (beneficiaryTypeSelect.value === 'staff') {
-            supplierIdInput.value = '';
-            subcontractorIdInput.value = '';
-            staffIdInput.value = this.value || '';
-        } else {
-            supplierIdInput.value = this.value || '';
-            subcontractorIdInput.value = '';
-            staffIdInput.value = '';
-        }
+        syncBeneficiaryHiddenIds(beneficiaryTypeSelect.value, this.value || '');
     };
 }
 
@@ -500,6 +512,7 @@ function openCreateAdvancePaymentModal() {
         modalSuppliers = data.suppliers || [];
         modalSubcontractors = data.subcontractors || [];
         modalStaff = data.staff || [];
+        modalWorkers = data.workers || [];
 
         // Populate payment types
         const paymentTypeSelect = document.getElementById('payment_type');
@@ -578,10 +591,13 @@ function openEditAdvancePaymentModal(id) {
         modalSuppliers = formData.suppliers || [];
         modalSubcontractors = formData.subcontractors || [];
         modalStaff = formData.staff || [];
+        modalWorkers = formData.workers || [];
         const beneficiaryType = getBeneficiaryType(payment);
         const selectedBeneficiaryId = beneficiaryType === 'subcontractor'
             ? payment.subcontractor_id
-            : (beneficiaryType === 'staff' ? payment.staff_id : payment.supplier_id);
+            : (beneficiaryType === 'staff'
+                ? payment.staff_id
+                : (beneficiaryType === 'worker' ? payment.worker_id : payment.supplier_id));
         
         // Populate payment types
         const paymentTypeSelect = document.getElementById('payment_type');
@@ -632,6 +648,7 @@ function closeAdvancePaymentModal() {
     document.getElementById('supplier_id').value = '';
     document.getElementById('subcontractor_id').value = '';
     document.getElementById('staff_id').value = '';
+    document.getElementById('worker_id').value = '';
 }
 
 function openViewAdvancePaymentModal(id) {
@@ -673,7 +690,7 @@ function openViewAdvancePaymentModal(id) {
                                 </tr>
                                 <tr>
                                     <th>Beneficiary:</th>
-                                    <td><strong>${p.beneficiary_type === 'subcontractor' ? p.subcontractor : (p.beneficiary_type === 'staff' ? p.staff : p.supplier)}</strong>${getBeneficiaryBadge(p.beneficiary_type)}</td>
+                                    <td><strong>${p.beneficiary_type === 'subcontractor' ? p.subcontractor : (p.beneficiary_type === 'staff' ? p.staff : (p.beneficiary_type === 'worker' ? p.worker : p.supplier))}</strong>${getBeneficiaryBadge(p.beneficiary_type)}</td>
                                 </tr>
                                 <tr>
                                     <th>Payment Amount:</th>
@@ -804,24 +821,7 @@ document.getElementById('advancePaymentForm').addEventListener('submit', functio
     const form = this;
     const beneficiaryType = document.getElementById('beneficiary_type').value;
     const beneficiaryId = document.getElementById('beneficiary_id').value;
-    const supplierIdInput = document.getElementById('supplier_id');
-    const subcontractorIdInput = document.getElementById('subcontractor_id');
-    const staffIdInput = document.getElementById('staff_id');
-
-    // Always sync hidden ids just before submit (do not rely only on onchange handlers).
-    if (beneficiaryType === 'subcontractor') {
-        supplierIdInput.value = '';
-        subcontractorIdInput.value = beneficiaryId || '';
-        staffIdInput.value = '';
-    } else if (beneficiaryType === 'staff') {
-        supplierIdInput.value = '';
-        subcontractorIdInput.value = '';
-        staffIdInput.value = beneficiaryId || '';
-    } else {
-        supplierIdInput.value = beneficiaryId || '';
-        subcontractorIdInput.value = '';
-        staffIdInput.value = '';
-    }
+    syncBeneficiaryHiddenIds(beneficiaryType, beneficiaryId);
 
     const formData = new FormData(form);
     const submitBtn = document.getElementById('advancePaymentSubmitBtn');
@@ -830,7 +830,9 @@ document.getElementById('advancePaymentForm').addEventListener('submit', functio
     const paymentId = document.getElementById('advancePaymentId').value;
 
     if (!beneficiaryId) {
-        const beneficiaryField = beneficiaryType === 'subcontractor' ? 'subcontractor_id' : (beneficiaryType === 'staff' ? 'staff_id' : 'supplier_id');
+        const beneficiaryField = beneficiaryType === 'subcontractor'
+            ? 'subcontractor_id'
+            : (beneficiaryType === 'staff' ? 'staff_id' : (beneficiaryType === 'worker' ? 'worker_id' : 'supplier_id'));
         const errorEl = document.querySelector(`.field-error[data-field="${beneficiaryField}"]`);
         if (errorEl) {
             errorEl.textContent = `Please select ${getBeneficiaryLabel(beneficiaryType).toLowerCase()}.`;
@@ -913,11 +915,7 @@ function addAdvancePaymentRow(payment) {
     const paymentMethod = payment.payment_method ? ucfirst(payment.payment_method.replace(/_/g, ' ')) : 'N/A';
     
     const beneficiaryType = getBeneficiaryType(payment);
-    const beneficiaryName = beneficiaryType === 'subcontractor'
-        ? (payment.subcontractor ? payment.subcontractor.name : 'N/A')
-        : (beneficiaryType === 'staff'
-            ? (payment.staff ? payment.staff.name : 'N/A')
-            : (payment.supplier ? payment.supplier.name : 'N/A'));
+    const beneficiaryName = beneficiaryNameFromPayment(payment, beneficiaryType);
     const beneficiaryBadge = getBeneficiaryBadge(beneficiaryType);
     const escapedBeneficiaryName = (beneficiaryName || 'N/A').replace(/'/g, "\\'");
 
@@ -966,11 +964,7 @@ function updateAdvancePaymentRow(payment) {
     
     const serial = Array.from(document.querySelectorAll('#advancePaymentsTableBody tr[data-advance-payment-id]')).findIndex(r => r.getAttribute('data-advance-payment-id') == payment.id) + 1;
     const beneficiaryType = getBeneficiaryType(payment);
-    const beneficiaryName = beneficiaryType === 'subcontractor'
-        ? (payment.subcontractor ? payment.subcontractor.name : 'N/A')
-        : (beneficiaryType === 'staff'
-            ? (payment.staff ? payment.staff.name : 'N/A')
-            : (payment.supplier ? payment.supplier.name : 'N/A'));
+    const beneficiaryName = beneficiaryNameFromPayment(payment, beneficiaryType);
     const beneficiaryBadge = getBeneficiaryBadge(beneficiaryType);
     const escapedBeneficiaryName = (beneficiaryName || 'N/A').replace(/'/g, "\\'");
 

@@ -10,6 +10,9 @@ use App\Http\Controllers\Admin\SubcategoryController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\SubcontractorController;
 use App\Http\Controllers\Admin\PositionController;
+use App\Http\Controllers\Admin\WorkerController;
+use App\Http\Controllers\Admin\AttendanceController;
+use App\Http\Controllers\Admin\WorkerPaymentController;
 use App\Http\Controllers\Admin\ProjectController;
 use App\Http\Controllers\Admin\ConstructionMaterialController;
 use App\Http\Controllers\Admin\MaterialCategoryController;
@@ -173,6 +176,40 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::put('positions/{position}', [PositionController::class, 'update'])->name('positions.update');
                 Route::patch('positions/{position}', [PositionController::class, 'update']);
                 Route::delete('positions/{position}', [PositionController::class, 'destroy'])->name('positions.destroy');
+            });
+
+            // Workers CRUD
+            Route::get('workers', [WorkerController::class, 'index'])->name('workers.index');
+            Route::get('workers/create', [WorkerController::class, 'create'])->name('workers.create');
+            Route::get('workers/{worker}', [WorkerController::class, 'show'])->name('workers.show');
+            Route::get('workers/{worker}/edit', [WorkerController::class, 'edit'])->name('workers.edit');
+            Route::middleware(['throttle:forms'])->group(function () {
+                Route::post('workers', [WorkerController::class, 'store'])->name('workers.store');
+                Route::put('workers/{worker}', [WorkerController::class, 'update'])->name('workers.update');
+                Route::patch('workers/{worker}', [WorkerController::class, 'update']);
+                Route::delete('workers/{worker}', [WorkerController::class, 'destroy'])->name('workers.destroy');
+            });
+            Route::post('workers/validate', [WorkerController::class, 'validateWorker'])->name('workers.validate');
+            Route::post('workers/{worker}/validate', [WorkerController::class, 'validateWorker'])->name('workers.validate.edit');
+
+            // Attendance
+            Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+            Route::get('attendance/export', [AttendanceController::class, 'export'])->name('attendance.export');
+            Route::get('attendance/history', [AttendanceController::class, 'history'])->name('attendance.history');
+            Route::middleware(['throttle:forms'])->group(function () {
+                Route::post('attendance', [AttendanceController::class, 'store'])->name('attendance.store');
+                Route::post('attendance/cell', [AttendanceController::class, 'updateCell'])->name('attendance.cell');
+                Route::post('attendance/mark-column', [AttendanceController::class, 'markColumn'])->name('attendance.mark-column');
+            });
+
+            // Worker Payments
+            Route::get('worker-payments', [WorkerPaymentController::class, 'index'])->name('worker-payments.index');
+            Route::get('worker-payments/create', [WorkerPaymentController::class, 'create'])->name('worker-payments.create');
+            Route::post('worker-payments/calculate', [WorkerPaymentController::class, 'calculate'])->name('worker-payments.calculate');
+            Route::get('worker-payments/{workerPayment}', [WorkerPaymentController::class, 'show'])->name('worker-payments.show');
+            Route::middleware(['throttle:forms'])->group(function () {
+                Route::post('worker-payments', [WorkerPaymentController::class, 'store'])->name('worker-payments.store');
+                Route::delete('worker-payments/{workerPayment}', [WorkerPaymentController::class, 'destroy'])->name('worker-payments.destroy');
             });
         });
         
@@ -442,6 +479,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/reports/project-materials', [ReportController::class, 'projectMaterialsReport'])->name('reports.project-materials');
         Route::get('/reports/project-materials/export', [ReportController::class, 'projectMaterialsExport'])->name('reports.project-materials.export');
         Route::get('/reports/staff-payment', [ReportController::class, 'staffPaymentReport'])->name('reports.staff-payment');
+        Route::get('/reports/worker-payment', [ReportController::class, 'workerPaymentReport'])->name('reports.worker-payment');
         Route::get('/reports/balance-sheet', [ReportController::class, 'balanceSheet'])->name('reports.balance-sheet');
         Route::get('/reports/trial-balance', [ReportController::class, 'trialBalance'])->name('reports.trial-balance');
         Route::get('/reports/general-ledger', [ReportController::class, 'generalLedger'])->name('reports.general-ledger');

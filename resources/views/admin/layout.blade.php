@@ -959,7 +959,7 @@
                         $projectsOpen = $projectsOpen ?? request()->routeIs('admin.projects.*');
                         $materialsOpen = $materialsOpen ?? (request()->routeIs('admin.construction-materials.*') || request()->routeIs('admin.materials-report.*') || request()->routeIs('admin.material-*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.payment-modes.*') || request()->routeIs('admin.purchased-bies.*'));
                         $billingOpen = $billingOpen ?? (request()->routeIs('admin.bill-*') || request()->routeIs('admin.measurement-books.*') || request()->routeIs('admin.running-bills.*') || request()->routeIs('admin.boq.*') || request()->routeIs('admin.completed-work.*') || request()->routeIs('admin.boq-measurement-books.*') || request()->routeIs('admin.boq-bill-statements.*') || request()->routeIs('admin.tax-invoices.*'));
-                        $staffOpen = $staffOpen ?? (request()->routeIs('admin.staff.*') || request()->routeIs('admin.subcontractors.*') || request()->routeIs('admin.positions.*') || request()->routeIs('admin.users.*') || request()->routeIs('admin.user-activities.*') || request()->routeIs('admin.roles.*'));
+                        $staffOpen = $staffOpen ?? (request()->routeIs('admin.staff.*') || request()->routeIs('admin.subcontractors.*') || request()->routeIs('admin.positions.*') || request()->routeIs('admin.workers.*') || request()->routeIs('admin.attendance.*') || request()->routeIs('admin.worker-payments.*') || request()->routeIs('admin.users.*') || request()->routeIs('admin.user-activities.*') || request()->routeIs('admin.roles.*'));
                         $financeOpen = $financeOpen ?? (request()->routeIs('admin.incomes.*') || request()->routeIs('admin.expenses.*') || request()->routeIs('admin.reports.*') || request()->routeIs('admin.categories.*') || request()->routeIs('admin.subcategories.*'));
                         $accountingOpen = $accountingOpen ?? (request()->routeIs('admin.chart-of-accounts.*') || request()->routeIs('admin.journal-entries.*') || request()->routeIs('admin.bank-accounts.*') || request()->routeIs('admin.purchase-invoices.*') || request()->routeIs('admin.sales-invoices.*') || request()->routeIs('admin.customers.*'));
                         $vehicleRentOpen = $vehicleRentOpen ?? request()->routeIs('admin.vehicle-rents.*');
@@ -1128,7 +1128,7 @@
                         </a>
                     </div>
                     @endif
-                    @if(can_module('staff') || can_module('positions') || can_module('subcontractors') || can_module('users') || Auth::user()->isAdmin())
+                    @if(can_module('staff') || can_module('positions') || can_module('subcontractors') || can_module('workers') || can_module('attendance') || can_module('worker_payments') || can_module('users') || Auth::user()->isAdmin())
                     <button type="button" data-tooltip="Staff & Users" class="nav-item w-full flex items-center justify-between px-3 py-2 text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 group-toggle mt-1" data-target="staff-menu" aria-expanded="{{ $staffOpen ? 'true' : 'false' }}">
                         <span class="flex items-center">
                             <svg class="w-4 h-4 mr-2 sidebar-icon flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1144,6 +1144,21 @@
                         @if(can_module('staff'))
                         <a href="{{ route('admin.staff.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.staff.*') ? 'bg-gray-700 text-white' : '' }}">
                             <span class="text-sm">Staff</span>
+                        </a>
+                        @endif
+                        @if(can_module('workers'))
+                        <a href="{{ route('admin.workers.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.workers.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Workers</span>
+                        </a>
+                        @endif
+                        @if(can_module('attendance'))
+                        <a href="{{ route('admin.attendance.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.attendance.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Attendance</span>
+                        </a>
+                        @endif
+                        @if(can_module('worker_payments'))
+                        <a href="{{ route('admin.worker-payments.index') }}" class="flex items-center px-3 py-2 text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-all duration-200 {{ request()->routeIs('admin.worker-payments.*') ? 'bg-gray-700 text-white' : '' }}">
+                            <span class="text-sm">Worker Payments</span>
                         </a>
                         @endif
                         @if(can_module('positions'))
